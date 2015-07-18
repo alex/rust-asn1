@@ -72,29 +72,29 @@ impl<T> Serializer<T> where T: io::Write {
     pub fn write_sequence<F>(&mut self, v: F) -> Result<(), io::Error>
             where F: Fn(&mut Serializer<&mut Vec<u8>>) {
         return self._write_with_tag(48, || {
-            let mut out = Vec::new();
-            {
-                let mut s = Serializer::new(&mut out);
-                v(&mut s);
-            }
-            return out;
+            return to_vec(&v);
         });
     }
+}
+
+pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer<&mut Vec<u8>>) {
+    let mut out = Vec::new();
+    {
+        let mut serializer = Serializer::new(&mut out);
+        f(&mut serializer);
+    }
+    return out;
 }
 
 
 #[cfg(test)]
 mod tests {
-    use super::{Serializer};
+    use super::{Serializer, to_vec};
 
     fn assert_serializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
-            where F: Fn(&mut Serializer<&mut Vec<u8>>, T) {
+            where T: Clone,  F: Fn(&mut Serializer<&mut Vec<u8>>, T) {
         for (value, expected) in values {
-            let mut out = Vec::new();
-            {
-                let mut serializer = Serializer::new(&mut out);
-                f(&mut serializer, value);
-            }
+            let out = to_vec(|s| f(s, value.clone()));
             assert_eq!(out, expected);
         }
     }
