@@ -1,37 +1,34 @@
 extern crate byteorder;
 
-use std::io;
+use std::io::{Write};
 
 use byteorder::{WriteBytesExt};
 
 
-pub struct Serializer<T> where T: io::Write {
-    writer: T
+pub struct Serializer<'a> {
+    writer: &'a mut Vec<u8>
 }
 
-impl<T> Serializer<T> where T: io::Write {
-    pub fn new(writer: T) -> Serializer<T> {
+impl<'a> Serializer<'a> {
+    pub fn new(writer: &'a mut Vec<u8>) -> Serializer<'a> {
         return Serializer {
             writer: writer,
         }
     }
 
-    fn _write_length(&mut self, length: usize) -> Result<(), io::Error> {
+    fn _write_length(&mut self, length: usize) {
         assert!(length < 128);
-        try!(self.writer.write_u8(length as u8));
-        return Ok(());
+        self.writer.write_u8(length as u8).unwrap();
     }
 
-    fn _write_with_tag<F>(&mut self, tag: u8, body: F) -> Result<(), io::Error>
-            where F: Fn() -> Vec<u8> {
-        try!(self.writer.write_u8(tag));
+    fn _write_with_tag<F>(&mut self, tag: u8, body: F) where F: Fn() -> Vec<u8> {
+        self.writer.write_u8(tag).unwrap();
         let body = body();
-        try!(self._write_length(body.len()));
-        try!(self.writer.write_all(&body));
-        return Ok(());
+        self._write_length(body.len());
+        self.writer.write_all(&body).unwrap();
     }
 
-    pub fn write_bool(&mut self, v: bool) -> Result<(), io::Error> {
+    pub fn write_bool(&mut self, v: bool) {
         return self._write_with_tag(1, || {
             if v {
                 return b"\xff".to_vec();
@@ -52,7 +49,7 @@ impl<T> Serializer<T> where T: io::Write {
         return num_bytes;
     }
 
-    pub fn write_int(&mut self, v: i64) -> Result<(), io::Error> {
+    pub fn write_int(&mut self, v: i64) {
         let n = self._int_length(v);
         return self._write_with_tag(2, || {
             let mut result = Vec::with_capacity(n);
@@ -63,21 +60,20 @@ impl<T> Serializer<T> where T: io::Write {
         })
     }
 
-    pub fn write_octet_string(&mut self, v: &Vec<u8>) -> Result<(), io::Error> {
+    pub fn write_octet_string(&mut self, v: &Vec<u8>) {
         return self._write_with_tag(4, || {
             return v.to_vec();
         })
     }
 
-    pub fn write_sequence<F>(&mut self, v: F) -> Result<(), io::Error>
-            where F: Fn(&mut Serializer<&mut Vec<u8>>) {
+    pub fn write_sequence<F>(&mut self, v: F) where F: Fn(&mut Serializer) {
         return self._write_with_tag(48, || {
             return to_vec(&v);
         });
     }
 }
 
-pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer<&mut Vec<u8>>) {
+pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
     let mut out = Vec::new();
     {
         let mut serializer = Serializer::new(&mut out);
@@ -92,7 +88,7 @@ mod tests {
     use super::{Serializer, to_vec};
 
     fn assert_serializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
-            where T: Clone,  F: Fn(&mut Serializer<&mut Vec<u8>>, T) {
+            where T: Clone,  F: Fn(&mut Serializer, T) {
         for (value, expected) in values {
             let out = to_vec(|s| f(s, value.clone()));
             assert_eq!(out, expected);
@@ -105,7 +101,7 @@ mod tests {
             (true, b"\x01\x01\xff".to_vec()),
             (false, b"\x01\x01\x00".to_vec()),
         ], |serializer, v| {
-            serializer.write_bool(v).unwrap();
+            serializer.write_bool(v);
         });
     }
 
@@ -119,7 +115,7 @@ mod tests {
             (-128, b"\x02\x01\x80".to_vec()),
             (-129, b"\x02\x02\xff\x7f".to_vec()),
         ], |serializer, v| {
-            serializer.write_int(v).unwrap();
+            serializer.write_int(v);
         })
     }
 
@@ -128,7 +124,7 @@ mod tests {
         assert_serializes(vec![
             (b"\x01\x02\x03".to_vec(), b"\x04\x03\x01\x02\x03".to_vec()),
         ], |serializer, v| {
-            serializer.write_octet_string(&v).unwrap();
+            serializer.write_octet_string(&v);
         })
     }
 
@@ -138,9 +134,9 @@ mod tests {
             ((1, 2), b"\x30\x06\x02\x01\x01\x02\x01\x02".to_vec()),
         ], |serializer, (x, y)| {
             serializer.write_sequence(|s| {
-                s.write_int(x).unwrap();
-                s.write_int(y).unwrap();
-            }).unwrap();
+                s.write_int(x);
+                s.write_int(y);
+            });
         })
     }
 }
