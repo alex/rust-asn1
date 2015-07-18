@@ -68,6 +68,18 @@ impl<T> Serializer<T> where T: io::Write {
             return v.to_vec();
         })
     }
+
+    pub fn write_sequence<F>(&mut self, v: F) -> Result<(), io::Error>
+            where F: Fn(&mut Serializer<&mut Vec<u8>>) {
+        return self._write_with_tag(48, || {
+            let mut out = Vec::new();
+            {
+                let mut s = Serializer::new(&mut out);
+                v(&mut s);
+            }
+            return out;
+        });
+    }
 }
 
 
@@ -117,6 +129,18 @@ mod tests {
             (b"\x01\x02\x03".to_vec(), b"\x04\x03\x01\x02\x03".to_vec()),
         ], |serializer, v| {
             serializer.write_octet_string(&v).unwrap();
+        })
+    }
+
+    #[test]
+    fn test_write_sequence() {
+        assert_serializes(vec![
+            ((1, 2), b"\x30\x06\x02\x01\x01\x02\x01\x02".to_vec()),
+        ], |serializer, (x, y)| {
+            serializer.write_sequence(|s| {
+                s.write_int(x).unwrap();
+                s.write_int(y).unwrap();
+            }).unwrap();
         })
     }
 }
