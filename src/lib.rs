@@ -5,6 +5,51 @@ use std::io::{Write};
 use byteorder::{WriteBytesExt};
 
 
+#[derive(Clone)]
+pub struct ObjectIdentifier {
+    data: Vec<u8>
+}
+
+fn encode_base128_int(data: &mut Vec<u8>, n: u32) {
+    if n == 0 {
+        data.push(0);
+        return;
+    }
+    let mut l = 0;
+    let mut i = n;
+    while i > 0 {
+        l += 1;
+        i >>= 7;
+    }
+
+    for i in (0..l).rev() {
+        let mut o = (n >> (i * 7)) as u8;
+        o &= 0x7f;
+        if i != 0 {
+            o |= 0x80;
+        }
+        data.push(o);
+    }
+}
+
+impl ObjectIdentifier {
+    pub fn new(oid: Vec<u32>) -> Option<ObjectIdentifier> {
+        if oid.len() < 2 || oid[0] > 2 || (oid[0] < 2 && oid[1] >= 40) {
+            return None;
+        }
+
+        let mut data = Vec::new();
+        encode_base128_int(&mut data, 40 * oid[0] + oid[1]);
+        for el in oid.iter().skip(2) {
+            encode_base128_int(&mut data, *el);
+        }
+        return Some(ObjectIdentifier {
+            data: data
+        });
+    }
+}
+
+
 pub struct Serializer<'a> {
     writer: &'a mut Vec<u8>
 }
@@ -66,6 +111,12 @@ impl<'a> Serializer<'a> {
         })
     }
 
+    pub fn write_object_identifier(&mut self, v: ObjectIdentifier) {
+        return self._write_with_tag(6, || {
+            return v.data.to_vec();
+        })
+    }
+
     pub fn write_sequence<F>(&mut self, v: F) where F: Fn(&mut Serializer) {
         return self._write_with_tag(48, || {
             return to_vec(&v);
@@ -85,7 +136,7 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
 
 #[cfg(test)]
 mod tests {
-    use super::{Serializer, to_vec};
+    use super::{ObjectIdentifier, Serializer, to_vec};
 
     fn assert_serializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
             where T: Clone,  F: Fn(&mut Serializer, T) {
@@ -137,6 +188,30 @@ mod tests {
                 s.write_int(x);
                 s.write_int(y);
             });
+        })
+    }
+
+    #[test]
+    fn test_write_object_identifier() {
+        assert_serializes(vec![
+            (
+                ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap(),
+                b"\x06\x06\x2a\x86\x48\x86\xf7\x0d".to_vec()
+            ),
+            (
+                ObjectIdentifier::new(vec![1, 2, 3, 4]).unwrap(),
+                b"\x06\x03\x2a\x03\x04".to_vec(),
+            ),
+            (
+                ObjectIdentifier::new(vec![1, 2, 840, 133549, 1, 1, 5]).unwrap(),
+                b"\x06\x09\x2a\x86\x48\x88\x93\x2d\x01\x01\x05".to_vec(),
+            ),
+            (
+                ObjectIdentifier::new(vec![2, 100, 3]).unwrap(),
+                b"\x06\x03\x81\x34\x03".to_vec(),
+            ),
+        ], |serializer, oid| {
+            serializer.write_object_identifier(oid);
         })
     }
 }
