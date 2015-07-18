@@ -62,6 +62,12 @@ impl<T> Serializer<T> where T: io::Write {
             return result;
         })
     }
+
+    pub fn write_octet_string(&mut self, v: &Vec<u8>) -> Result<(), io::Error> {
+        return self._write_with_tag(4, || {
+            return v.to_vec();
+        })
+    }
 }
 
 
@@ -82,7 +88,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_bool() {
+    fn test_write_bool() {
         assert_serializes(vec![
             (true, b"\x01\x01\xff".to_vec()),
             (false, b"\x01\x01\x00".to_vec()),
@@ -92,7 +98,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_int() {
+    fn test_write_int() {
         assert_serializes(vec![
             (0, b"\x02\x01\x00".to_vec()),
             (127, b"\x02\x01\x7f".to_vec()),
@@ -102,6 +108,15 @@ mod tests {
             (-129, b"\x02\x02\xff\x7f".to_vec()),
         ], |serializer, v| {
             serializer.write_int(v).unwrap();
+        })
+    }
+
+    #[test]
+    fn test_write_octet_string() {
+        assert_serializes(vec![
+            (b"\x01\x02\x03".to_vec(), b"\x04\x03\x01\x02\x03".to_vec()),
+        ], |serializer, v| {
+            serializer.write_octet_string(&v).unwrap();
         })
     }
 }
