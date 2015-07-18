@@ -1,17 +1,16 @@
 extern crate byteorder;
-extern crate serde;
 
 use std::io;
 
 use byteorder::{WriteBytesExt};
 
 
-pub struct Serializer<W> {
-    writer: W,
+pub struct Serializer<T> where T: io::Write {
+    writer: T
 }
 
-impl<W> Serializer<W> where W: io::Write {
-    pub fn new(writer: W) -> Self {
+impl<T> Serializer<T> where T: io::Write {
+    pub fn new(writer: T) -> Serializer<T> {
         return Serializer {
             writer: writer,
         }
@@ -21,6 +20,25 @@ impl<W> Serializer<W> where W: io::Write {
         assert!(length < 128);
         try!(self.writer.write_u8(length as u8));
         return Ok(());
+    }
+
+    fn _write_with_tag<F>(&mut self, tag: u8, body: F) -> Result<(), io::Error>
+            where F: Fn() -> Vec<u8> {
+        try!(self.writer.write_u8(tag));
+        let body = body();
+        try!(self._write_length(body.len()));
+        try!(self.writer.write_all(&body));
+        return Ok(());
+    }
+
+    pub fn write_bool(&mut self, v: bool) -> Result<(), io::Error> {
+        return self._write_with_tag(1, || {
+            if v {
+                return b"\xff".to_vec();
+            } else {
+                return b"\x00".to_vec();
+            }
+        })
     }
 
     fn _int_length(&self, v: i64) -> usize {
@@ -34,31 +52,7 @@ impl<W> Serializer<W> where W: io::Write {
         return num_bytes;
     }
 
-    fn _write_with_tag<F>(&mut self, tag: u8, body: F) -> Result<(), io::Error>
-            where F: Fn() -> Vec<u8> {
-        try!(self.writer.write_u8(tag));
-
-        let body = body();
-        try!(self._write_length(body.len()));
-        try!(self.writer.write_all(&body));
-        return Ok(());
-    }
-}
-
-impl<W> serde::Serializer for Serializer<W> where W: io::Write {
-    type Error = io::Error;
-
-    fn visit_bool(&mut self, v: bool) -> Result<(), Self::Error> {
-        return self._write_with_tag(1, || {
-            if v {
-                return b"\xff".to_vec();
-            } else {
-                return b"\x00".to_vec();
-            }
-        })
-    }
-
-    fn visit_i64(&mut self, v: i64) -> Result<(), Self::Error> {
+    pub fn write_int(&mut self, v: i64) -> Result<(), io::Error> {
         let n = self._int_length(v);
         return self._write_with_tag(2, || {
             let mut result = Vec::with_capacity(n);
@@ -66,88 +60,24 @@ impl<W> serde::Serializer for Serializer<W> where W: io::Write {
                 result.push((v >> ((i - 1) * 8)) as u8);
             }
             return result;
-        });
+        })
     }
-
-    #[allow(unused_variables)]
-    fn visit_u64(&mut self, v: u64) -> Result<(), Self::Error> {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_f64(&mut self, v: f64) -> Result<(), Self::Error> {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_str(&mut self, value: &str) -> Result<(), Self::Error> {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_unit(&mut self) -> Result<(), Self::Error> {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_none(&mut self) -> Result<(), Self::Error> {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_some<V>(&mut self, value: V) -> Result<(), Self::Error> where V: serde::Serialize {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_seq<V>(&mut self, visitor: V) -> Result<(), Self::Error>
-        where V: serde::ser::SeqVisitor {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_seq_elt<T>(&mut self, value: T) -> Result<(), Self::Error> where T: serde::Serialize {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_map<V>(&mut self, visitor: V) -> Result<(), Self::Error>
-            where V: serde::ser::MapVisitor {
-        panic!("not implemented");
-    }
-
-    #[allow(unused_variables)]
-    fn visit_map_elt<K, V>(&mut self, key: K, value: V) -> Result<(), Self::Error>
-            where K: serde::Serialize, V: serde::Serialize {
-        panic!("not implemented");
-    }
-}
-
-
-pub fn to_writer<W, T>(writer: &mut W, value: &T) -> io::Result<()>
-        where W: io::Write, T: serde::Serialize {
-    let mut ser = Serializer::new(writer);
-    try!(value.serialize(&mut ser));
-    return Ok(());
-}
-
-pub fn to_vec<T>(value: &T) -> Vec<u8> where T: serde::Serialize {
-    let mut writer = Vec::new();
-    to_writer(&mut writer, value).unwrap();
-    return writer;
 }
 
 
 #[cfg(test)]
 mod tests {
-    use serde;
+    use super::{Serializer};
 
-    use super::{to_vec};
-
-    fn assert_serializes<T>(values: Vec<(T, Vec<u8>)>) where T: serde::Serialize {
+    fn assert_serializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
+            where F: Fn(&mut Serializer<&mut Vec<u8>>, T) {
         for (value, expected) in values {
-            let result = to_vec(&value);
-            assert_eq!(result, expected);
+            let mut out = Vec::new();
+            {
+                let mut serializer = Serializer::new(&mut out);
+                f(&mut serializer, value);
+            }
+            assert_eq!(out, expected);
         }
     }
 
@@ -156,7 +86,9 @@ mod tests {
         assert_serializes(vec![
             (true, b"\x01\x01\xff".to_vec()),
             (false, b"\x01\x01\x00".to_vec()),
-        ]);
+        ], |serializer, v| {
+            serializer.write_bool(v).unwrap();
+        });
     }
 
     #[test]
@@ -168,6 +100,8 @@ mod tests {
             (256, b"\x02\x02\x01\x00".to_vec()),
             (-128, b"\x02\x01\x80".to_vec()),
             (-129, b"\x02\x02\xff\x7f".to_vec()),
-        ])
+        ], |serializer, v| {
+            serializer.write_int(v).unwrap();
+        })
     }
 }
