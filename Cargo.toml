@@ -1,0 +1,8 @@
+[package]
+name = "asn1"
+version = "0.1.0"
+authors = ["Alex Gaynor <alex.gaynor@gmail.com>"]
+
+[dependencies]
+byteorder = "0.3.11"
+serde = "0.4.3"
