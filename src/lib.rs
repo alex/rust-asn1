@@ -1,6 +1,7 @@
 extern crate byteorder;
 extern crate chrono;
 
+use std::ascii::{AsciiExt};
 use std::io::{Write};
 
 use byteorder::{WriteBytesExt};
@@ -64,9 +65,26 @@ impl<'a> Serializer<'a> {
         }
     }
 
+    fn _length_length(&self, length: usize) -> usize {
+        let mut i = length;
+        let mut num_bytes = 1;
+        while i > 255 {
+            num_bytes += 1;
+            i >>= 8;
+        }
+        return num_bytes;
+    }
+
     fn _write_length(&mut self, length: usize) {
-        assert!(length < 128);
-        self.writer.write_u8(length as u8).unwrap();
+        if length >= 128 {
+            let n = self._length_length(length);
+            self.writer.write_u8(0x80 | (n as u8)).unwrap();
+            for i in (1..n+1).rev() {
+                self.writer.write_u8((length >> ((i - 1) * 8)) as u8).unwrap();
+            }
+        } else {
+            self.writer.write_u8(length as u8).unwrap();
+        }
     }
 
     fn _write_with_tag<F>(&mut self, tag: u8, body: F) where F: Fn() -> Vec<u8> {
@@ -112,6 +130,22 @@ impl<'a> Serializer<'a> {
         return self._write_with_tag(4, || {
             return v.to_vec();
         })
+    }
+
+    pub fn write_printable_string(&mut self, v: String) {
+        for c in v.chars() {
+            if !c.is_ascii() || (
+                !c.is_uppercase() &&
+                !c.is_lowercase() &&
+                !c.is_digit(10) &&
+                ![' ', '\'', '(', ')', '+', ',', '-', '.', '/', ':', '=', '?'].contains(&c)
+            ) {
+                panic!("Non-printable characters.")
+            }
+        }
+        return self._write_with_tag(19, || {
+            return v.as_bytes().to_vec();
+        });
     }
 
     pub fn write_object_identifier(&mut self, v: ObjectIdentifier) {
@@ -187,6 +221,22 @@ mod tests {
             (b"\x01\x02\x03".to_vec(), b"\x04\x03\x01\x02\x03".to_vec()),
         ], |serializer, v| {
             serializer.write_octet_string(&v);
+        })
+    }
+
+    #[test]
+    fn test_printable_string() {
+        assert_serializes(vec![
+            (
+                "Test User 1".to_string(),
+                b"\x13\x0b\x54\x65\x73\x74\x20\x55\x73\x65\x72\x20\x31".to_vec()
+            ),
+            (
+                "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx".to_string(),
+                b"\x13\x81\x80\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78\x78".to_vec()
+            ),
+        ], |serializer, v| {
+            serializer.write_printable_string(v);
         })
     }
 
