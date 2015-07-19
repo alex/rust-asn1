@@ -1,6 +1,9 @@
 rust-asn1
 =========
 
+.. image:: https://travis-ci.org/alex/rust-asn1.svg?branch=master
+    :target: https://travis-ci.org/alex/rust-asn1
+
 This is a Rust library for serializing ASN.1 structures (DER only).
 
 Usage
