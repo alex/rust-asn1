@@ -180,18 +180,6 @@ mod tests {
     }
 
     #[test]
-    fn test_write_sequence() {
-        assert_serializes(vec![
-            ((1, 2), b"\x30\x06\x02\x01\x01\x02\x01\x02".to_vec()),
-        ], |serializer, (x, y)| {
-            serializer.write_sequence(|s| {
-                s.write_int(x);
-                s.write_int(y);
-            });
-        })
-    }
-
-    #[test]
     fn test_write_object_identifier() {
         assert_serializes(vec![
             (
@@ -212,6 +200,18 @@ mod tests {
             ),
         ], |serializer, oid| {
             serializer.write_object_identifier(oid);
+        })
+    }
+
+    #[test]
+    fn test_write_sequence() {
+        assert_serializes(vec![
+            ((1, 2), b"\x30\x06\x02\x01\x01\x02\x01\x02".to_vec()),
+        ], |serializer, (x, y)| {
+            serializer.write_sequence(|s| {
+                s.write_int(x);
+                s.write_int(y);
+            });
         })
     }
 }
