@@ -225,7 +225,7 @@ mod tests {
     }
 
     #[test]
-    fn test_printable_string() {
+    fn test_write_printable_string() {
         assert_serializes(vec![
             (
                 "Test User 1".to_string(),
