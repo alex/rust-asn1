@@ -1,1 +1,5 @@
 language: rust
+
+cache:
+    directories:
+        - $HOME/.cargo
