@@ -65,7 +65,7 @@ impl<'a> Serializer<'a> {
         }
     }
 
-    fn _length_length(&self, length: usize) -> usize {
+    fn _length_length(&self, length: usize) -> u8 {
         let mut i = length;
         let mut num_bytes = 1;
         while i > 255 {
@@ -78,7 +78,7 @@ impl<'a> Serializer<'a> {
     fn _write_length(&mut self, length: usize) {
         if length >= 128 {
             let n = self._length_length(length);
-            self.writer.write_u8(0x80 | (n as u8)).unwrap();
+            self.writer.write_u8(0x80 | n).unwrap();
             for i in (1..n+1).rev() {
                 self.writer.write_u8((length >> ((i - 1) * 8)) as u8).unwrap();
             }
