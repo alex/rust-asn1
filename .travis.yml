@@ -1,5 +1,11 @@
 language: rust
 
+rust:
+    - stable
+    - beta
+    - nightly
+
+
 cache:
     directories:
         - $HOME/.cargo
