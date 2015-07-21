@@ -6,6 +6,16 @@ rust-asn1
 
 This is a Rust library for serializing ASN.1 structures (DER only).
 
+Installation
+------------
+
+Add the following to your ``Cargo.toml``:
+
+.. code-block:: yaml
+
+    asn1 = "*"
+
+
 Usage
 -----
 
