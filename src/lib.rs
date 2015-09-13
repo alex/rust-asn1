@@ -2,7 +2,7 @@ extern crate byteorder;
 extern crate chrono;
 
 use std::ascii::{AsciiExt};
-use std::io::{BufRead, Cursor, Read, Write};
+use std::io::{Cursor, Read, Write};
 
 use byteorder::{ReadBytesExt, WriteBytesExt};
 
@@ -204,8 +204,9 @@ impl Deserializer {
             return Err(DeserializationError::UnexpectedTag);
         }
         let length = try!(self._read_length());
-        let data = self.data.take(length as u64).fill_buf().unwrap().to_vec();
-        if data.len() != length {
+        let mut data = Vec::with_capacity(length);
+        let n = self.data.read(&mut data).unwrap();
+        if n != length {
             return Err(DeserializationError::ShortData);
         }
         return body(data);
