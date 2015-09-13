@@ -218,8 +218,7 @@ impl Deserializer {
         return body(data);
     }
 
-    pub fn finish(&self) -> Result<(), DeserializationError> {
-        // TODO: somehow prevent future use?
+    pub fn finish(self) -> Result<(), DeserializationError> {
         if self.reader.position() as usize != self.reader.get_ref().len() {
             return Err(DeserializationError::ExtraData);
         }
