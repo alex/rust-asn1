@@ -176,7 +176,7 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
     return out;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
     UnexpectedTag,
     ShortData,
@@ -386,6 +386,14 @@ mod tests {
         assert!(ObjectIdentifier::new(vec![]).is_none());
         assert!(ObjectIdentifier::new(vec![3, 10]).is_none());
         assert!(ObjectIdentifier::new(vec![1, 50]).is_none());
+    }
+
+    #[test]
+    fn test_read_extra_data() {
+        assert_eq!(
+            from_vec(b"\x00".to_vec(), |_| { Ok(()) }),
+            Err(DeserializationError::ExtraData)
+        );
     }
 
     #[test]
