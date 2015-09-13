@@ -2,9 +2,9 @@ extern crate byteorder;
 extern crate chrono;
 
 use std::ascii::{AsciiExt};
-use std::io::{Write};
+use std::io::{BufRead, Cursor, Read, Write};
 
-use byteorder::{WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt};
 
 use chrono::{DateTime, UTC};
 
@@ -176,18 +176,83 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
     return out;
 }
 
+#[derive(Debug)]
+pub enum DeserializationError {
+    UnexpectedTag(u8),
+    ShortData,
+}
+
+struct Deserializer {
+    data: Cursor<Vec<u8>>,
+}
+
+impl Deserializer {
+    pub fn new(data: Vec<u8>) -> Deserializer {
+        return Deserializer{
+            data: Cursor::new(data),
+        }
+    }
+
+    fn _read_length(&mut self) -> Result<usize, DeserializationError> {
+        return Ok(0);
+    }
+
+    fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> Result<T, DeserializationError>
+            where F: Fn(Vec<u8>) -> Result<T, DeserializationError> {
+        let tag = self.data.read_u8().unwrap();
+        if tag != expected_tag {
+            return Err(DeserializationError::UnexpectedTag(tag));
+        }
+        let length = try!(self._read_length());
+        let data = self.data.take(length as u64).fill_buf().unwrap().to_vec();
+        if data.len() != length {
+            return Err(DeserializationError::ShortData);
+        }
+        return body(data);
+    }
+
+    pub fn finish(&self) -> Result<(), DeserializationError> {
+        // TODO: somehow prevent future use?
+        return Ok(());
+    }
+
+    pub fn read_int(&mut self) -> Result<i64, DeserializationError> {
+        return self._read_with_tag(2, |data| {
+            return Ok(17);
+        });
+    }
+}
+
+pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> Result<T, DeserializationError>
+        where F: Fn(&mut Deserializer) -> Result<T, DeserializationError> {
+    let mut deserializer = Deserializer::new(data);
+    let result = f(&mut deserializer);
+    try!(deserializer.finish());
+    return result;
+}
+
 
 #[cfg(test)]
 mod tests {
+    use std::{fmt};
+
     use chrono::{TimeZone, UTC};
 
-    use super::{ObjectIdentifier, Serializer, to_vec};
+    use super::{ObjectIdentifier, Serializer, Deserializer, DeserializationError, to_vec, from_vec};
 
     fn assert_serializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
             where T: Clone,  F: Fn(&mut Serializer, T) {
         for (value, expected) in values {
             let out = to_vec(|s| f(s, value.clone()));
             assert_eq!(out, expected);
+        }
+    }
+
+    fn assert_deserializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
+            where T: Eq + fmt::Debug, F: Fn(&mut Deserializer) -> Result<T, DeserializationError> {
+        for (expected, value) in values {
+            let result = from_vec(value, |d| f(d)).unwrap();
+            assert_eq!(result, expected);
         }
     }
 
@@ -301,5 +366,19 @@ mod tests {
         assert!(ObjectIdentifier::new(vec![]).is_none());
         assert!(ObjectIdentifier::new(vec![3, 10]).is_none());
         assert!(ObjectIdentifier::new(vec![1, 50]).is_none());
+    }
+
+    #[test]
+    fn test_read_int() {
+        assert_deserializes(vec![
+            (0, b"\x02\x01\x00".to_vec()),
+            (127, b"\x02\x01\x7f".to_vec()),
+            (128, b"\x02\x02\x00\x80".to_vec()),
+            (256, b"\x02\x02\x01\x00".to_vec()),
+            (-128, b"\x02\x01\x80".to_vec()),
+            (-129, b"\x02\x02\xff\x7f".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_int();
+        });
     }
 }
