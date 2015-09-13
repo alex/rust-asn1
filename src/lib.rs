@@ -178,7 +178,7 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
 
 #[derive(Debug)]
 pub enum DeserializationError {
-    UnexpectedTag(u8),
+    UnexpectedTag,
     ShortData,
 }
 
@@ -201,7 +201,7 @@ impl Deserializer {
             where F: Fn(Vec<u8>) -> Result<T, DeserializationError> {
         let tag = self.data.read_u8().unwrap();
         if tag != expected_tag {
-            return Err(DeserializationError::UnexpectedTag(tag));
+            return Err(DeserializationError::UnexpectedTag);
         }
         let length = try!(self._read_length());
         let data = self.data.take(length as u64).fill_buf().unwrap().to_vec();
