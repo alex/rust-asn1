@@ -197,12 +197,14 @@ impl Deserializer {
 
     fn _read_length(&mut self) -> Result<usize, DeserializationError> {
         let b = self.reader.read_u8().unwrap();
+        // TODO: handle lengths greater than 128
         assert!(b & 0x80 == 0);
         return Ok((b & 0x7f) as usize);
     }
 
     fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> Result<T, DeserializationError>
             where F: Fn(Vec<u8>) -> Result<T, DeserializationError> {
+        // TODO: only some of the bits in the first byte are for the tag
         let tag = self.reader.read_u8().unwrap();
         if tag != expected_tag {
             return Err(DeserializationError::UnexpectedTag);
@@ -245,9 +247,9 @@ impl Deserializer {
 pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> Result<T, DeserializationError>
         where F: Fn(&mut Deserializer) -> Result<T, DeserializationError> {
     let mut deserializer = Deserializer::new(data);
-    let result = f(&mut deserializer);
+    let result = try!(f(&mut deserializer));
     try!(deserializer.finish());
-    return result;
+    return Ok(result);
 }
 
 
