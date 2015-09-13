@@ -180,7 +180,8 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
 pub enum DeserializationError {
     UnexpectedTag,
     ShortData,
-    Overflow
+    ExtraData,
+    Overflow,
 }
 
 struct Deserializer {
@@ -217,6 +218,9 @@ impl Deserializer {
 
     pub fn finish(&self) -> Result<(), DeserializationError> {
         // TODO: somehow prevent future use?
+        if self.reader.position() as usize != self.reader.get_ref().len() {
+            return Err(DeserializationError::ExtraData);
+        }
         return Ok(());
     }
 
