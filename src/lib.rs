@@ -271,7 +271,7 @@ mod tests {
     fn assert_deserializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
             where T: Eq + fmt::Debug, F: Fn(&mut Deserializer) -> Result<T, DeserializationError> {
         for (expected, value) in values {
-            let result = from_vec(value, |d| f(d)).unwrap();
+            let result = from_vec(value, &f).unwrap();
             assert_eq!(result, expected);
         }
     }
