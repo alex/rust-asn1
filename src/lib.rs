@@ -1,6 +1,7 @@
 extern crate byteorder;
 extern crate chrono;
 
+use std::{convert};
 use std::ascii::{AsciiExt};
 use std::io::{Cursor, Read, Write};
 
@@ -184,6 +185,15 @@ pub enum DeserializationError {
     Overflow,
 }
 
+impl convert::From<byteorder::Error> for DeserializationError {
+    fn from(e: byteorder::Error) -> DeserializationError {
+        return match e {
+            byteorder::Error::UnexpectedEOF => DeserializationError::ShortData,
+            _ => panic!("Unexpected error!"),
+        }
+    }
+}
+
 pub struct Deserializer {
     reader: Cursor<Vec<u8>>,
 }
@@ -196,7 +206,7 @@ impl Deserializer {
     }
 
     fn _read_length(&mut self) -> Result<usize, DeserializationError> {
-        let b = self.reader.read_u8().unwrap();
+        let b = try!(self.reader.read_u8());
         // TODO: handle lengths greater than 128
         assert!(b & 0x80 == 0);
         return Ok((b & 0x7f) as usize);
@@ -205,7 +215,7 @@ impl Deserializer {
     fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> Result<T, DeserializationError>
             where F: Fn(Vec<u8>) -> Result<T, DeserializationError> {
         // TODO: only some of the bits in the first byte are for the tag
-        let tag = self.reader.read_u8().unwrap();
+        let tag = try!(self.reader.read_u8());
         if tag != expected_tag {
             return Err(DeserializationError::UnexpectedTag);
         }
@@ -408,6 +418,8 @@ mod tests {
             (Ok(-129), b"\x02\x02\xff\x7f".to_vec()),
             (Err(DeserializationError::UnexpectedTag), b"\x03".to_vec()),
             (Err(DeserializationError::ShortData), b"\x02\x02\x00".to_vec()),
+            (Err(DeserializationError::ShortData), b"".to_vec()),
+            (Err(DeserializationError::ShortData), b"\x02".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });
