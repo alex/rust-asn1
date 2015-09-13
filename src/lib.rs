@@ -180,32 +180,35 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
 pub enum DeserializationError {
     UnexpectedTag,
     ShortData,
+    Overflow
 }
 
 struct Deserializer {
-    data: Cursor<Vec<u8>>,
+    reader: Cursor<Vec<u8>>,
 }
 
 impl Deserializer {
     pub fn new(data: Vec<u8>) -> Deserializer {
         return Deserializer{
-            data: Cursor::new(data),
+            reader: Cursor::new(data),
         }
     }
 
     fn _read_length(&mut self) -> Result<usize, DeserializationError> {
-        return Ok(0);
+        let b = self.reader.read_u8().unwrap();
+        assert!(b & 0x80 == 0);
+        return Ok((b & 0x7f) as usize);
     }
 
     fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> Result<T, DeserializationError>
             where F: Fn(Vec<u8>) -> Result<T, DeserializationError> {
-        let tag = self.data.read_u8().unwrap();
+        let tag = self.reader.read_u8().unwrap();
         if tag != expected_tag {
             return Err(DeserializationError::UnexpectedTag);
         }
         let length = try!(self._read_length());
-        let mut data = Vec::with_capacity(length);
-        let n = self.data.read(&mut data).unwrap();
+        let mut data = vec![0; length];
+        let n = self.reader.read(&mut data).unwrap();
         if n != length {
             return Err(DeserializationError::ShortData);
         }
@@ -219,7 +222,18 @@ impl Deserializer {
 
     pub fn read_int(&mut self) -> Result<i64, DeserializationError> {
         return self._read_with_tag(2, |data| {
-            return Ok(17);
+            if data.len() > 8 {
+                return Err(DeserializationError::Overflow);
+            }
+            let mut ret = 0;
+            for b in data.iter() {
+                ret <<= 8;
+                ret |= *b as i64;
+            }
+            // Shift up and down in order to sign extend the result.
+            ret <<= 64 - data.len() * 8;
+            ret >>= 64 - data.len() * 8;
+            return Ok(ret);
         });
     }
 }
