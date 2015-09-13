@@ -182,7 +182,7 @@ pub enum DeserializationError {
     UnexpectedTag,
     ShortData,
     ExtraData,
-    Overflow,
+    IntegerOverflow,
 }
 
 impl convert::From<byteorder::Error> for DeserializationError {
@@ -238,7 +238,7 @@ impl Deserializer {
     pub fn read_int(&mut self) -> Result<i64, DeserializationError> {
         return self._read_with_tag(2, |data| {
             if data.len() > 8 {
-                return Err(DeserializationError::Overflow);
+                return Err(DeserializationError::IntegerOverflow);
             }
             let mut ret = 0;
             for b in data.iter() {
@@ -420,6 +420,10 @@ mod tests {
             (Err(DeserializationError::ShortData), b"\x02\x02\x00".to_vec()),
             (Err(DeserializationError::ShortData), b"".to_vec()),
             (Err(DeserializationError::ShortData), b"\x02".to_vec()),
+            (
+                Err(DeserializationError::IntegerOverflow),
+                b"\x02\x09\x02\x00\x00\x00\x00\x00\x00\x00\x00".to_vec()
+            ),
         ], |deserializer| {
             return deserializer.read_int();
         });
