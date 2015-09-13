@@ -268,10 +268,10 @@ mod tests {
         }
     }
 
-    fn assert_deserializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
+    fn assert_deserializes<T, F>(values: Vec<(Result<T, DeserializationError>, Vec<u8>)>, f: F)
             where T: Eq + fmt::Debug, F: Fn(&mut Deserializer) -> Result<T, DeserializationError> {
         for (expected, value) in values {
-            let result = from_vec(value, &f).unwrap();
+            let result = from_vec(value, &f);
             assert_eq!(result, expected);
         }
     }
@@ -390,21 +390,23 @@ mod tests {
 
     #[test]
     fn test_read_extra_data() {
-        assert_eq!(
-            from_vec(b"\x00".to_vec(), |_| { Ok(()) }),
-            Err(DeserializationError::ExtraData)
-        );
+        assert_deserializes(vec![
+            (Err(DeserializationError::ExtraData), b"\x00".to_vec()),
+        ], |_| {
+            return Ok(());
+        });
     }
 
     #[test]
     fn test_read_int() {
         assert_deserializes(vec![
-            (0, b"\x02\x01\x00".to_vec()),
-            (127, b"\x02\x01\x7f".to_vec()),
-            (128, b"\x02\x02\x00\x80".to_vec()),
-            (256, b"\x02\x02\x01\x00".to_vec()),
-            (-128, b"\x02\x01\x80".to_vec()),
-            (-129, b"\x02\x02\xff\x7f".to_vec()),
+            (Ok(0), b"\x02\x01\x00".to_vec()),
+            (Ok(127), b"\x02\x01\x7f".to_vec()),
+            (Ok(128), b"\x02\x02\x00\x80".to_vec()),
+            (Ok(256), b"\x02\x02\x01\x00".to_vec()),
+            (Ok(-128), b"\x02\x01\x80".to_vec()),
+            (Ok(-129), b"\x02\x02\xff\x7f".to_vec()),
+            (Err(DeserializationError::UnexpectedTag), b"\x03".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });
