@@ -184,7 +184,7 @@ pub enum DeserializationError {
     Overflow,
 }
 
-struct Deserializer {
+pub struct Deserializer {
     reader: Cursor<Vec<u8>>,
 }
 
