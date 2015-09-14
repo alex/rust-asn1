@@ -5,7 +5,6 @@ use byteorder;
 use byteorder::{ReadBytesExt};
 
 
-
 #[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
     UnexpectedTag,
