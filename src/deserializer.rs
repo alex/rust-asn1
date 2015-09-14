@@ -95,7 +95,7 @@ pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> DeserializationResult<T>
 mod tests {
     use std::{fmt};
 
-    use super::{Deserializer, DeserializationError, from_vec};
+    use super::{Deserializer, DeserializationError, DeserializationResult, from_vec};
 
     fn assert_deserializes<T, F>(values: Vec<(DeserializationResult<T>, Vec<u8>)>, f: F)
             where T: Eq + fmt::Debug, F: Fn(&mut Deserializer) -> DeserializationResult<T> {
