@@ -1,8 +1,7 @@
 use std::{convert};
 use std::io::{Cursor, Read};
 
-use byteorder;
-use byteorder::{ReadBytesExt};
+use byteorder::{self, ReadBytesExt};
 
 
 #[derive(Debug, PartialEq, Eq)]
