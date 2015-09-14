@@ -9,10 +9,11 @@ This is a Rust library for serializing ASN.1 structures (DER only).
 Installation
 ------------
 
-Add the following to your ``Cargo.toml``:
+Add ``asn1`` to the ``[dependencies]`` section of your ``Cargo.toml``:
 
-.. code-block:: yaml
+.. code-block:: toml
 
+    [dependencies]
     asn1 = "*"
 
 
