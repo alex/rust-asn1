@@ -30,11 +30,11 @@ you would write:
 
 .. code-block:: rust
 
-  use asn1;
+    extern crate asn1;
 
-  let data = asn1::to_vec(|s| {
-      s.write_sequence(|new_s| {
-          new_s.write_int(r);
-          new_s.write_int(s);
-      });
-  });
+    let data = asn1::to_vec(|s| {
+        s.write_sequence(|new_s| {
+            new_s.write_int(r);
+            new_s.write_int(s);
+        });
+    });
