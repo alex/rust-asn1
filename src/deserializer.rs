@@ -44,8 +44,8 @@ impl Deserializer {
 
     fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> DeserializationResult<T>
             where F: Fn(Vec<u8>) -> DeserializationResult<T> {
-        // TODO: only some of the bits in the first byte are for the tag
         let tag = try!(self.reader.read_u8());
+        // TODO: only some of the bits in the first byte are for the tag
         if tag != expected_tag {
             return Err(DeserializationError::UnexpectedTag);
         }
