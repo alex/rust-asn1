@@ -10,6 +10,7 @@ pub enum DeserializationError {
     ShortData,
     ExtraData,
     IntegerOverflow,
+    InvalidValue,
 }
 
 impl convert::From<byteorder::Error> for DeserializationError {
@@ -64,6 +65,18 @@ impl Deserializer {
         return Ok(());
     }
 
+    pub fn read_bool(&mut self) -> DeserializationResult<bool> {
+        return self._read_with_tag(1, |data| {
+            if data == b"\x00" {
+                return Ok(false);
+            } else if data == b"\xff" {
+                return Ok(true)
+            } else {
+                return Err(DeserializationError::InvalidValue);
+            }
+        });
+    }
+
     pub fn read_int(&mut self) -> DeserializationResult<i64> {
         return self._read_with_tag(2, |data| {
             if data.len() > 8 {
@@ -109,6 +122,19 @@ mod tests {
             (Err(DeserializationError::ExtraData), b"\x00".to_vec()),
         ], |_| {
             return Ok(());
+        });
+    }
+
+    #[test]
+    fn test_read_bool() {
+        assert_deserializes(vec![
+            (Ok(true), b"\x01\x01\xff".to_vec()),
+            (Ok(false), b"\x01\x01\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x01\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x01\x01\x01".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x01\x02\x01\x01".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_bool();
         });
     }
 
