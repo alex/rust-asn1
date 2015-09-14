@@ -22,6 +22,8 @@ impl convert::From<byteorder::Error> for DeserializationError {
     }
 }
 
+pub type DeserializationResult<T> = Result<T, DeserializationError>;
+
 pub struct Deserializer {
     reader: Cursor<Vec<u8>>,
 }
@@ -33,15 +35,15 @@ impl Deserializer {
         }
     }
 
-    fn _read_length(&mut self) -> Result<usize, DeserializationError> {
+    fn _read_length(&mut self) -> DeserializationResult<usize> {
         let b = try!(self.reader.read_u8());
         // TODO: handle lengths greater than 128
         assert!(b & 0x80 == 0);
         return Ok((b & 0x7f) as usize);
     }
 
-    fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> Result<T, DeserializationError>
-            where F: Fn(Vec<u8>) -> Result<T, DeserializationError> {
+    fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> DeserializationResult<T>
+            where F: Fn(Vec<u8>) -> DeserializationResult<T> {
         // TODO: only some of the bits in the first byte are for the tag
         let tag = try!(self.reader.read_u8());
         if tag != expected_tag {
@@ -56,14 +58,14 @@ impl Deserializer {
         return body(data);
     }
 
-    pub fn finish(self) -> Result<(), DeserializationError> {
+    pub fn finish(self) -> DeserializationResult<()> {
         if self.reader.position() as usize != self.reader.get_ref().len() {
             return Err(DeserializationError::ExtraData);
         }
         return Ok(());
     }
 
-    pub fn read_int(&mut self) -> Result<i64, DeserializationError> {
+    pub fn read_int(&mut self) -> DeserializationResult<i64> {
         return self._read_with_tag(2, |data| {
             if data.len() > 8 {
                 return Err(DeserializationError::IntegerOverflow);
@@ -81,8 +83,8 @@ impl Deserializer {
     }
 }
 
-pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> Result<T, DeserializationError>
-        where F: Fn(&mut Deserializer) -> Result<T, DeserializationError> {
+pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> DeserializationResult<T>
+        where F: Fn(&mut Deserializer) -> DeserializationResult<T> {
     let mut deserializer = Deserializer::new(data);
     let result = try!(f(&mut deserializer));
     try!(deserializer.finish());
@@ -95,8 +97,8 @@ mod tests {
 
     use super::{Deserializer, DeserializationError, from_vec};
 
-    fn assert_deserializes<T, F>(values: Vec<(Result<T, DeserializationError>, Vec<u8>)>, f: F)
-            where T: Eq + fmt::Debug, F: Fn(&mut Deserializer) -> Result<T, DeserializationError> {
+    fn assert_deserializes<T, F>(values: Vec<(DeserializationResult<T>, Vec<u8>)>, f: F)
+            where T: Eq + fmt::Debug, F: Fn(&mut Deserializer) -> DeserializationResult<T> {
         for (expected, value) in values {
             let result = from_vec(value, &f);
             assert_eq!(result, expected);
