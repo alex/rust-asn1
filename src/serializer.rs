@@ -78,7 +78,7 @@ impl<'a> Serializer<'a> {
             } else {
                 return b"\x00".to_vec();
             }
-        })
+        });
     }
 
     fn _int_length(&self, v: i64) -> usize {
@@ -100,13 +100,13 @@ impl<'a> Serializer<'a> {
                 result.push((v >> ((i - 1) * 8)) as u8);
             }
             return result;
-        })
+        });
     }
 
     pub fn write_octet_string(&mut self, v: &Vec<u8>) {
         return self._write_with_tag(4, || {
             return v.to_vec();
-        })
+        });
     }
 
     pub fn write_printable_string(&mut self, v: String) {
@@ -133,7 +133,7 @@ impl<'a> Serializer<'a> {
                 _write_base128_int(&mut data, *el);
             }
             return data;
-        })
+        });
     }
 
     pub fn write_utctime(&mut self, v: DateTime<UTC>) {
@@ -195,7 +195,7 @@ mod tests {
             (-129, b"\x02\x02\xff\x7f".to_vec()),
         ], |serializer, v| {
             serializer.write_int(v);
-        })
+        });
     }
 
     #[test]
@@ -204,7 +204,7 @@ mod tests {
             (b"\x01\x02\x03".to_vec(), b"\x04\x03\x01\x02\x03".to_vec()),
         ], |serializer, v| {
             serializer.write_octet_string(&v);
-        })
+        });
     }
 
     #[test]
@@ -220,7 +220,7 @@ mod tests {
             ),
         ], |serializer, v| {
             serializer.write_printable_string(v);
-        })
+        });
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
             ),
         ], |serializer, oid| {
             serializer.write_object_identifier(oid);
-        })
+        });
     }
 
     #[test]
@@ -276,6 +276,6 @@ mod tests {
                 s.write_int(x);
                 s.write_int(y);
             });
-        })
+        });
     }
 }
