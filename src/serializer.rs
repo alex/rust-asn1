@@ -190,7 +190,9 @@ mod tests {
             (0, b"\x02\x01\x00".to_vec()),
             (127, b"\x02\x01\x7f".to_vec()),
             (128, b"\x02\x02\x00\x80".to_vec()),
+            (255, b"\x02\x02\x00\xff".to_vec()),
             (256, b"\x02\x02\x01\x00".to_vec()),
+            (-1, b"\x02\x01\xff".to_vec()),
             (-128, b"\x02\x01\x80".to_vec()),
             (-129, b"\x02\x02\xff\x7f".to_vec()),
         ], |serializer, v| {
