@@ -138,7 +138,8 @@ mod tests {
             (Ok(false), b"\x01\x01\x00".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x01\x00".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x01\x01\x01".to_vec()),
-            (Err(DeserializationError::InvalidValue), b"\x01\x02\x01\x01".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x01\x02\x00\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x01\x02\xff\x01".to_vec()),
         ], |deserializer| {
             return deserializer.read_bool();
         });
