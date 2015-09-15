@@ -84,8 +84,7 @@ impl Deserializer {
             }
             if data.len() > 1 {
                 match (data[0], data[1] & 0x80) {
-                    (0xff, 0x80) => return Err(DeserializationError::InvalidValue),
-                    (0x00, 0x00) => return Err(DeserializationError::InvalidValue),
+                    (0xff, 0x80) | (0x00, 0x00) => return Err(DeserializationError::InvalidValue),
                     _ => {},
                 }
             }
