@@ -155,6 +155,7 @@ mod tests {
                 Err(DeserializationError::IntegerOverflow),
                 b"\x02\x09\x02\x00\x00\x00\x00\x00\x00\x00\x00".to_vec()
             ),
+            (Err(DeserializationError::InvalidValue), b"\x02\x05\x00\x00\x00\x00\x01".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });
