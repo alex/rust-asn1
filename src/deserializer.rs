@@ -82,6 +82,13 @@ impl Deserializer {
             if data.len() > 8 {
                 return Err(DeserializationError::IntegerOverflow);
             }
+            if data.len() > 1 {
+                match (data[0], data[1] & 0x80) {
+                    (0xff, 0x80) => return Err(DeserializationError::InvalidValue),
+                    (0x00, 0x00) => return Err(DeserializationError::InvalidValue),
+                    _ => {},
+                }
+            }
             let mut ret = 0;
             for b in data.iter() {
                 ret <<= 8;
@@ -147,6 +154,7 @@ mod tests {
             (Ok(256), b"\x02\x02\x01\x00".to_vec()),
             (Ok(-128), b"\x02\x01\x80".to_vec()),
             (Ok(-129), b"\x02\x02\xff\x7f".to_vec()),
+            (Ok(-256), b"\x02\x02\xff\x00".to_vec()),
             (Err(DeserializationError::UnexpectedTag), b"\x03".to_vec()),
             (Err(DeserializationError::ShortData), b"\x02\x02\x00".to_vec()),
             (Err(DeserializationError::ShortData), b"".to_vec()),
@@ -156,6 +164,7 @@ mod tests {
                 b"\x02\x09\x02\x00\x00\x00\x00\x00\x00\x00\x00".to_vec()
             ),
             (Err(DeserializationError::InvalidValue), b"\x02\x05\x00\x00\x00\x00\x01".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x02\x02\xff\x80".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });
