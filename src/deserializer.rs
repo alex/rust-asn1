@@ -201,10 +201,16 @@ mod tests {
         assert_deserializes(vec![
             (Ok((1, 2)), b"\x30\x06\x02\x01\x01\x02\x01\x02".to_vec()),
             (Err(DeserializationError::ShortData), b"\x30\x03\x02\x01\x01".to_vec()),
-            (Err(DeserializationError::ExtraData), b"\x30\x07\x02\x01\x01\x02\x01\x02\x00".to_vec()),
+            (
+                Err(DeserializationError::ExtraData),
+                b"\x30\x07\x02\x01\x01\x02\x01\x02\x00".to_vec()
+            ),
         ], |deserializer| {
             return deserializer.read_sequence(|deserializer| {
-                return Ok((try!(deserializer.read_int()), try!(deserializer.read_int())));
+                return Ok((
+                    try!(deserializer.read_int()),
+                    try!(deserializer.read_int())
+                ));
             });
         });
     }
