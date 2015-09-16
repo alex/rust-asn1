@@ -39,3 +39,22 @@ you would write:
             new_s.write_int(s);
         });
     });
+
+and to read it:
+
+.. code-block:: rust
+
+    extern crate asn1;
+
+    let result = asn1::from_vec(data, |d| {
+        return d.read_sequence(|d| {
+            r = try!(d.read_int());
+            s = try!(d.read_int());
+            return Ok((r, s))
+        });
+    });
+
+    match result {
+        Ok((r, s)) => println("r={}, s={}", r, s),
+        Err(_) => println!("Error!"),
+    }
