@@ -105,6 +105,13 @@ impl Deserializer {
             return Ok(data);
         });
     }
+
+    pub fn read_sequence<F, T>(&mut self, v: F) -> DeserializationResult<T>
+            where F: Fn(&mut Deserializer) -> DeserializationResult<T> {
+        return self._read_with_tag(48, |data| {
+            return from_vec(data, &v);
+        });
+    }
 }
 
 pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> DeserializationResult<T>
@@ -186,6 +193,25 @@ mod tests {
             (Err(DeserializationError::ShortData), b"\x04\x03\x01\x02".to_vec()),
         ], |deserializer| {
             return deserializer.read_octet_string();
+        });
+    }
+
+    #[test]
+    fn test_read_sequence() {
+        assert_deserializes(vec![
+            (Ok((1, 2)), b"\x30\x06\x02\x01\x01\x02\x01\x02".to_vec()),
+            (Err(DeserializationError::ShortData), b"\x30\x03\x02\x01\x01".to_vec()),
+            (
+                Err(DeserializationError::ExtraData),
+                b"\x30\x07\x02\x01\x01\x02\x01\x02\x00".to_vec()
+            ),
+        ], |deserializer| {
+            return deserializer.read_sequence(|deserializer| {
+                return Ok((
+                    try!(deserializer.read_int()),
+                    try!(deserializer.read_int())
+                ));
+            });
         });
     }
 }
