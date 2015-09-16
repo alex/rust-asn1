@@ -99,6 +99,12 @@ impl Deserializer {
             return Ok(ret);
         });
     }
+
+    pub fn read_octet_string(&mut self) -> DeserializationResult<Vec<u8>> {
+        return self._read_with_tag(4, |data| {
+            return Ok(data);
+        });
+    }
 }
 
 pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> DeserializationResult<T>
@@ -169,6 +175,16 @@ mod tests {
             (Err(DeserializationError::InvalidValue), b"\x02\x02\xff\x80".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
+        });
+    }
+
+    #[test]
+    fn test_read_octet_string() {
+        assert_deserializes(vec![
+            (Ok(b"\x01\x02\x03".to_vec()), b"\x04\x03\x01\x02\x03".to_vec()),
+            (Err(DeserializationError::ShortData), b"\x04\x03\x01\x02".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_octet_string();
         });
     }
 }
