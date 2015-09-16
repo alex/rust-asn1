@@ -240,6 +240,8 @@ mod tests {
     #[test]
     fn test_read_object_identifier() {
         assert_deserializes(vec![
+            (Ok(ObjectIdentifier::new(vec![2, 5]).unwrap()), b"\x06\x01\x55".to_vec()),
+            (Ok(ObjectIdentifier::new(vec![2, 5, 2]).unwrap()), b"\x06\x02\x55\x02".to_vec()),
             (
                 Ok(ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap()),
                 b"\x06\x06\x2a\x86\x48\x86\xf7\x0d".to_vec()
@@ -257,6 +259,10 @@ mod tests {
                 b"\x06\x03\x81\x34\x03".to_vec(),
             ),
             (Err(DeserializationError::InvalidValue), b"\x06\x00".to_vec()),
+            (
+                Err(DeserializationError::InvalidValue),
+                b"\x06\x07\x55\x02\xc0\x80\x80\x80\x80".to_vec()
+            ),
         ], |deserializer| {
             return deserializer.read_object_identifier();
         });
