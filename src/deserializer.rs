@@ -142,10 +142,7 @@ impl Deserializer {
                 s.push(try!(_read_base128_int(&mut reader)));
             }
 
-            return match ObjectIdentifier::new(s) {
-                Some(oid) => Ok(oid),
-                None => Err(DeserializationError::InvalidValue),
-            };
+            return Ok(ObjectIdentifier::new(s).unwrap());
         });
     }
 
