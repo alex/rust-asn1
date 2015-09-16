@@ -263,6 +263,7 @@ mod tests {
                 Err(DeserializationError::InvalidValue),
                 b"\x06\x07\x55\x02\xc0\x80\x80\x80\x80".to_vec()
             ),
+            (Err(DeserializationError::ShortData), b"\x06\x02\x2a\x86".to_vec()),
         ], |deserializer| {
             return deserializer.read_object_identifier();
         });
