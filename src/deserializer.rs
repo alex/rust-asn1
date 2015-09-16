@@ -3,6 +3,8 @@ use std::io::{Cursor, Read};
 
 use byteorder::{self, ReadBytesExt};
 
+use utils::{ObjectIdentifier};
+
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
@@ -106,6 +108,17 @@ impl Deserializer {
         });
     }
 
+    pub fn read_object_identifier(&mut self) -> DeserializationResult<ObjectIdentifier> {
+        return self._read_with_tag(6, |data| {
+            if data.is_empty() {
+                return Err(DeserializationError::InvalidValue);
+            }
+            let s = vec![];
+
+            return Ok(ObjectIdentifier::new(s).unwrap());
+        });
+    }
+
     pub fn read_sequence<F, T>(&mut self, v: F) -> DeserializationResult<T>
             where F: Fn(&mut Deserializer) -> DeserializationResult<T> {
         return self._read_with_tag(48, |data| {
@@ -127,6 +140,7 @@ mod tests {
     use std;
     use std::{fmt};
 
+    use utils::{ObjectIdentifier};
     use super::{Deserializer, DeserializationError, DeserializationResult, from_vec};
 
     fn assert_deserializes<T, F>(values: Vec<(DeserializationResult<T>, Vec<u8>)>, f: F)
@@ -193,6 +207,31 @@ mod tests {
             (Err(DeserializationError::ShortData), b"\x04\x03\x01\x02".to_vec()),
         ], |deserializer| {
             return deserializer.read_octet_string();
+        });
+    }
+
+    #[test]
+    fn test_read_object_identifier() {
+        assert_deserializes(vec![
+            (
+                Ok(ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap()),
+                b"\x06\x06\x2a\x86\x48\x86\xf7\x0d".to_vec()
+            ),
+            (
+                Ok(ObjectIdentifier::new(vec![1, 2, 3, 4]).unwrap()),
+                b"\x06\x03\x2a\x03\x04".to_vec(),
+            ),
+            (
+                Ok(ObjectIdentifier::new(vec![1, 2, 840, 133549, 1, 1, 5]).unwrap()),
+                b"\x06\x09\x2a\x86\x48\x88\x93\x2d\x01\x01\x05".to_vec(),
+            ),
+            (
+                Ok(ObjectIdentifier::new(vec![2, 100, 3]).unwrap()),
+                b"\x06\x03\x81\x34\x03".to_vec(),
+            ),
+            (Err(DeserializationError::InvalidValue), b"\x06\x00".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_object_identifier();
         });
     }
 
