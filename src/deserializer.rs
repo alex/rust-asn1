@@ -181,6 +181,7 @@ mod tests {
     #[test]
     fn test_read_octet_string() {
         assert_deserializes(vec![
+            (Ok(b"".to_vec()), b"\x04\x00".to_vec()),
             (Ok(b"\x01\x02\x03".to_vec()), b"\x04\x03\x01\x02\x03".to_vec()),
             (Err(DeserializationError::ShortData), b"\x04\x03\x01\x02".to_vec()),
         ], |deserializer| {
