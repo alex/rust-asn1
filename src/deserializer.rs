@@ -26,6 +26,19 @@ impl convert::From<byteorder::Error> for DeserializationError {
 
 pub type DeserializationResult<T> = Result<T, DeserializationError>;
 
+fn _read_base128_int(reader: &mut Cursor<Vec<u8>>) -> DeserializationResult<u32> {
+    let mut ret = 0u32;
+    for _ in 0..4 {
+        let b = try!(reader.read_u8());
+        ret <<= 7;
+        ret |= (b & 0x7f) as u32;
+        if b & 0x80 == 0 {
+            return Ok(ret);
+        }
+    }
+    return Err(DeserializationError::InvalidValue);
+}
+
 pub struct Deserializer {
     reader: Cursor<Vec<u8>>,
 }
@@ -113,9 +126,26 @@ impl Deserializer {
             if data.is_empty() {
                 return Err(DeserializationError::InvalidValue);
             }
-            let s = vec![];
+            let mut reader = Cursor::new(data);
+            let mut s = vec![];
+            let v = try!(_read_base128_int(&mut reader));
 
-            return Ok(ObjectIdentifier::new(s).unwrap());
+            if v < 80 {
+                s.push(v / 40);
+                s.push(v % 40);
+            } else {
+                s.push(2);
+                s.push(v - 80);
+            }
+
+            while (reader.position() as usize) < reader.get_ref().len() {
+                s.push(try!(_read_base128_int(&mut reader)));
+            }
+
+            return match ObjectIdentifier::new(s) {
+                Some(oid) => Ok(oid),
+                None => Err(DeserializationError::InvalidValue),
+            };
         });
     }
 
