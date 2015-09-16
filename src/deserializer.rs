@@ -155,6 +155,7 @@ mod tests {
             (Ok(-128), b"\x02\x01\x80".to_vec()),
             (Ok(-129), b"\x02\x02\xff\x7f".to_vec()),
             (Ok(-256), b"\x02\x02\xff\x00".to_vec()),
+            (Ok(9223372036854775807), b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff".to_vec()),
             (Err(DeserializationError::UnexpectedTag), b"\x03".to_vec()),
             (Err(DeserializationError::ShortData), b"\x02\x02\x00".to_vec()),
             (Err(DeserializationError::ShortData), b"".to_vec()),
