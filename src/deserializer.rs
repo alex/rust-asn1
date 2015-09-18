@@ -3,6 +3,8 @@ use std::io::{Cursor, Read};
 
 use byteorder::{self, ReadBytesExt};
 
+use chrono::{DateTime, UTC, TimeZone};
+
 use utils::{ObjectIdentifier};
 
 
@@ -146,6 +148,13 @@ impl Deserializer {
         });
     }
 
+    pub fn read_utctime(&mut self) -> DeserializationResult<DateTime<UTC>> {
+        return self._read_with_tag(23, |data| {
+            let s = String::from_utf8(data).unwrap();
+            return Ok(UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ").unwrap());
+        });
+    }
+
     pub fn read_sequence<F, T>(&mut self, v: F) -> DeserializationResult<T>
             where F: Fn(&mut Deserializer) -> DeserializationResult<T> {
         return self._read_with_tag(48, |data| {
@@ -164,8 +173,9 @@ pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> DeserializationResult<T>
 
 #[cfg(test)]
 mod tests {
-    use std;
-    use std::{fmt};
+    use std::{self, fmt};
+
+    use chrono::{TimeZone, UTC};
 
     use utils::{ObjectIdentifier};
     use super::{Deserializer, DeserializationError, DeserializationResult, from_vec};
@@ -266,6 +276,26 @@ mod tests {
             (Err(DeserializationError::ShortData), b"\x06\x02\x2a\x86".to_vec()),
         ], |deserializer| {
             return deserializer.read_object_identifier();
+        });
+    }
+
+    #[test]
+    fn test_read_utctime() {
+        assert_deserializes(vec![
+            (
+                Ok(UTC.ymd(1991, 5, 6).and_hms(23, 45, 40)),
+                b"\x17\x0d\x39\x31\x30\x35\x30\x36\x32\x33\x34\x35\x34\x30\x5a".to_vec(),
+            ),
+            (
+                Ok(UTC.timestamp(0, 0)),
+                b"\x17\x0d\x37\x30\x30\x31\x30\x31\x30\x30\x30\x30\x30\x30\x5a".to_vec(),
+            ),
+            (
+                Ok(UTC.timestamp(1258325776, 0)),
+                b"\x17\x0d\x30\x39\x31\x31\x31\x35\x32\x32\x35\x36\x31\x36\x5a".to_vec(),
+            ),
+        ], |deserializer| {
+            return deserializer.read_utctime();
         });
     }
 
