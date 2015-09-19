@@ -41,6 +41,12 @@ fn _read_base128_int(reader: &mut Cursor<Vec<u8>>) -> DeserializationResult<u32>
     return Err(DeserializationError::InvalidValue);
 }
 
+fn _is_leap_second(d: DateTime<UTC>) -> bool {
+    // Chrono represents leap seconds as `d.second() == 59 && d.nanosecond() == 1000000`. There's
+    // no other way to have `d.nanosecond() >= 1000000` so we check for that.
+    return d.nanosecond() >= 1000000;
+}
+
 pub struct Deserializer {
     reader: Cursor<Vec<u8>>,
 }
@@ -156,11 +162,8 @@ impl Deserializer {
             };
             match UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ") {
                 Ok(d) => {
-                    // Chrono allows leap seconds, but ASN.1 does not. Chrono represents leap
-                    // seconds as `d.second() == 59 && d.nanosecond() == 1000000`. There's no other
-                    // way for us to get a nanosecond besides in a seconds=60 case, so we just
-                    // check for their presence.
-                    if d.second() >= 59 && d.nanosecond() > 0 {
+                    // Chrono allows leap seconds, but ASN.1 does not.
+                    if _is_leap_second(d) {
                         return Err(DeserializationError::InvalidValue);
                     } else {
                         return Ok(d)
