@@ -3,7 +3,7 @@ use std::io::{Cursor, Read};
 
 use byteorder::{self, ReadBytesExt};
 
-use chrono::{DateTime, UTC, TimeZone};
+use chrono::{DateTime, UTC, TimeZone, Timelike};
 
 use utils::{ObjectIdentifier};
 
@@ -154,9 +154,19 @@ impl Deserializer {
                 Ok(s) => s,
                 Err(_) => return Err(DeserializationError::InvalidValue),
             };
-            return match UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ") {
-                Ok(d) => Ok(d),
-                Err(_) => Err(DeserializationError::InvalidValue),
+            match UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ") {
+                Ok(d) => {
+                    // Chrono allows leap seconds, but ASN.1 does not. Chrono represents leap
+                    // seconds as `d.second() == 59 && d.nanosecond() == 1000000`. There's no other
+                    // way for us to get a nanosecond besides in a seconds=60 case, so we just
+                    // check for their presence.
+                    if d.second() >= 59 && d.nanosecond() > 0 {
+                        return Err(DeserializationError::InvalidValue);
+                    } else {
+                        return Ok(d)
+                    }
+                },
+                Err(_) => return Err(DeserializationError::InvalidValue),
             };
         });
     }
