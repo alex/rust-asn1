@@ -3,7 +3,7 @@ use std::io::{Cursor, Read};
 
 use byteorder::{self, ReadBytesExt};
 
-use chrono::{DateTime, UTC, TimeZone};
+use chrono::{self, DateTime, UTC, TimeZone};
 
 use utils::{ObjectIdentifier};
 
@@ -23,6 +23,12 @@ impl convert::From<byteorder::Error> for DeserializationError {
             byteorder::Error::UnexpectedEOF => DeserializationError::ShortData,
             _ => panic!("Unexpected error!"),
         }
+    }
+}
+
+impl convert::From<chrono::format::ParseError> for DeserializationError {
+    fn from(_: chrono::format::ParseError) -> DeserializationError {
+        return DeserializationError::InvalidValue;
     }
 }
 
@@ -151,10 +157,8 @@ impl Deserializer {
     pub fn read_utctime(&mut self) -> DeserializationResult<DateTime<UTC>> {
         return self._read_with_tag(23, |data| {
             let s = String::from_utf8(data).unwrap();
-            return match UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ") {
-                Ok(d) => Ok(d),
-                _ => Err(DeserializationError::InvalidValue),
-            }
+            let d = try!(UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ"));
+            return Ok(d);
         });
     }
 
