@@ -339,7 +339,6 @@ mod tests {
             (Err(DeserializationError::InvalidValue), b"\x17\x0e100102-030410Z".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x17\x0e10010203-0410Z".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x17\x0e1001020304-10Z".to_vec()),
-
         ], |deserializer| {
             return deserializer.read_utctime();
         });
