@@ -3,7 +3,7 @@ use std::io::{Cursor, Read};
 
 use byteorder::{self, ReadBytesExt};
 
-use chrono::{self, DateTime, UTC, TimeZone};
+use chrono::{DateTime, UTC, TimeZone};
 
 use utils::{ObjectIdentifier};
 
@@ -23,12 +23,6 @@ impl convert::From<byteorder::Error> for DeserializationError {
             byteorder::Error::UnexpectedEOF => DeserializationError::ShortData,
             _ => panic!("Unexpected error!"),
         }
-    }
-}
-
-impl convert::From<chrono::format::ParseError> for DeserializationError {
-    fn from(_: chrono::format::ParseError) -> DeserializationError {
-        return DeserializationError::InvalidValue;
     }
 }
 
@@ -156,9 +150,14 @@ impl Deserializer {
 
     pub fn read_utctime(&mut self) -> DeserializationResult<DateTime<UTC>> {
         return self._read_with_tag(23, |data| {
-            let s = String::from_utf8(data).unwrap();
-            let d = try!(UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ"));
-            return Ok(d);
+            let s = match String::from_utf8(data) {
+                Ok(s) => s,
+                Err(_) => return Err(DeserializationError::InvalidValue),
+            };
+            return match UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ") {
+                Ok(d) => Ok(d),
+                Err(_) => Err(DeserializationError::InvalidValue),
+            };
         });
     }
 
@@ -301,6 +300,7 @@ mod tests {
                 Ok(UTC.timestamp(1258325776, 0)),
                 b"\x17\x0d\x30\x39\x31\x31\x31\x35\x32\x32\x35\x36\x31\x36\x5a".to_vec(),
             ),
+            (Err(DeserializationError::InvalidValue), b"\x17\x01\xff".to_vec()),
             // TODO: correct hex formatting
             (Err(DeserializationError::InvalidValue), b"\x17\x0da10506234540Z".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x17\x0d91a506234540Z".to_vec()),
