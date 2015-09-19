@@ -152,7 +152,7 @@ impl Deserializer {
         return self._read_with_tag(23, |data| {
             let s = String::from_utf8(data).unwrap();
             return match UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ") {
-                Ok(d) if format!("{}", d.format("%y%m%d%H%M%SZ")) == s => Ok(d),
+                Ok(d) => Ok(d),
                 _ => Err(DeserializationError::InvalidValue),
             }
         });
