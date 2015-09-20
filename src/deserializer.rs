@@ -314,7 +314,7 @@ mod tests {
                 b"\x17\x0d\x30\x39\x31\x31\x31\x35\x32\x32\x35\x36\x31\x36\x5a".to_vec(),
             ),
             (Err(DeserializationError::InvalidValue), b"\x17\x01\xff".to_vec()),
-            // TODO: correct hex formatting
+            // TODO: format the bytes as hex for consistency
             (Err(DeserializationError::InvalidValue), b"\x17\x0da10506234540Z".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x17\x0d91a506234540Z".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x17\x0d9105a6234540Z".to_vec()),
