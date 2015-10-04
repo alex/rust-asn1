@@ -107,7 +107,8 @@ impl Integer for BigInt {
     fn decode(data: Vec<u8>) -> DeserializationResult<BigInt> {
         if data[0] & 0x80 == 0x80 {
             let inverse_bytes = data.iter().map(|b| !b).collect::<Vec<u8>>();
-            return Ok(-(BigInt::from_bytes_be(Sign::Plus, &inverse_bytes[..]) + BigInt::one()));
+            let n_minus_1 = BigInt::from_bytes_be(Sign::Plus, &inverse_bytes[..]);
+            return Ok(-(n_minus_1 + BigInt::one()));
         } else {
             return Ok(BigInt::from_bytes_be(Sign::Plus, &data[..]));
         }
