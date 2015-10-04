@@ -76,7 +76,8 @@ primitive_integer!(i64);
 
 impl Integer for BigInt {
     fn encode(&self) -> Vec<u8> {
-        match self.sign {
+        let (sign, _) = self.to_bytes_be();
+        match sign {
             Sign::Plus => {
                 let (_, mut bytes) = self.to_bytes_be();
                 if bytes[0] & 0x80 != 0 {
