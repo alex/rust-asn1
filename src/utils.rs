@@ -35,7 +35,7 @@ fn _int_length(v: i64) -> usize {
 }
 
 
-pub trait Integer {
+pub trait Integer: Sized {
     fn encode(&self) -> Vec<u8>;
     fn decode(Vec<u8>) -> DeserializationResult<Self>;
 }
