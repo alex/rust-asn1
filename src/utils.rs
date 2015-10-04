@@ -1,3 +1,5 @@
+use std::{mem};
+
 use deserializer::{DeserializationError, DeserializationResult};
 
 
@@ -36,7 +38,7 @@ pub trait Integer {
 }
 
 macro_rules! integer {
-    ($Int:ident, $bytes:expr) => {
+    ($Int:ident) => {
         impl Integer for $Int {
             fn encode(&self) -> Vec<u8> {
                 let n = _int_length(*self as i64);
@@ -48,7 +50,7 @@ macro_rules! integer {
             }
 
             fn decode(data: Vec<u8>) -> DeserializationResult<$Int> {
-                if data.len() > $bytes {
+                if data.len() > mem::size_of::<$Int>() {
                     return Err(DeserializationError::IntegerOverflow);
                 }
                 let mut ret = 0;
@@ -65,9 +67,9 @@ macro_rules! integer {
     }
 }
 
-integer!(i8, 1);
-integer!(i32, 4);
-integer!(i64, 8);
+integer!(i8);
+integer!(i32);
+integer!(i64);
 
 #[cfg(test)]
 mod tests {
