@@ -190,7 +190,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_int() {
+    fn test_read_int_i64() {
         assert_deserializes(vec![
             (Ok(0), b"\x02\x01\x00".to_vec()),
             (Ok(127), b"\x02\x01\x7f".to_vec()),

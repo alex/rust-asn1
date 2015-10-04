@@ -169,7 +169,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_int() {
+    fn test_write_int_i64() {
         assert_serializes(vec![
             (0, b"\x02\x01\x00".to_vec()),
             (127, b"\x02\x01\x7f".to_vec()),
