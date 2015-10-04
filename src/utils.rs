@@ -37,7 +37,7 @@ pub trait Integer {
     fn decode(Vec<u8>) -> DeserializationResult<Self>;
 }
 
-macro_rules! integer {
+macro_rules! primitive_integer {
     ($Int:ident) => {
         impl Integer for $Int {
             fn encode(&self) -> Vec<u8> {
@@ -67,9 +67,9 @@ macro_rules! integer {
     }
 }
 
-integer!(i8);
-integer!(i32);
-integer!(i64);
+primitive_integer!(i8);
+primitive_integer!(i32);
+primitive_integer!(i64);
 
 #[cfg(test)]
 mod tests {
