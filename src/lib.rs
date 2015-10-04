@@ -1,5 +1,6 @@
 extern crate byteorder;
 extern crate chrono;
+extern crate num;
 
 mod deserializer;
 mod serializer;

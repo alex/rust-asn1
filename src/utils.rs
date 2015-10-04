@@ -1,3 +1,6 @@
+use num::{BigInt};
+use num::bigint::{Sign};
+
 use deserializer::{DeserializationError, DeserializationResult};
 
 
@@ -68,6 +71,31 @@ macro_rules! integer {
 integer!(i8, 1);
 integer!(i32, 4);
 integer!(i64, 8);
+
+impl Integer for BigInt {
+    fn encode(&self) -> Vec<u8> {
+        match self.sign {
+            Sign::Plus => {
+                let (_, mut bytes) = self.to_bytes_be();
+                if bytes[0] & 0x80 != 0 {
+                    // If the data has a leading 0x80, pad with a zero-byte.
+                    bytes.insert(0, 0);
+                }
+                return bytes;
+            },
+            Sign::NoSign => {
+                return b"\x00".to_vec();
+            },
+            Sign::Minus => {
+                panic!();
+            },
+        }
+    }
+
+    fn decode(data: Vec<u8>) -> DeserializationResult<BigInt> {
+        panic!();
+    }
+}
 
 #[cfg(test)]
 mod tests {

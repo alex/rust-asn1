@@ -156,6 +156,8 @@ mod tests {
     use std;
     use std::{fmt};
 
+    use num::{BigInt, FromPrimitive};
+
     use utils::{ObjectIdentifier};
     use super::{Deserializer, DeserializationError, DeserializationResult, from_vec};
 
@@ -239,6 +241,25 @@ mod tests {
             (Ok(127i8), b"\x02\x01\x7f".to_vec()),
             (Ok(-128i8), b"\x02\x01\x80".to_vec()),
             (Err(DeserializationError::IntegerOverflow), b"\x02\x02\x02\x00".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_int();
+        });
+    }
+
+    #[test]
+    fn test_read_int_bigint() {
+        assert_deserializes(vec![
+            (Ok(BigInt::from_i64(0).unwrap()), b"\x02\x01\x00".to_vec()),
+            (Ok(BigInt::from_i64(127).unwrap()), b"\x02\x01\x7f".to_vec()),
+            (Ok(BigInt::from_i64(128).unwrap()), b"\x02\x02\x00\x80".to_vec()),
+            (Ok(BigInt::from_i64(256).unwrap()), b"\x02\x02\x01\x00".to_vec()),
+            (Ok(BigInt::from_i64(-128).unwrap()), b"\x02\x01\x80".to_vec()),
+            (Ok(BigInt::from_i64(-129).unwrap()), b"\x02\x02\xff\x7f".to_vec()),
+            (Ok(BigInt::from_i64(-256).unwrap()), b"\x02\x02\xff\x00".to_vec()),
+            (
+                Ok(BigInt::from_i64(std::i64::MAX).unwrap()),
+                b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff".to_vec()
+            ),
         ], |deserializer| {
             return deserializer.read_int();
         });
