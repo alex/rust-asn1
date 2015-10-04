@@ -145,9 +145,11 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
 
 #[cfg(test)]
 mod tests {
+    use std;
+
     use chrono::{TimeZone, UTC};
 
-    use num::{BigInt, FromPrimitive};
+    use num::{BigInt, FromPrimitive, One};
 
     use utils::{ObjectIdentifier};
     use super::{Serializer, to_vec};
@@ -225,6 +227,10 @@ mod tests {
             (BigInt::from_i64(-1).unwrap(), b"\x02\x01\xff".to_vec()),
             (BigInt::from_i64(-128).unwrap(), b"\x02\x01\x80".to_vec()),
             (BigInt::from_i64(-129).unwrap(), b"\x02\x02\xff\x7f".to_vec()),
+            (
+                BigInt::from_i64(std::i64::MAX).unwrap() + BigInt::one(),
+                b"\x02\x09\x00\x80\x00\x00\x00\x00\x00\x00\x00".to_vec()
+            ),
         ], |serializer, v| {
             serializer.write_int(v);
         });

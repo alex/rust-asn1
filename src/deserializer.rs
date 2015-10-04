@@ -156,7 +156,7 @@ mod tests {
     use std;
     use std::{fmt};
 
-    use num::{BigInt, FromPrimitive};
+    use num::{BigInt, FromPrimitive, One};
 
     use utils::{ObjectIdentifier};
     use super::{Deserializer, DeserializationError, DeserializationResult, from_vec};
@@ -259,6 +259,10 @@ mod tests {
             (
                 Ok(BigInt::from_i64(std::i64::MAX).unwrap()),
                 b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff".to_vec()
+            ),
+            (
+                Ok(BigInt::from_i64(std::i64::MAX).unwrap() + BigInt::one()),
+                b"\x02\x09\x00\x80\x00\x00\x00\x00\x00\x00\x00".to_vec()
             ),
         ], |deserializer| {
             return deserializer.read_int();
