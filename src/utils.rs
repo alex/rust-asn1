@@ -65,9 +65,9 @@ macro_rules! integer {
     }
 }
 
-integer! {i8, 1}
-integer! {i32, 4}
-integer! {i64, 8}
+integer!(i8, 1);
+integer!(i32, 4);
+integer!(i64, 8);
 
 #[cfg(test)]
 mod tests {
