@@ -54,12 +54,12 @@ macro_rules! integer {
                 let mut ret = 0;
                 for b in data.iter() {
                     ret <<= 8;
-                    ret |= *b as $Int;
+                    ret |= *b as i64;
                 }
                 // Shift up and down in order to sign extend the result.
-                ret <<= ($bytes * 8) - data.len() * 8;
-                ret >>= ($bytes * 8) - data.len() * 8;
-                return Ok(ret);
+                ret <<= 64 - data.len() * 8;
+                ret >>= 64 - data.len() * 8;
+                return Ok(ret as $Int);
             }
         }
     }

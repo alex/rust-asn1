@@ -216,6 +216,21 @@ mod tests {
     }
 
     #[test]
+    fn test_read_int_i8() {
+        assert_deserializes(vec![
+            (Ok(0i8), b"\x02\x01\x00".to_vec()),
+            (Ok(127i8), b"\x02\x01\x7f".to_vec()),
+            (Ok(-128i8), b"\x02\x01\x80".to_vec()),
+            (
+                Err(DeserializationError::IntegerOverflow),
+                b"\x02\x02\x02\x00".to_vec()
+            ),
+        ], |deserializer| {
+            return deserializer.read_int();
+        });
+    }
+
+    #[test]
     fn test_read_octet_string() {
         assert_deserializes(vec![
             (Ok(b"".to_vec()), b"\x04\x00".to_vec()),
