@@ -1,3 +1,6 @@
+use deserializer::{DeserializationError, DeserializationResult};
+
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObjectIdentifier {
     pub parts: Vec<u32>
@@ -12,6 +15,49 @@ impl ObjectIdentifier {
         return Some(ObjectIdentifier{
             parts: oid,
         });
+    }
+}
+
+fn _int_length(v: i64) -> usize {
+    let mut num_bytes = 1;
+    let mut i = v;
+
+    while i > 127 || i < -128 {
+        num_bytes += 1;
+        i >>= 8;
+    }
+    return num_bytes;
+}
+
+
+pub trait Integer {
+    fn encode(&self) -> Vec<u8>;
+    fn decode(Vec<u8>) -> DeserializationResult<Self>;
+}
+
+impl Integer for i64 {
+    fn encode(&self) -> Vec<u8> {
+        let n = _int_length(*self);
+        let mut result = Vec::with_capacity(n);
+        for i in (1..n+1).rev() {
+            result.push((self >> ((i - 1) * 8)) as u8);
+        }
+        return result;
+    }
+
+    fn decode(data: Vec<u8>) -> DeserializationResult<i64> {
+        if data.len() > 8 {
+            return Err(DeserializationError::IntegerOverflow);
+        }
+        let mut ret = 0;
+        for b in data.iter() {
+            ret <<= 8;
+            ret |= *b as i64;
+        }
+        // Shift up and down in order to sign extend the result.
+        ret <<= 64 - data.len() * 8;
+        ret >>= 64 - data.len() * 8;
+        return Ok(ret);
     }
 }
 

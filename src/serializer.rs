@@ -5,7 +5,7 @@ use byteorder::{WriteBytesExt};
 
 use chrono::{DateTime, UTC};
 
-use utils::{ObjectIdentifier};
+use utils::{Integer, ObjectIdentifier};
 
 
 fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
@@ -81,25 +81,9 @@ impl<'a> Serializer<'a> {
         });
     }
 
-    fn _int_length(&self, v: i64) -> usize {
-        let mut num_bytes = 1;
-        let mut i = v;
-
-        while i > 127 || i < -128 {
-            num_bytes += 1;
-            i >>= 8;
-        }
-        return num_bytes;
-    }
-
-    pub fn write_int(&mut self, v: i64) {
-        let n = self._int_length(v);
+    pub fn write_int<T>(&mut self, v: T) where T: Integer {
         return self._write_with_tag(2, || {
-            let mut result = Vec::with_capacity(n);
-            for i in (1..n+1).rev() {
-                result.push((v >> ((i - 1) * 8)) as u8);
-            }
-            return result;
+            return v.encode();
         });
     }
 
