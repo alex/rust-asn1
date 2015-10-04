@@ -1,4 +1,4 @@
-use num::{BigInt};
+use num::{BigInt, One};
 use num::bigint::{Sign};
 
 use deserializer::{DeserializationError, DeserializationResult};
@@ -87,7 +87,14 @@ impl Integer for BigInt {
                 return b"\x00".to_vec();
             },
             Sign::Minus => {
-                panic!();
+                // Convert negative numbers to two's-complement by subtracting one and inverting.
+                let n_minus_1 = -self - BigInt::one();
+                let (_, mut bytes) = n_minus_1.to_bytes_be();
+                bytes = bytes.iter().map(|b| b ^ 0xff).collect();
+                if bytes[0] & 0x80 == 0 {
+                    bytes.insert(0, 0xff);
+                }
+                return bytes;
             },
         }
     }
