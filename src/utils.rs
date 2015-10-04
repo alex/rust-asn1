@@ -76,6 +76,7 @@ primitive_integer!(i64);
 
 impl Integer for BigInt {
     fn encode(&self) -> Vec<u8> {
+        // TODO: allocating the bytes to get the sign is silly.
         let (sign, _) = self.to_bytes_be();
         match sign {
             Sign::Plus => {
@@ -93,6 +94,7 @@ impl Integer for BigInt {
                 // Convert negative numbers to two's-complement by subtracting one and inverting.
                 let n_minus_1 = -self - BigInt::one();
                 let (_, mut bytes) = n_minus_1.to_bytes_be();
+                // TODO: rewrite this in-place.
                 bytes = bytes.iter().map(|b| b ^ 0xff).collect();
                 if bytes[0] & 0x80 == 0 {
                     bytes.insert(0, 0xff);
