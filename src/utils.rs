@@ -94,8 +94,11 @@ impl Integer for BigInt {
                 // Convert negative numbers to two's-complement by subtracting one and inverting.
                 let n_minus_1 = -self - BigInt::one();
                 let (_, mut bytes) = n_minus_1.to_bytes_be();
-                // TODO: rewrite this in-place.
-                bytes = bytes.iter().map(|b| b ^ 0xff).collect();
+
+                for i in 0..bytes.len() {
+                    bytes[i] ^= 0xff;
+                }
+
                 if bytes[0] & 0x80 == 0 {
                     bytes.insert(0, 0xff);
                 }
