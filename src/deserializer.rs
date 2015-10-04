@@ -3,7 +3,7 @@ use std::io::{Cursor, Read};
 
 use byteorder::{self, ReadBytesExt};
 
-use utils::{ObjectIdentifier};
+use utils::{Integer, ObjectIdentifier};
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -92,26 +92,15 @@ impl Deserializer {
         });
     }
 
-    pub fn read_int(&mut self) -> DeserializationResult<i64> {
+    pub fn read_int<T>(&mut self) -> DeserializationResult<T> where T: Integer {
         return self._read_with_tag(2, |data| {
-            if data.len() > 8 {
-                return Err(DeserializationError::IntegerOverflow);
-            }
             if data.len() > 1 {
                 match (data[0], data[1] & 0x80) {
                     (0xff, 0x80) | (0x00, 0x00) => return Err(DeserializationError::InvalidValue),
                     _ => {},
                 }
             }
-            let mut ret = 0;
-            for b in data.iter() {
-                ret <<= 8;
-                ret |= *b as i64;
-            }
-            // Shift up and down in order to sign extend the result.
-            ret <<= 64 - data.len() * 8;
-            ret >>= 64 - data.len() * 8;
-            return Ok(ret);
+            return T::decode(data);
         });
     }
 
