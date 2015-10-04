@@ -185,6 +185,34 @@ mod tests {
     }
 
     #[test]
+    fn test_write_int_i32() {
+        assert_serializes(vec![
+            (0i32, b"\x02\x01\x00".to_vec()),
+            (127i32, b"\x02\x01\x7f".to_vec()),
+            (128i32, b"\x02\x02\x00\x80".to_vec()),
+            (255i32, b"\x02\x02\x00\xff".to_vec()),
+            (256i32, b"\x02\x02\x01\x00".to_vec()),
+            (-1i32, b"\x02\x01\xff".to_vec()),
+            (-128i32, b"\x02\x01\x80".to_vec()),
+            (-129i32, b"\x02\x02\xff\x7f".to_vec()),
+        ], |serializer, v| {
+            serializer.write_int(v);
+        });
+    }
+
+    #[test]
+    fn test_write_int_i8() {
+        assert_serializes(vec![
+            (0i8, b"\x02\x01\x00".to_vec()),
+            (127i8, b"\x02\x01\x7f".to_vec()),
+            (-1i8, b"\x02\x01\xff".to_vec()),
+            (-128i8, b"\x02\x01\x80".to_vec()),
+        ], |serializer, v| {
+            serializer.write_int(v);
+        });
+    }
+
+    #[test]
     fn test_write_octet_string() {
         assert_serializes(vec![
             (b"\x01\x02\x03".to_vec(), b"\x04\x03\x01\x02\x03".to_vec()),

@@ -35,31 +35,39 @@ pub trait Integer {
     fn decode(Vec<u8>) -> DeserializationResult<Self>;
 }
 
-impl Integer for i64 {
-    fn encode(&self) -> Vec<u8> {
-        let n = _int_length(*self);
-        let mut result = Vec::with_capacity(n);
-        for i in (1..n+1).rev() {
-            result.push((self >> ((i - 1) * 8)) as u8);
-        }
-        return result;
-    }
+macro_rules! integer {
+    ($Int:ident, $bytes:expr) => {
+        impl Integer for $Int {
+            fn encode(&self) -> Vec<u8> {
+                let n = _int_length(*self as i64);
+                let mut result = Vec::with_capacity(n);
+                for i in (1..n+1).rev() {
+                    result.push((self >> ((i - 1) * 8)) as u8);
+                }
+                return result;
+            }
 
-    fn decode(data: Vec<u8>) -> DeserializationResult<i64> {
-        if data.len() > 8 {
-            return Err(DeserializationError::IntegerOverflow);
+            fn decode(data: Vec<u8>) -> DeserializationResult<$Int> {
+                if data.len() > $bytes {
+                    return Err(DeserializationError::IntegerOverflow);
+                }
+                let mut ret = 0;
+                for b in data.iter() {
+                    ret <<= 8;
+                    ret |= *b as $Int;
+                }
+                // Shift up and down in order to sign extend the result.
+                ret <<= ($bytes * 8) - data.len() * 8;
+                ret >>= ($bytes * 8) - data.len() * 8;
+                return Ok(ret);
+            }
         }
-        let mut ret = 0;
-        for b in data.iter() {
-            ret <<= 8;
-            ret |= *b as i64;
-        }
-        // Shift up and down in order to sign extend the result.
-        ret <<= 64 - data.len() * 8;
-        ret >>= 64 - data.len() * 8;
-        return Ok(ret);
     }
 }
+
+integer! {i8, 1}
+integer! {i32, 4}
+integer! {i64, 8}
 
 #[cfg(test)]
 mod tests {
