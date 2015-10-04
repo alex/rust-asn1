@@ -1,3 +1,5 @@
+use std::{mem};
+
 use num::{BigInt, One};
 use num::bigint::{Sign};
 
@@ -38,8 +40,8 @@ pub trait Integer {
     fn decode(Vec<u8>) -> DeserializationResult<Self>;
 }
 
-macro_rules! integer {
-    ($Int:ident, $bytes:expr) => {
+macro_rules! primitive_integer {
+    ($Int:ident) => {
         impl Integer for $Int {
             fn encode(&self) -> Vec<u8> {
                 let n = _int_length(*self as i64);
@@ -51,7 +53,7 @@ macro_rules! integer {
             }
 
             fn decode(data: Vec<u8>) -> DeserializationResult<$Int> {
-                if data.len() > $bytes {
+                if data.len() > mem::size_of::<$Int>() {
                     return Err(DeserializationError::IntegerOverflow);
                 }
                 let mut ret = 0;
@@ -68,9 +70,9 @@ macro_rules! integer {
     }
 }
 
-integer!(i8, 1);
-integer!(i32, 4);
-integer!(i64, 8);
+primitive_integer!(i8);
+primitive_integer!(i32);
+primitive_integer!(i64);
 
 impl Integer for BigInt {
     fn encode(&self) -> Vec<u8> {
