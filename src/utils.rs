@@ -58,6 +58,7 @@ macro_rules! primitive_integer {
                 } else if data.is_empty() {
                     return Err(DeserializationError::InvalidValue);
                 }
+
                 let mut ret = 0;
                 for b in data.iter() {
                     ret <<= 8;
