@@ -52,7 +52,10 @@ macro_rules! primitive_integer {
             fn decode(data: Vec<u8>) -> DeserializationResult<$Int> {
                 if data.len() > mem::size_of::<$Int>() {
                     return Err(DeserializationError::IntegerOverflow);
+                } else if data.is_empty() {
+                    return Err(DeserializationError::InvalidValue);
                 }
+
                 let mut ret = 0;
                 for b in data.iter() {
                     ret <<= 8;
