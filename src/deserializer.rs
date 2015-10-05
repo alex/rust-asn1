@@ -212,6 +212,7 @@ mod tests {
             ),
             (Err(DeserializationError::InvalidValue), b"\x02\x05\x00\x00\x00\x00\x01".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x02\x02\xff\x80".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x02\x00".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });
@@ -229,6 +230,7 @@ mod tests {
             (Ok(-256i32), b"\x02\x02\xff\x00".to_vec()),
             (Ok(std::i32::MAX), b"\x02\x04\x7f\xff\xff\xff".to_vec()),
             (Err(DeserializationError::IntegerOverflow), b"\x02\x05\x02\x00\x00\x00\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x02\x00".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });
@@ -241,6 +243,7 @@ mod tests {
             (Ok(127i8), b"\x02\x01\x7f".to_vec()),
             (Ok(-128i8), b"\x02\x01\x80".to_vec()),
             (Err(DeserializationError::IntegerOverflow), b"\x02\x02\x02\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x02\x00".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });
@@ -264,6 +267,7 @@ mod tests {
                 Ok(BigInt::from_i64(std::i64::MAX).unwrap() + BigInt::one()),
                 b"\x02\x09\x00\x80\x00\x00\x00\x00\x00\x00\x00".to_vec()
             ),
+            (Err(DeserializationError::InvalidValue), b"\x02\x00".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });

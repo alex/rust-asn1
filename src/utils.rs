@@ -55,6 +55,8 @@ macro_rules! primitive_integer {
             fn decode(data: Vec<u8>) -> DeserializationResult<$Int> {
                 if data.len() > mem::size_of::<$Int>() {
                     return Err(DeserializationError::IntegerOverflow);
+                } else if data.is_empty() {
+                    return Err(DeserializationError::InvalidValue);
                 }
                 let mut ret = 0;
                 for b in data.iter() {
@@ -108,6 +110,10 @@ impl Integer for BigInt {
     }
 
     fn decode(data: Vec<u8>) -> DeserializationResult<BigInt> {
+        if data.is_empty() {
+            return Err(DeserializationError::InvalidValue);
+        }
+
         if data[0] & 0x80 == 0x80 {
             let inverse_bytes = data.iter().map(|b| !b).collect::<Vec<u8>>();
             let n_minus_1 = BigInt::from_bytes_be(Sign::Plus, &inverse_bytes[..]);
