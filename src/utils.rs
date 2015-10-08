@@ -84,7 +84,7 @@ impl Integer for BigInt {
         match sign {
             Sign::Plus => {
                 let (_, mut bytes) = self.to_bytes_be();
-                if bytes[0] & 0x80 != 0 {
+                if bytes[0] & 0x80 == 0x80 {
                     // If the data has a leading 0x80, pad with a zero-byte.
                     bytes.insert(0, 0);
                 }
