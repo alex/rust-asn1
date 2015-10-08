@@ -99,7 +99,6 @@ impl Integer for BigInt {
                 bytes.insert(0, 0xff);
             }
             return bytes;
-
         } else {
             return b"\x00".to_vec();
         }
