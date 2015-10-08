@@ -1,6 +1,6 @@
 use std::{mem};
 
-use num::{BigInt, One};
+use num::{BigInt, One, Signed};
 use num::bigint::{Sign};
 
 use deserializer::{DeserializationError, DeserializationResult};
@@ -79,34 +79,29 @@ primitive_integer!(i64);
 
 impl Integer for BigInt {
     fn encode(&self) -> Vec<u8> {
-        // TODO: allocating the bytes to get the sign is silly.
-        let (sign, _) = self.to_bytes_be();
-        match sign {
-            Sign::Plus => {
-                let (_, mut bytes) = self.to_bytes_be();
-                if bytes[0] & 0x80 == 0x80 {
-                    // If the data has a leading 0x80, pad with a zero-byte.
-                    bytes.insert(0, 0);
-                }
-                return bytes;
-            },
-            Sign::NoSign => {
-                return b"\x00".to_vec();
-            },
-            Sign::Minus => {
-                // Convert negative numbers to two's-complement by subtracting one and inverting.
-                let n_minus_1 = -self - BigInt::one();
-                let (_, mut bytes) = n_minus_1.to_bytes_be();
+        if self.is_positive() {
+            let (_, mut bytes) = self.to_bytes_be();
+            if bytes[0] & 0x80 == 0x80 {
+                // If the data has a leading 0x80, pad with a zero-byte.
+                bytes.insert(0, 0);
+            }
+            return bytes;
+        } else if self.is_negative() {
+            // Convert negative numbers to two's-complement by subtracting one and inverting.
+            let n_minus_1 = -self - BigInt::one();
+            let (_, mut bytes) = n_minus_1.to_bytes_be();
 
-                for i in 0..bytes.len() {
-                    bytes[i] ^= 0xff;
-                }
+            for i in 0..bytes.len() {
+                bytes[i] ^= 0xff;
+            }
 
-                if bytes[0] & 0x80 == 0 {
-                    bytes.insert(0, 0xff);
-                }
-                return bytes;
-            },
+            if bytes[0] & 0x80 == 0 {
+                bytes.insert(0, 0xff);
+            }
+            return bytes;
+
+        } else {
+            return b"\x00".to_vec();
         }
     }
 
