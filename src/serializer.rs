@@ -5,7 +5,7 @@ use byteorder::{WriteBytesExt};
 
 use chrono::{DateTime, UTC};
 
-use utils::{ObjectIdentifier};
+use utils::{Integer, ObjectIdentifier};
 
 
 fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
@@ -81,25 +81,9 @@ impl<'a> Serializer<'a> {
         });
     }
 
-    fn _int_length(&self, v: i64) -> usize {
-        let mut num_bytes = 1;
-        let mut i = v;
-
-        while i > 127 || i < -128 {
-            num_bytes += 1;
-            i >>= 8;
-        }
-        return num_bytes;
-    }
-
-    pub fn write_int(&mut self, v: i64) {
-        let n = self._int_length(v);
+    pub fn write_int<T>(&mut self, v: T) where T: Integer {
         return self._write_with_tag(2, || {
-            let mut result = Vec::with_capacity(n);
-            for i in (1..n+1).rev() {
-                result.push((v >> ((i - 1) * 8)) as u8);
-            }
-            return result;
+            return v.encode();
         });
     }
 
@@ -161,7 +145,11 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
 
 #[cfg(test)]
 mod tests {
+    use std;
+
     use chrono::{TimeZone, UTC};
+
+    use num::{BigInt, FromPrimitive, One};
 
     use utils::{ObjectIdentifier};
     use super::{Serializer, to_vec};
@@ -185,7 +173,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_int() {
+    fn test_write_int_i64() {
         assert_serializes(vec![
             (0, b"\x02\x01\x00".to_vec()),
             (127, b"\x02\x01\x7f".to_vec()),
@@ -195,6 +183,54 @@ mod tests {
             (-1, b"\x02\x01\xff".to_vec()),
             (-128, b"\x02\x01\x80".to_vec()),
             (-129, b"\x02\x02\xff\x7f".to_vec()),
+        ], |serializer, v| {
+            serializer.write_int(v);
+        });
+    }
+
+    #[test]
+    fn test_write_int_i32() {
+        assert_serializes(vec![
+            (0i32, b"\x02\x01\x00".to_vec()),
+            (127i32, b"\x02\x01\x7f".to_vec()),
+            (128i32, b"\x02\x02\x00\x80".to_vec()),
+            (255i32, b"\x02\x02\x00\xff".to_vec()),
+            (256i32, b"\x02\x02\x01\x00".to_vec()),
+            (-1i32, b"\x02\x01\xff".to_vec()),
+            (-128i32, b"\x02\x01\x80".to_vec()),
+            (-129i32, b"\x02\x02\xff\x7f".to_vec()),
+        ], |serializer, v| {
+            serializer.write_int(v);
+        });
+    }
+
+    #[test]
+    fn test_write_int_i8() {
+        assert_serializes(vec![
+            (0i8, b"\x02\x01\x00".to_vec()),
+            (127i8, b"\x02\x01\x7f".to_vec()),
+            (-1i8, b"\x02\x01\xff".to_vec()),
+            (-128i8, b"\x02\x01\x80".to_vec()),
+        ], |serializer, v| {
+            serializer.write_int(v);
+        });
+    }
+
+    #[test]
+    fn test_write_int_bigint() {
+        assert_serializes(vec![
+            (BigInt::from_i64(0).unwrap(), b"\x02\x01\x00".to_vec()),
+            (BigInt::from_i64(127).unwrap(), b"\x02\x01\x7f".to_vec()),
+            (BigInt::from_i64(128).unwrap(), b"\x02\x02\x00\x80".to_vec()),
+            (BigInt::from_i64(255).unwrap(), b"\x02\x02\x00\xff".to_vec()),
+            (BigInt::from_i64(256).unwrap(), b"\x02\x02\x01\x00".to_vec()),
+            (BigInt::from_i64(-1).unwrap(), b"\x02\x01\xff".to_vec()),
+            (BigInt::from_i64(-128).unwrap(), b"\x02\x01\x80".to_vec()),
+            (BigInt::from_i64(-129).unwrap(), b"\x02\x02\xff\x7f".to_vec()),
+            (
+                BigInt::from_i64(std::i64::MAX).unwrap() + BigInt::one(),
+                b"\x02\x09\x00\x80\x00\x00\x00\x00\x00\x00\x00".to_vec()
+            ),
         ], |serializer, v| {
             serializer.write_int(v);
         });

@@ -9,3 +9,7 @@ rust:
 cache:
     directories:
         - $HOME/.cargo
+
+
+notifications:
+    email: false

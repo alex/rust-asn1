@@ -5,7 +5,7 @@ use byteorder::{self, ReadBytesExt};
 
 use chrono::{DateTime, UTC, TimeZone, Timelike};
 
-use utils::{ObjectIdentifier};
+use utils::{Integer, ObjectIdentifier};
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -100,26 +100,15 @@ impl Deserializer {
         });
     }
 
-    pub fn read_int(&mut self) -> DeserializationResult<i64> {
+    pub fn read_int<T>(&mut self) -> DeserializationResult<T> where T: Integer {
         return self._read_with_tag(2, |data| {
-            if data.len() > 8 {
-                return Err(DeserializationError::IntegerOverflow);
-            }
             if data.len() > 1 {
                 match (data[0], data[1] & 0x80) {
                     (0xff, 0x80) | (0x00, 0x00) => return Err(DeserializationError::InvalidValue),
                     _ => {},
                 }
             }
-            let mut ret = 0;
-            for b in data.iter() {
-                ret <<= 8;
-                ret |= *b as i64;
-            }
-            // Shift up and down in order to sign extend the result.
-            ret <<= 64 - data.len() * 8;
-            ret >>= 64 - data.len() * 8;
-            return Ok(ret);
+            return T::decode(data);
         });
     }
 
@@ -196,6 +185,8 @@ mod tests {
 
     use chrono::{TimeZone, UTC};
 
+    use num::{BigInt, FromPrimitive, One};
+
     use utils::{ObjectIdentifier};
     use super::{Deserializer, DeserializationError, DeserializationResult, from_vec};
 
@@ -230,7 +221,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_int() {
+    fn test_read_int_i64() {
         assert_deserializes(vec![
             (Ok(0), b"\x02\x01\x00".to_vec()),
             (Ok(127), b"\x02\x01\x7f".to_vec()),
@@ -250,6 +241,62 @@ mod tests {
             ),
             (Err(DeserializationError::InvalidValue), b"\x02\x05\x00\x00\x00\x00\x01".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x02\x02\xff\x80".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x02\x00".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_int();
+        });
+    }
+
+    #[test]
+    fn test_read_int_i32() {
+        assert_deserializes(vec![
+            (Ok(0i32), b"\x02\x01\x00".to_vec()),
+            (Ok(127i32), b"\x02\x01\x7f".to_vec()),
+            (Ok(128i32), b"\x02\x02\x00\x80".to_vec()),
+            (Ok(256i32), b"\x02\x02\x01\x00".to_vec()),
+            (Ok(-128i32), b"\x02\x01\x80".to_vec()),
+            (Ok(-129i32), b"\x02\x02\xff\x7f".to_vec()),
+            (Ok(-256i32), b"\x02\x02\xff\x00".to_vec()),
+            (Ok(std::i32::MAX), b"\x02\x04\x7f\xff\xff\xff".to_vec()),
+            (Err(DeserializationError::IntegerOverflow), b"\x02\x05\x02\x00\x00\x00\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x02\x00".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_int();
+        });
+    }
+
+    #[test]
+    fn test_read_int_i8() {
+        assert_deserializes(vec![
+            (Ok(0i8), b"\x02\x01\x00".to_vec()),
+            (Ok(127i8), b"\x02\x01\x7f".to_vec()),
+            (Ok(-128i8), b"\x02\x01\x80".to_vec()),
+            (Err(DeserializationError::IntegerOverflow), b"\x02\x02\x02\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x02\x00".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_int();
+        });
+    }
+
+    #[test]
+    fn test_read_int_bigint() {
+        assert_deserializes(vec![
+            (Ok(BigInt::from_i64(0).unwrap()), b"\x02\x01\x00".to_vec()),
+            (Ok(BigInt::from_i64(127).unwrap()), b"\x02\x01\x7f".to_vec()),
+            (Ok(BigInt::from_i64(128).unwrap()), b"\x02\x02\x00\x80".to_vec()),
+            (Ok(BigInt::from_i64(256).unwrap()), b"\x02\x02\x01\x00".to_vec()),
+            (Ok(BigInt::from_i64(-128).unwrap()), b"\x02\x01\x80".to_vec()),
+            (Ok(BigInt::from_i64(-129).unwrap()), b"\x02\x02\xff\x7f".to_vec()),
+            (Ok(BigInt::from_i64(-256).unwrap()), b"\x02\x02\xff\x00".to_vec()),
+            (
+                Ok(BigInt::from_i64(std::i64::MAX).unwrap()),
+                b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff".to_vec()
+            ),
+            (
+                Ok(BigInt::from_i64(std::i64::MAX).unwrap() + BigInt::one()),
+                b"\x02\x09\x00\x80\x00\x00\x00\x00\x00\x00\x00".to_vec()
+            ),
+            (Err(DeserializationError::InvalidValue), b"\x02\x00".to_vec()),
         ], |deserializer| {
             return deserializer.read_int();
         });
