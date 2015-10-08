@@ -145,7 +145,11 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
 
 #[cfg(test)]
 mod tests {
+    use std;
+
     use chrono::{TimeZone, UTC};
+
+    use num::{BigInt, FromPrimitive, One};
 
     use utils::{ObjectIdentifier};
     use super::{Serializer, to_vec};
@@ -207,6 +211,26 @@ mod tests {
             (127i8, b"\x02\x01\x7f".to_vec()),
             (-1i8, b"\x02\x01\xff".to_vec()),
             (-128i8, b"\x02\x01\x80".to_vec()),
+        ], |serializer, v| {
+            serializer.write_int(v);
+        });
+    }
+
+    #[test]
+    fn test_write_int_bigint() {
+        assert_serializes(vec![
+            (BigInt::from_i64(0).unwrap(), b"\x02\x01\x00".to_vec()),
+            (BigInt::from_i64(127).unwrap(), b"\x02\x01\x7f".to_vec()),
+            (BigInt::from_i64(128).unwrap(), b"\x02\x02\x00\x80".to_vec()),
+            (BigInt::from_i64(255).unwrap(), b"\x02\x02\x00\xff".to_vec()),
+            (BigInt::from_i64(256).unwrap(), b"\x02\x02\x01\x00".to_vec()),
+            (BigInt::from_i64(-1).unwrap(), b"\x02\x01\xff".to_vec()),
+            (BigInt::from_i64(-128).unwrap(), b"\x02\x01\x80".to_vec()),
+            (BigInt::from_i64(-129).unwrap(), b"\x02\x02\xff\x7f".to_vec()),
+            (
+                BigInt::from_i64(std::i64::MAX).unwrap() + BigInt::one(),
+                b"\x02\x09\x00\x80\x00\x00\x00\x00\x00\x00\x00".to_vec()
+            ),
         ], |serializer, v| {
             serializer.write_int(v);
         });

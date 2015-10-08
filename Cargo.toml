@@ -10,3 +10,4 @@ description = "ASN.1 (DER) serializer for Rust."
 [dependencies]
 byteorder = "*"
 chrono = "*"
+num = "*"

@@ -1,5 +1,8 @@
 use std::{mem};
 
+use num::{BigInt, One, Signed};
+use num::bigint::{Sign};
+
 use deserializer::{DeserializationError, DeserializationResult};
 
 
@@ -73,6 +76,48 @@ macro_rules! primitive_integer {
 primitive_integer!(i8);
 primitive_integer!(i32);
 primitive_integer!(i64);
+
+impl Integer for BigInt {
+    fn encode(&self) -> Vec<u8> {
+        if self.is_positive() {
+            let (_, mut bytes) = self.to_bytes_be();
+            if bytes[0] & 0x80 == 0x80 {
+                // If the data has a leading 0x80, pad with a zero-byte.
+                bytes.insert(0, 0);
+            }
+            return bytes;
+        } else if self.is_negative() {
+            // Convert negative numbers to two's-complement by subtracting one and inverting.
+            let n_minus_1 = -self - BigInt::one();
+            let (_, mut bytes) = n_minus_1.to_bytes_be();
+
+            for i in 0..bytes.len() {
+                bytes[i] ^= 0xff;
+            }
+
+            if bytes[0] & 0x80 == 0 {
+                bytes.insert(0, 0xff);
+            }
+            return bytes;
+        } else {
+            return b"\x00".to_vec();
+        }
+    }
+
+    fn decode(data: Vec<u8>) -> DeserializationResult<BigInt> {
+        if data.is_empty() {
+            return Err(DeserializationError::InvalidValue);
+        }
+
+        if data[0] & 0x80 == 0x80 {
+            let inverse_bytes = data.iter().map(|b| !b).collect::<Vec<u8>>();
+            let n_minus_1 = BigInt::from_bytes_be(Sign::Plus, &inverse_bytes[..]);
+            return Ok(-(n_minus_1 + BigInt::one()));
+        } else {
+            return Ok(BigInt::from_bytes_be(Sign::Plus, &data[..]));
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
