@@ -3,7 +3,7 @@ use std::io::{Cursor, Read};
 
 use byteorder::{self, ReadBytesExt};
 
-use utils::{Integer, ObjectIdentifier};
+use utils::{BitString, Integer, ObjectIdentifier};
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -110,6 +110,26 @@ impl Deserializer {
         });
     }
 
+    pub fn read_bit_string(&mut self) -> DeserializationResult<BitString> {
+        return self._read_with_tag(3, |data| {
+            if data.is_empty() {
+                return Err(DeserializationError::InvalidValue);
+            }
+            let padding_bits = data[0];
+            if padding_bits > 7 ||
+                (data.len() == 1 && padding_bits > 0) ||
+                ((data[data.len() - 1] & ((1 << padding_bits) - 1)) != 0) {
+
+                return Err(DeserializationError::InvalidValue);
+            }
+
+            return Ok(BitString::new(
+                data[1..].to_vec(),
+                (data.len() - 1) * 8 - (padding_bits as usize),
+            ).unwrap());
+        });
+    }
+
     pub fn read_object_identifier(&mut self) -> DeserializationResult<ObjectIdentifier> {
         return self._read_with_tag(6, |data| {
             if data.is_empty() {
@@ -158,7 +178,7 @@ mod tests {
 
     use num::{BigInt, FromPrimitive, One};
 
-    use utils::{ObjectIdentifier};
+    use utils::{BitString, ObjectIdentifier};
     use super::{Deserializer, DeserializationError, DeserializationResult, from_vec};
 
     fn assert_deserializes<T, F>(values: Vec<(DeserializationResult<T>, Vec<u8>)>, f: F)
@@ -282,6 +302,25 @@ mod tests {
         ], |deserializer| {
             return deserializer.read_octet_string();
         });
+    }
+
+    #[test]
+    fn test_read_bit_string() {
+        assert_deserializes(vec![
+            (Ok(BitString::new(b"".to_vec(), 0).unwrap()), b"\x03\x01\x00".to_vec()),
+            (Ok(BitString::new(b"\x00".to_vec(), 1).unwrap()), b"\x03\x02\x07\x00".to_vec()),
+            (Ok(BitString::new(b"\x80".to_vec(), 1).unwrap()), b"\x03\x02\x07\x80".to_vec()),
+            (
+                Ok(BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()),
+                b"\x03\x03\x04\x81\xf0".to_vec()
+            ),
+            (Err(DeserializationError::InvalidValue), b"\x03\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x07\x01".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x07\x40".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x08\x00".to_vec()),
+        ], |deserializer| {
+            return deserializer.read_bit_string();
+        })
     }
 
     #[test]

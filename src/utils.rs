@@ -23,6 +23,22 @@ impl ObjectIdentifier {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BitString {
+    pub data: Vec<u8>,
+    pub bit_length: usize,
+}
+
+impl BitString {
+    pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
+        // TODO: validate bit_length is reasonable
+        return Some(BitString{
+            data: data,
+            bit_length: bit_length,
+        })
+    }
+}
+
 fn _int_length(v: i64) -> usize {
     let mut num_bytes = 1;
     let mut i = v;

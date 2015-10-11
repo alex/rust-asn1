@@ -5,7 +5,7 @@ use byteorder::{WriteBytesExt};
 
 use chrono::{DateTime, UTC};
 
-use utils::{Integer, ObjectIdentifier};
+use utils::{BitString, Integer, ObjectIdentifier};
 
 
 fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
@@ -109,6 +109,16 @@ impl<'a> Serializer<'a> {
         });
     }
 
+    pub fn write_bit_string(&mut self, v: BitString) {
+        return self._write_with_tag(3, || {
+            let mut result = vec![
+                ((8 - (v.bit_length % 8)) % 8) as u8
+            ];
+            result.extend(&v.data);
+            return result;
+        })
+    }
+
     pub fn write_object_identifier(&mut self, v: ObjectIdentifier) {
         return self._write_with_tag(6, || {
             let mut data = Vec::new();
@@ -151,7 +161,7 @@ mod tests {
 
     use num::{BigInt, FromPrimitive, One};
 
-    use utils::{ObjectIdentifier};
+    use utils::{BitString, ObjectIdentifier};
     use super::{Serializer, to_vec};
 
     fn assert_serializes<T, F>(values: Vec<(T, Vec<u8>)>, f: F)
@@ -259,6 +269,16 @@ mod tests {
         ], |serializer, v| {
             serializer.write_printable_string(v);
         });
+    }
+
+    #[test]
+    fn test_write_bit_string() {
+        assert_serializes(vec![
+            (BitString::new(b"\x80".to_vec(), 1).unwrap(), b"\x03\x02\x07\x80".to_vec()),
+            (BitString::new(b"\x81\xf0".to_vec(), 12).unwrap(), b"\x03\x03\x04\x81\xf0".to_vec()),
+        ], |serializer, v| {
+            serializer.write_bit_string(v);
+        })
     }
 
     #[test]
