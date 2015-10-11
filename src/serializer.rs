@@ -274,6 +274,7 @@ mod tests {
     #[test]
     fn test_write_bit_string() {
         assert_serializes(vec![
+            (BitString::new(b"".to_vec(), 0).unwrap(), b"\x03\x01\x00".to_vec()),
             (BitString::new(b"\x80".to_vec(), 1).unwrap(), b"\x03\x02\x07\x80".to_vec()),
             (BitString::new(b"\x81\xf0".to_vec(), 12).unwrap(), b"\x03\x03\x04\x81\xf0".to_vec()),
         ], |serializer, v| {

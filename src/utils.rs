@@ -31,7 +31,15 @@ pub struct BitString {
 
 impl BitString {
     pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
-        // TODO: validate bit_length is reasonable
+        // TODO: there's got to be a good way to simplify this.
+        if data.is_empty() || bit_length == 0 {
+            if !(data.is_empty() && bit_length == 0) {
+                return None;
+            }
+        } else if (bit_length < (data.len() - 1) * 8) || (bit_length > data.len() * 8) {
+            return None;
+        }
+
         return Some(BitString{
             data: data,
             bit_length: bit_length,
@@ -137,12 +145,19 @@ impl Integer for BigInt {
 
 #[cfg(test)]
 mod tests {
-    use super::{ObjectIdentifier};
+    use super::{BitString, ObjectIdentifier};
 
     #[test]
     fn test_object_identifier_new() {
         assert!(ObjectIdentifier::new(vec![]).is_none());
         assert!(ObjectIdentifier::new(vec![3, 10]).is_none());
         assert!(ObjectIdentifier::new(vec![1, 50]).is_none());
+    }
+
+    #[test]
+    fn test_bit_string_new() {
+        assert!(BitString::new(b"".to_vec(), 1).is_none());
+        assert!(BitString::new(b"\x00".to_vec(), 0).is_none());
+        assert!(BitString::new(b"\x00".to_vec(), 9).is_none());
     }
 }
