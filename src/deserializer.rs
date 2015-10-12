@@ -113,7 +113,7 @@ impl Deserializer {
     pub fn read_bit_string(&mut self) -> DeserializationResult<BitString> {
         return self._read_with_tag(3, |data| {
             let padding_bits = match data.get(0) {
-                Some(bits) => *bits,
+                Some(&bits) => bits,
                 None => return Err(DeserializationError::InvalidValue),
             };
 
