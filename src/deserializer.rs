@@ -112,10 +112,11 @@ impl Deserializer {
 
     pub fn read_bit_string(&mut self) -> DeserializationResult<BitString> {
         return self._read_with_tag(3, |data| {
-            if data.is_empty() {
-                return Err(DeserializationError::InvalidValue);
-            }
-            let padding_bits = data[0];
+            let padding_bits = match data.get(0) {
+                Some(bits) => *bits,
+                None => return Err(DeserializationError::InvalidValue),
+            };
+
             if padding_bits > 7 ||
                 (data.len() == 1 && padding_bits > 0) ||
                 ((data[data.len() - 1] & ((1 << padding_bits) - 1)) != 0) {
