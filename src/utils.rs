@@ -31,13 +31,11 @@ pub struct BitString {
 
 impl BitString {
     pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
-        // TODO: there's got to be a good way to simplify this.
-        if data.is_empty() || bit_length == 0 {
-            if !(data.is_empty() && bit_length == 0) {
-                return None;
-            }
-        } else if (bit_length < (data.len() - 1) * 8) || (bit_length > data.len() * 8) {
-            return None;
+        match (data.len(), bit_length) {
+            (0, 0) => (),
+            (_, 0) | (0, _) => return None,
+            (i, j) if (i * 8 < j) || (i - 1) * 8 > j  => return None,
+            _ => (),
         }
 
         return Some(BitString{
