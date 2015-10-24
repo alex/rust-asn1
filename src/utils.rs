@@ -34,14 +34,14 @@ impl BitString {
         match (data.len(), bit_length) {
             (0, 0) => (),
             (_, 0) | (0, _) => return None,
-            (i, j) if (i * 8 < j) || (i - 1) * 8 > j  => return None,
+            (i, j) if (i * 8 < j) || (i - 1) * 8 > j => return None,
             _ => (),
         }
 
-        return Some(BitString{
+        return Some(BitString {
             data: data,
             bit_length: bit_length,
-        })
+        });
     }
 }
 
