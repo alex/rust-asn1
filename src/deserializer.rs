@@ -300,6 +300,7 @@ mod tests {
             ),
             (Err(DeserializationError::InvalidValue), b"\x04\x80".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x04\x81\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x04\x81\x01\x09".to_vec()),
             (
                 Err(DeserializationError::IntegerOverflow),
                 b"\x04\x89\x01\x01\x01\x01\x01\x01\x01\x01\x01".to_vec()
