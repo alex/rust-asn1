@@ -56,6 +56,7 @@ impl Deserializer {
             return Ok((b & 0x7f) as usize);
         }
         let num_bytes = b & 0x7f;
+        // Indefinite lengths are not valid DER.
         if num_bytes == 0 {
             return Err(DeserializationError::InvalidValue);
         }
@@ -64,6 +65,7 @@ impl Deserializer {
             let b = try!(self.reader.read_u8());
             length <<= 8;
             length |= b as usize;
+            // Disallow leading 0s.
             if length == 0 {
                 return Err(DeserializationError::InvalidValue);
             }
@@ -298,6 +300,10 @@ mod tests {
             ),
             (Err(DeserializationError::InvalidValue), b"\x04\x80".to_vec()),
             (Err(DeserializationError::InvalidValue), b"\x04\x81\x00".to_vec()),
+            (
+                Err(DeserializationError::IntegerOverflow),
+                b"\x04\x89\x01\x01\x01\x01\x01\x01\x01\x01\x01".to_vec()
+            ),
             (Err(DeserializationError::ShortData), b"\x04\x03\x01\x02".to_vec()),
         ], |deserializer| {
             return deserializer.read_octet_string();
