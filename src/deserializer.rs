@@ -63,12 +63,19 @@ impl Deserializer {
         let mut length = 0;
         for _ in 0..num_bytes {
             let b = try!(self.reader.read_u8());
+            // Handle overflows
+            if length > (usize::max_value() >> 8) {
+                return Err(DeserializationError::IntegerOverflow);
+            }
             length <<= 8;
             length |= b as usize;
             // Disallow leading 0s.
             if length == 0 {
                 return Err(DeserializationError::InvalidValue);
             }
+        }
+        if length < 128 {
+            return Err(DeserializationError::InvalidValue);
         }
         return Ok(length);
     }
