@@ -60,7 +60,7 @@ impl Deserializer {
             return Err(DeserializationError::InvalidValue);
         }
         let mut length = 0;
-        for _ in (0..num_bytes) {
+        for _ in 0..num_bytes {
             let b = try!(self.reader.read_u8());
             length <<= 8;
             length |= b as usize;
