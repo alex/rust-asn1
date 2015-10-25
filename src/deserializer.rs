@@ -52,9 +52,33 @@ impl Deserializer {
 
     fn _read_length(&mut self) -> DeserializationResult<usize> {
         let b = try!(self.reader.read_u8());
-        // TODO: handle lengths greater than 128
-        assert!(b & 0x80 == 0);
-        return Ok((b & 0x7f) as usize);
+        if b & 0x80 == 0 {
+            return Ok((b & 0x7f) as usize);
+        }
+        let num_bytes = b & 0x7f;
+        // Indefinite lengths are not valid DER.
+        if num_bytes == 0 {
+            return Err(DeserializationError::InvalidValue);
+        }
+        let mut length = 0;
+        for _ in 0..num_bytes {
+            let b = try!(self.reader.read_u8());
+            // Handle overflows
+            if length > (usize::max_value() >> 8) {
+                return Err(DeserializationError::IntegerOverflow);
+            }
+            length <<= 8;
+            length |= b as usize;
+            // Disallow leading 0s.
+            if length == 0 {
+                return Err(DeserializationError::InvalidValue);
+            }
+        }
+        // Do not allow values <127 to be encoded using the long form
+        if length < 128 {
+            return Err(DeserializationError::InvalidValue);
+        }
+        return Ok(length);
     }
 
     fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> DeserializationResult<T>
@@ -278,6 +302,17 @@ mod tests {
         assert_deserializes(vec![
             (Ok(b"".to_vec()), b"\x04\x00".to_vec()),
             (Ok(b"\x01\x02\x03".to_vec()), b"\x04\x03\x01\x02\x03".to_vec()),
+            (
+                Ok(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_vec()),
+                b"\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_vec()
+            ),
+            (Err(DeserializationError::InvalidValue), b"\x04\x80".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x04\x81\x00".to_vec()),
+            (Err(DeserializationError::InvalidValue), b"\x04\x81\x01\x09".to_vec()),
+            (
+                Err(DeserializationError::IntegerOverflow),
+                b"\x04\x89\x01\x01\x01\x01\x01\x01\x01\x01\x01".to_vec()
+            ),
             (Err(DeserializationError::ShortData), b"\x04\x03\x01\x02".to_vec()),
         ], |deserializer| {
             return deserializer.read_octet_string();
