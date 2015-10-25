@@ -74,6 +74,7 @@ impl Deserializer {
                 return Err(DeserializationError::InvalidValue);
             }
         }
+        // Do not allow values <127 to be encoded using the long form
         if length < 128 {
             return Err(DeserializationError::InvalidValue);
         }
