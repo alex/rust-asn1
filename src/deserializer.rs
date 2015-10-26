@@ -89,11 +89,14 @@ impl Deserializer {
             return Err(DeserializationError::UnexpectedTag);
         }
         let length = try!(self._read_length());
-        let mut data = vec![0; length];
-        let n = self.reader.read(&mut data).unwrap();
-        if n != length {
+        // Check for short data before allocating the data Vec so we disallow obscenely large
+        // lengths
+        if length > (self.reader.get_ref().len() - self.reader.position() as usize) {
             return Err(DeserializationError::ShortData);
         }
+        let mut data = vec![0; length];
+        let n = self.reader.read(&mut data).unwrap();
+        assert_eq!(n, length);
         return body(data);
     }
 
@@ -335,6 +338,7 @@ mod tests {
                 b"\x04\x89\x01\x01\x01\x01\x01\x01\x01\x01\x01".to_vec()
             ),
             (Err(DeserializationError::ShortData), b"\x04\x03\x01\x02".to_vec()),
+            (Err(DeserializationError::ShortData), b"\x04\x86\xff\xff\xff\xff\xff\xff".to_vec()),
         ], |deserializer| {
             return deserializer.read_octet_string();
         });
