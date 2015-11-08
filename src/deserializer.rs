@@ -334,23 +334,14 @@ mod tests {
                 Ok(ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap()),
                 b"\x06\x06\x2a\x86\x48\x86\xf7\x0d"
             ),
-            (
-                Ok(ObjectIdentifier::new(vec![1, 2, 3, 4]).unwrap()),
-                b"\x06\x03\x2a\x03\x04",
-            ),
+            (Ok(ObjectIdentifier::new(vec![1, 2, 3, 4]).unwrap()), b"\x06\x03\x2a\x03\x04"),
             (
                 Ok(ObjectIdentifier::new(vec![1, 2, 840, 133549, 1, 1, 5]).unwrap()),
                 b"\x06\x09\x2a\x86\x48\x88\x93\x2d\x01\x01\x05",
             ),
-            (
-                Ok(ObjectIdentifier::new(vec![2, 100, 3]).unwrap()),
-                b"\x06\x03\x81\x34\x03",
-            ),
+            (Ok(ObjectIdentifier::new(vec![2, 100, 3]).unwrap()), b"\x06\x03\x81\x34\x03"),
             (Err(DeserializationError::InvalidValue), b"\x06\x00"),
-            (
-                Err(DeserializationError::InvalidValue),
-                b"\x06\x07\x55\x02\xc0\x80\x80\x80\x80"
-            ),
+            (Err(DeserializationError::InvalidValue), b"\x06\x07\x55\x02\xc0\x80\x80\x80\x80"),
             (Err(DeserializationError::ShortData), b"\x06\x02\x2a\x86"),
         ], |deserializer| {
             return deserializer.read_object_identifier();
@@ -362,10 +353,7 @@ mod tests {
         assert_deserializes(vec![
             (Ok((1, 2)), b"\x30\x06\x02\x01\x01\x02\x01\x02"),
             (Err(DeserializationError::ShortData), b"\x30\x03\x02\x01\x01"),
-            (
-                Err(DeserializationError::ExtraData),
-                b"\x30\x07\x02\x01\x01\x02\x01\x02\x00"
-            ),
+            (Err(DeserializationError::ExtraData), b"\x30\x07\x02\x01\x01\x02\x01\x02\x00"),
         ], |deserializer| {
             return deserializer.read_sequence(|deserializer| {
                 return Ok((
