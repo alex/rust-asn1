@@ -59,7 +59,7 @@ fn _int_length(v: i64) -> usize {
 
 pub trait Integer: Sized {
     fn encode(&self) -> Vec<u8>;
-    fn decode(Vec<u8>) -> DeserializationResult<Self>;
+    fn decode(&[u8]) -> DeserializationResult<Self>;
 }
 
 macro_rules! primitive_integer {
@@ -74,7 +74,7 @@ macro_rules! primitive_integer {
                 return result;
             }
 
-            fn decode(data: Vec<u8>) -> DeserializationResult<$Int> {
+            fn decode(data: &[u8]) -> DeserializationResult<$Int> {
                 if data.len() > mem::size_of::<$Int>() {
                     return Err(DeserializationError::IntegerOverflow);
                 } else if data.is_empty() {
@@ -126,7 +126,7 @@ impl Integer for BigInt {
         }
     }
 
-    fn decode(data: Vec<u8>) -> DeserializationResult<BigInt> {
+    fn decode(data: &[u8]) -> DeserializationResult<BigInt> {
         if data.is_empty() {
             return Err(DeserializationError::InvalidValue);
         }
