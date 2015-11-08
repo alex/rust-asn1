@@ -349,17 +349,14 @@ mod tests {
     #[test]
     fn test_read_bit_string() {
         assert_deserializes(vec![
-            (Ok(BitString::new(b"".to_vec(), 0).unwrap()), b"\x03\x01\x00".to_vec()),
-            (Ok(BitString::new(b"\x00".to_vec(), 1).unwrap()), b"\x03\x02\x07\x00".to_vec()),
-            (Ok(BitString::new(b"\x80".to_vec(), 1).unwrap()), b"\x03\x02\x07\x80".to_vec()),
-            (
-                Ok(BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()),
-                b"\x03\x03\x04\x81\xf0".to_vec()
-            ),
-            (Err(DeserializationError::InvalidValue), b"\x03\x00".to_vec()),
-            (Err(DeserializationError::InvalidValue), b"\x03\x02\x07\x01".to_vec()),
-            (Err(DeserializationError::InvalidValue), b"\x03\x02\x07\x40".to_vec()),
-            (Err(DeserializationError::InvalidValue), b"\x03\x02\x08\x00".to_vec()),
+            (Ok(BitString::new(b"".to_vec(), 0).unwrap()), b"\x03\x01\x00"),
+            (Ok(BitString::new(b"\x00".to_vec(), 1).unwrap()), b"\x03\x02\x07\x00"),
+            (Ok(BitString::new(b"\x80".to_vec(), 1).unwrap()), b"\x03\x02\x07\x80"),
+            (Ok(BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()), b"\x03\x03\x04\x81\xf0"),
+            (Err(DeserializationError::InvalidValue), b"\x03\x00"),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x07\x01"),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x07\x40"),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x08\x00"),
         ], |deserializer| {
             return deserializer.read_bit_string();
         })
