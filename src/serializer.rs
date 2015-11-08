@@ -111,9 +111,8 @@ impl<'a> Serializer<'a> {
 
     pub fn write_bit_string(&mut self, v: BitString) {
         return self._write_with_tag(3, || {
-            let mut result = vec![
-                ((8 - (v.bit_length % 8)) % 8) as u8
-            ];
+            let mut result = Vec::with_capacity(1 + v.data.len());
+            result.push(((8 - (v.bit_length % 8)) % 8) as u8);
             result.extend(&v.data);
             return result;
         })
