@@ -1,5 +1,5 @@
 use std::{convert};
-use std::io::{Cursor, Read};
+use std::io::{BufRead, Cursor};
 
 use byteorder::{self, ReadBytesExt};
 
@@ -26,7 +26,7 @@ impl convert::From<byteorder::Error> for DeserializationError {
 
 pub type DeserializationResult<T> = Result<T, DeserializationError>;
 
-fn _read_base128_int(reader: &mut Cursor<Vec<u8>>) -> DeserializationResult<u32> {
+fn _read_base128_int(reader: &mut Cursor<&[u8]>) -> DeserializationResult<u32> {
     let mut ret = 0u32;
     for _ in 0..4 {
         let b = try!(reader.read_u8());
@@ -39,12 +39,12 @@ fn _read_base128_int(reader: &mut Cursor<Vec<u8>>) -> DeserializationResult<u32>
     return Err(DeserializationError::InvalidValue);
 }
 
-pub struct Deserializer {
-    reader: Cursor<Vec<u8>>,
+pub struct Deserializer<'a> {
+    reader: Cursor<&'a [u8]>,
 }
 
-impl Deserializer {
-    pub fn new(data: Vec<u8>) -> Deserializer {
+impl<'a> Deserializer<'a> {
+    pub fn new(data: &[u8]) -> Deserializer {
         return Deserializer{
             reader: Cursor::new(data),
         }
@@ -82,22 +82,24 @@ impl Deserializer {
     }
 
     fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> DeserializationResult<T>
-            where F: Fn(Vec<u8>) -> DeserializationResult<T> {
+            where F: Fn(&[u8]) -> DeserializationResult<T> {
         let tag = try!(self.reader.read_u8());
         // TODO: only some of the bits in the first byte are for the tag
         if tag != expected_tag {
             return Err(DeserializationError::UnexpectedTag);
         }
         let length = try!(self._read_length());
-        // Check for short data before allocating the data Vec so we disallow obscenely large
-        // lengths
-        if length > (self.reader.get_ref().len() - self.reader.position() as usize) {
-            return Err(DeserializationError::ShortData);
+
+        let result;
+        {
+            let buf = self.reader.fill_buf().unwrap();
+            if buf.len() < length {
+                return Err(DeserializationError::ShortData);
+            }
+            result = body(&buf[..length]);
         }
-        let mut data = vec![0; length];
-        let n = self.reader.read(&mut data).unwrap();
-        assert_eq!(n, length);
-        return body(data);
+        self.reader.consume(length);
+        return result;
     }
 
     pub fn finish(self) -> DeserializationResult<()> {
@@ -133,7 +135,7 @@ impl Deserializer {
 
     pub fn read_octet_string(&mut self) -> DeserializationResult<Vec<u8>> {
         return self._read_with_tag(4, |data| {
-            return Ok(data);
+            return Ok(data.to_owned());
         });
     }
 
@@ -170,7 +172,7 @@ impl Deserializer {
     }
 }
 
-pub fn from_vec<F, T>(data: Vec<u8>, f: F) -> DeserializationResult<T>
+pub fn from_vec<F, T>(data: &[u8], f: F) -> DeserializationResult<T>
         where F: Fn(&mut Deserializer) -> DeserializationResult<T> {
     let mut deserializer = Deserializer::new(data);
     let result = try!(f(&mut deserializer));
@@ -191,7 +193,7 @@ mod tests {
     fn assert_deserializes<T, F>(values: Vec<(DeserializationResult<T>, Vec<u8>)>, f: F)
             where T: Eq + fmt::Debug, F: Fn(&mut Deserializer) -> DeserializationResult<T> {
         for (expected, value) in values {
-            let result = from_vec(value, &f);
+            let result = from_vec(&value[..], &f);
             assert_eq!(result, expected);
         }
     }
