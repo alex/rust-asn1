@@ -90,7 +90,6 @@ impl<'a> Deserializer<'a> {
         }
         let length = try!(self._read_length());
 
-
         let result = {
             let buf = self.reader.fill_buf().unwrap();
             if buf.len() < length {
