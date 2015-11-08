@@ -90,14 +90,15 @@ impl<'a> Deserializer<'a> {
         }
         let length = try!(self._read_length());
 
-        let result;
-        {
+
+        let result = {
             let buf = self.reader.fill_buf().unwrap();
             if buf.len() < length {
                 return Err(DeserializationError::ShortData);
             }
-            result = body(&buf[..length]);
-        }
+            body(&buf[..length])
+        };
+
         self.reader.consume(length);
         return result;
     }
