@@ -30,6 +30,11 @@ pub struct BitString {
 }
 
 impl BitString {
+    pub fn from_bytes(data: Vec<u8>) -> Option<BitString> {
+        let length = data.len() * 8;
+        return BitString::new(data, length);
+    }
+
     pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
         match (data.len(), bit_length) {
             (0, 0) => (),
@@ -157,5 +162,11 @@ mod tests {
         assert!(BitString::new(b"".to_vec(), 1).is_none());
         assert!(BitString::new(b"\x00".to_vec(), 0).is_none());
         assert!(BitString::new(b"\x00".to_vec(), 9).is_none());
+    }
+
+    #[test]
+    fn test_bit_string_from_bytes() {
+        assert_eq!(BitString::from_bytes(b"".to_vec()), BitString::new(b"".to_vec(), 0));
+        assert_eq!(BitString::from_bytes(b"abc".to_vec()), BitString::new(b"abc".to_vec(), 24));
     }
 }
