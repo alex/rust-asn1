@@ -25,8 +25,8 @@ impl ObjectIdentifier {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BitString {
-    pub data: Vec<u8>,
-    pub bit_length: usize,
+    data: Vec<u8>,
+    bit_length: usize,
 }
 
 impl BitString {
@@ -36,6 +36,7 @@ impl BitString {
     }
 
     pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
+        // TODO: validate that the last (data.len() * 8) - bit_length bits are 0.
         match (data.len(), bit_length) {
             (0, 0) => (),
             (_, 0) | (0, _) => return None,
@@ -47,6 +48,14 @@ impl BitString {
             data: data,
             bit_length: bit_length,
         });
+    }
+
+    pub fn len(&self) -> usize {
+        return self.bit_length;
+    }
+
+    pub fn as_bytes(&self) -> &Vec<u8> {
+        return &self.data;
     }
 }
 
