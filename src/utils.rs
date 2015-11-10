@@ -36,12 +36,16 @@ impl BitString {
     }
 
     pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
-        // TODO: validate that the last (data.len() * 8) - bit_length bits are 0.
         match (data.len(), bit_length) {
             (0, 0) => (),
             (_, 0) | (0, _) => return None,
             (i, j) if (i * 8 < j) || (i - 1) * 8 > j => return None,
             _ => (),
+        }
+
+        let padding_bits = data.len() * 8 - bit_length;
+        if padding_bits > 0 && data[data.len() - 1] & ((1 << padding_bits) - 1) != 0 {
+            return None;
         }
 
         return Some(BitString {
@@ -171,6 +175,7 @@ mod tests {
         assert!(BitString::new(b"".to_vec(), 1).is_none());
         assert!(BitString::new(b"\x00".to_vec(), 0).is_none());
         assert!(BitString::new(b"\x00".to_vec(), 9).is_none());
+        assert!(BitString::new(b"\xff".to_vec(), 3).is_none());
     }
 
     #[test]

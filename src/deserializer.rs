@@ -146,17 +146,17 @@ impl<'a> Deserializer<'a> {
                 None => return Err(DeserializationError::InvalidValue),
             };
 
-            if padding_bits > 7 ||
-                (data.len() == 1 && padding_bits > 0) ||
-                ((data[data.len() - 1] & ((1 << padding_bits) - 1)) != 0) {
-
+            if padding_bits > 7 || (data.len() == 1 && padding_bits > 0) {
                 return Err(DeserializationError::InvalidValue);
             }
 
-            return Ok(BitString::new(
+            return match BitString::new(
                 data[1..].to_vec(),
                 (data.len() - 1) * 8 - (padding_bits as usize),
-            ).unwrap());
+            ) {
+                Some(b) => Ok(b),
+                None => Err(DeserializationError::InvalidValue),
+            }
         });
     }
 
