@@ -23,6 +23,46 @@ impl ObjectIdentifier {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BitString {
+    data: Vec<u8>,
+    bit_length: usize,
+}
+
+impl BitString {
+    pub fn from_bytes(data: Vec<u8>) -> Option<BitString> {
+        let length = data.len() * 8;
+        return BitString::new(data, length);
+    }
+
+    pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
+        match (data.len(), bit_length) {
+            (0, 0) => (),
+            (_, 0) | (0, _) => return None,
+            (i, j) if (i * 8 < j) || (i - 1) * 8 > j => return None,
+            _ => (),
+        }
+
+        let padding_bits = data.len() * 8 - bit_length;
+        if padding_bits > 0 && data[data.len() - 1] & ((1 << padding_bits) - 1) != 0 {
+            return None;
+        }
+
+        return Some(BitString {
+            data: data,
+            bit_length: bit_length,
+        });
+    }
+
+    pub fn len(&self) -> usize {
+        return self.bit_length;
+    }
+
+    pub fn as_bytes(&self) -> &Vec<u8> {
+        return &self.data;
+    }
+}
+
 fn _int_length(v: i64) -> usize {
     let mut num_bytes = 1;
     let mut i = v;
@@ -37,7 +77,7 @@ fn _int_length(v: i64) -> usize {
 
 pub trait Integer: Sized {
     fn encode(&self) -> Vec<u8>;
-    fn decode(Vec<u8>) -> DeserializationResult<Self>;
+    fn decode(&[u8]) -> DeserializationResult<Self>;
 }
 
 macro_rules! primitive_integer {
@@ -52,7 +92,7 @@ macro_rules! primitive_integer {
                 return result;
             }
 
-            fn decode(data: Vec<u8>) -> DeserializationResult<$Int> {
+            fn decode(data: &[u8]) -> DeserializationResult<$Int> {
                 if data.len() > mem::size_of::<$Int>() {
                     return Err(DeserializationError::IntegerOverflow);
                 } else if data.is_empty() {
@@ -104,7 +144,7 @@ impl Integer for BigInt {
         }
     }
 
-    fn decode(data: Vec<u8>) -> DeserializationResult<BigInt> {
+    fn decode(data: &[u8]) -> DeserializationResult<BigInt> {
         if data.is_empty() {
             return Err(DeserializationError::InvalidValue);
         }
@@ -121,12 +161,26 @@ impl Integer for BigInt {
 
 #[cfg(test)]
 mod tests {
-    use super::{ObjectIdentifier};
+    use super::{BitString, ObjectIdentifier};
 
     #[test]
     fn test_object_identifier_new() {
         assert!(ObjectIdentifier::new(vec![]).is_none());
         assert!(ObjectIdentifier::new(vec![3, 10]).is_none());
         assert!(ObjectIdentifier::new(vec![1, 50]).is_none());
+    }
+
+    #[test]
+    fn test_bit_string_new() {
+        assert!(BitString::new(b"".to_vec(), 1).is_none());
+        assert!(BitString::new(b"\x00".to_vec(), 0).is_none());
+        assert!(BitString::new(b"\x00".to_vec(), 9).is_none());
+        assert!(BitString::new(b"\xff".to_vec(), 3).is_none());
+    }
+
+    #[test]
+    fn test_bit_string_from_bytes() {
+        assert_eq!(BitString::from_bytes(b"".to_vec()), BitString::new(b"".to_vec(), 0));
+        assert_eq!(BitString::from_bytes(b"abc".to_vec()), BitString::new(b"abc".to_vec(), 24));
     }
 }
