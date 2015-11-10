@@ -3,6 +3,7 @@ use std::io::{BufRead, Cursor};
 
 use byteorder::{self, ReadBytesExt};
 
+use common::{ASN1Tag};
 use utils::{BitString, Integer, ObjectIdentifier};
 
 
@@ -81,11 +82,11 @@ impl<'a> Deserializer<'a> {
         return Ok(length);
     }
 
-    fn _read_with_tag<T, F>(&mut self, expected_tag: u8, body: F) -> DeserializationResult<T>
+    fn _read_with_tag<T, F>(&mut self, expected_tag: ASN1Tag, body: F) -> DeserializationResult<T>
             where F: Fn(&[u8]) -> DeserializationResult<T> {
         let tag = try!(self.reader.read_u8());
         // TODO: only some of the bits in the first byte are for the tag
-        if tag != expected_tag {
+        if tag != expected_tag as u8 {
             return Err(DeserializationError::UnexpectedTag);
         }
         let length = try!(self._read_length());
@@ -110,7 +111,7 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_bool(&mut self) -> DeserializationResult<bool> {
-        return self._read_with_tag(1, |data| {
+        return self._read_with_tag(ASN1Tag::Bool, |data| {
             if data == b"\x00" {
                 return Ok(false);
             } else if data == b"\xff" {
@@ -122,7 +123,7 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_int<T>(&mut self) -> DeserializationResult<T> where T: Integer {
-        return self._read_with_tag(2, |data| {
+        return self._read_with_tag(ASN1Tag::Integer, |data| {
             if data.len() > 1 {
                 match (data[0], data[1] & 0x80) {
                     (0xff, 0x80) | (0x00, 0x00) => return Err(DeserializationError::InvalidValue),
@@ -134,13 +135,13 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_octet_string(&mut self) -> DeserializationResult<Vec<u8>> {
-        return self._read_with_tag(4, |data| {
+        return self._read_with_tag(ASN1Tag::OctetString, |data| {
             return Ok(data.to_owned());
         });
     }
 
     pub fn read_bit_string(&mut self) -> DeserializationResult<BitString> {
-        return self._read_with_tag(3, |data| {
+        return self._read_with_tag(ASN1Tag::BitString, |data| {
             let padding_bits = match data.get(0) {
                 Some(&bits) => bits,
                 None => return Err(DeserializationError::InvalidValue),
@@ -158,7 +159,7 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_object_identifier(&mut self) -> DeserializationResult<ObjectIdentifier> {
-        return self._read_with_tag(6, |data| {
+        return self._read_with_tag(ASN1Tag::ObjectIdentifier, |data| {
             if data.is_empty() {
                 return Err(DeserializationError::InvalidValue);
             }
@@ -184,7 +185,7 @@ impl<'a> Deserializer<'a> {
 
     pub fn read_sequence<F, T>(&mut self, v: F) -> DeserializationResult<T>
             where F: Fn(&mut Deserializer) -> DeserializationResult<T> {
-        return self._read_with_tag(48, |data| {
+        return self._read_with_tag(ASN1Tag::Sequence, |data| {
             return from_vec(data, &v);
         });
     }
