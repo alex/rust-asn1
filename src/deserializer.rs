@@ -3,7 +3,7 @@ use std::io::{BufRead, Cursor};
 
 use byteorder::{self, ReadBytesExt};
 
-use utils::{Integer, ObjectIdentifier};
+use utils::{BitString, Integer, ObjectIdentifier};
 
 
 #[derive(Debug, PartialEq, Eq)]
@@ -139,6 +139,24 @@ impl<'a> Deserializer<'a> {
         });
     }
 
+    pub fn read_bit_string(&mut self) -> DeserializationResult<BitString> {
+        return self._read_with_tag(3, |data| {
+            let padding_bits = match data.get(0) {
+                Some(&bits) => bits,
+                None => return Err(DeserializationError::InvalidValue),
+            };
+
+            if padding_bits > 7 || (data.len() == 1 && padding_bits > 0) {
+                return Err(DeserializationError::InvalidValue);
+            }
+
+            return BitString::new(
+                data[1..].to_vec(),
+                (data.len() - 1) * 8 - (padding_bits as usize),
+            ).ok_or(DeserializationError::InvalidValue);
+        });
+    }
+
     pub fn read_object_identifier(&mut self) -> DeserializationResult<ObjectIdentifier> {
         return self._read_with_tag(6, |data| {
             if data.is_empty() {
@@ -187,7 +205,7 @@ mod tests {
 
     use num::{BigInt, FromPrimitive, One};
 
-    use utils::{ObjectIdentifier};
+    use utils::{BitString, ObjectIdentifier};
     use super::{Deserializer, DeserializationError, DeserializationResult, from_vec};
 
     fn assert_deserializes<T, F>(values: Vec<(DeserializationResult<T>, &[u8])>, f: F)
@@ -323,6 +341,22 @@ mod tests {
         ], |deserializer| {
             return deserializer.read_octet_string();
         });
+    }
+
+    #[test]
+    fn test_read_bit_string() {
+        assert_deserializes(vec![
+            (Ok(BitString::new(b"".to_vec(), 0).unwrap()), b"\x03\x01\x00"),
+            (Ok(BitString::new(b"\x00".to_vec(), 1).unwrap()), b"\x03\x02\x07\x00"),
+            (Ok(BitString::new(b"\x80".to_vec(), 1).unwrap()), b"\x03\x02\x07\x80"),
+            (Ok(BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()), b"\x03\x03\x04\x81\xf0"),
+            (Err(DeserializationError::InvalidValue), b"\x03\x00"),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x07\x01"),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x07\x40"),
+            (Err(DeserializationError::InvalidValue), b"\x03\x02\x08\x00"),
+        ], |deserializer| {
+            return deserializer.read_bit_string();
+        })
     }
 
     #[test]
