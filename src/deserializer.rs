@@ -150,13 +150,10 @@ impl<'a> Deserializer<'a> {
                 return Err(DeserializationError::InvalidValue);
             }
 
-            return match BitString::new(
+            return BitString::new(
                 data[1..].to_vec(),
                 (data.len() - 1) * 8 - (padding_bits as usize),
-            ) {
-                Some(b) => Ok(b),
-                None => Err(DeserializationError::InvalidValue),
-            }
+            ).ok_or(DeserializationError::InvalidValue);
         });
     }
 
