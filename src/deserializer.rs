@@ -1,4 +1,4 @@
-use std::{convert};
+use std::{self, convert};
 use std::io::{BufRead, Cursor};
 
 use byteorder::{self, ReadBytesExt};
@@ -193,11 +193,11 @@ impl<'a> Deserializer<'a> {
 
     pub fn read_utctime(&mut self) -> DeserializationResult<DateTime<UTC>> {
         return self._read_with_tag(23, |data| {
-            let s = match String::from_utf8(data) {
+            let s = match std::str::from_utf8(data) {
                 Ok(s) => s,
                 Err(_) => return Err(DeserializationError::InvalidValue),
             };
-            match UTC.datetime_from_str(&s, "%y%m%d%H%M%SZ") {
+            match UTC.datetime_from_str(s, "%y%m%d%H%M%SZ") {
                 Ok(d) => {
                     // Chrono allows leap seconds, but ASN.1 does not.
                     if _is_leap_second(d) {
