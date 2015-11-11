@@ -1,5 +1,6 @@
-const ASN1_CONSTRUCTED_FLAG: isize = 0x20;
+const ASN1_CONSTRUCTED_FLAG: u8 = 0x20;
 
+#[repr(u8)]
 pub enum ASN1Tag {
     Bool = 0x1,
     Integer = 0x2,
