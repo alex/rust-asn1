@@ -1,10 +1,12 @@
+const ASN1_CONSTRUCTED_FLAG: isize = 0x20;
+
 pub enum ASN1Tag {
-    Bool = 1,
-    Integer = 2,
-    BitString = 3,
-    OctetString = 4,
-    ObjectIdentifier = 6,
-    PrintableString = 19,
-    UTCTime = 23,
-    Sequence = 48,
+    Bool = 0x1,
+    Integer = 0x2,
+    BitString = 0x3,
+    OctetString = 0x4,
+    ObjectIdentifier = 0x6,
+    PrintableString = 0x13,
+    UTCTime = 0x17,
+    Sequence = (0x10 | ASN1_CONSTRUCTED_FLAG),
 }
