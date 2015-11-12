@@ -1,7 +1,7 @@
 const ASN1_CONSTRUCTED_FLAG: u8 = 0x20;
 
 #[repr(u8)]
-pub enum ASN1Tag {
+pub enum Tag {
     Bool = 0x1,
     Integer = 0x2,
     BitString = 0x3,

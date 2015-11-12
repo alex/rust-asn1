@@ -5,7 +5,7 @@ use byteorder::{WriteBytesExt};
 
 use chrono::{DateTime, UTC};
 
-use common::{ASN1Tag};
+use common::{Tag};
 use utils::{BitString, Integer, ObjectIdentifier};
 
 
@@ -65,7 +65,7 @@ impl<'a> Serializer<'a> {
         }
     }
 
-    fn _write_with_tag<F>(&mut self, tag: ASN1Tag, body: F) where F: Fn() -> Vec<u8> {
+    fn _write_with_tag<F>(&mut self, tag: Tag, body: F) where F: Fn() -> Vec<u8> {
         self.writer.write_u8(tag as u8).unwrap();
         let body = body();
         self._write_length(body.len());
@@ -73,7 +73,7 @@ impl<'a> Serializer<'a> {
     }
 
     pub fn write_bool(&mut self, v: bool) {
-        return self._write_with_tag(ASN1Tag::Bool, || {
+        return self._write_with_tag(Tag::Bool, || {
             if v {
                 return b"\xff".to_vec();
             } else {
@@ -83,13 +83,13 @@ impl<'a> Serializer<'a> {
     }
 
     pub fn write_int<T>(&mut self, v: T) where T: Integer {
-        return self._write_with_tag(ASN1Tag::Integer, || {
+        return self._write_with_tag(Tag::Integer, || {
             return v.encode();
         });
     }
 
     pub fn write_octet_string(&mut self, v: &Vec<u8>) {
-        return self._write_with_tag(ASN1Tag::OctetString, || {
+        return self._write_with_tag(Tag::OctetString, || {
             return v.to_vec();
         });
     }
@@ -105,13 +105,13 @@ impl<'a> Serializer<'a> {
                 panic!("Non-printable characters.")
             }
         }
-        return self._write_with_tag(ASN1Tag::PrintableString, || {
+        return self._write_with_tag(Tag::PrintableString, || {
             return v.as_bytes().to_vec();
         });
     }
 
     pub fn write_bit_string(&mut self, v: BitString) {
-        return self._write_with_tag(ASN1Tag::BitString, || {
+        return self._write_with_tag(Tag::BitString, || {
             let data = v.as_bytes();
             let mut result = Vec::with_capacity(1 + data.len());
             result.push(((8 - (v.len() % 8)) % 8) as u8);
@@ -121,7 +121,7 @@ impl<'a> Serializer<'a> {
     }
 
     pub fn write_object_identifier(&mut self, v: ObjectIdentifier) {
-        return self._write_with_tag(ASN1Tag::ObjectIdentifier, || {
+        return self._write_with_tag(Tag::ObjectIdentifier, || {
             let mut data = Vec::new();
             _write_base128_int(&mut data, 40 * v.parts[0] + v.parts[1]);
             for el in v.parts.iter().skip(2) {
@@ -132,13 +132,13 @@ impl<'a> Serializer<'a> {
     }
 
     pub fn write_utctime(&mut self, v: DateTime<UTC>) {
-        return self._write_with_tag(ASN1Tag::UTCTime, || {
+        return self._write_with_tag(Tag::UTCTime, || {
             return format!("{}", v.format("%y%m%d%H%M%SZ")).into_bytes();
         });
     }
 
     pub fn write_sequence<F>(&mut self, v: F) where F: Fn(&mut Serializer) {
-        return self._write_with_tag(ASN1Tag::Sequence, || {
+        return self._write_with_tag(Tag::Sequence, || {
             return to_vec(&v);
         });
     }
