@@ -9,7 +9,7 @@ use utils::{BitString, Integer, ObjectIdentifier};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
-    UnexpectedTag,
+    UnexpectedTag {expected: u8, actual: u8},
     ShortData,
     ExtraData,
     IntegerOverflow,
@@ -86,8 +86,12 @@ impl<'a> Deserializer<'a> {
             where F: Fn(&[u8]) -> DeserializationResult<T> {
         let tag = try!(self.reader.read_u8());
         // TODO: only some of the bits in the first byte are for the tag
-        if tag != expected_tag as u8 {
-            return Err(DeserializationError::UnexpectedTag);
+        let expected_byte = expected_tag as u8;
+        if tag != expected_byte {
+            return Err(DeserializationError::UnexpectedTag{
+                expected: expected_byte,
+                actual: tag,
+            });
         }
         let length = try!(self._read_length());
 
@@ -250,7 +254,7 @@ mod tests {
             (Ok(-129), b"\x02\x02\xff\x7f"),
             (Ok(-256), b"\x02\x02\xff\x00"),
             (Ok(std::i64::MAX), b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff"),
-            (Err(DeserializationError::UnexpectedTag), b"\x03"),
+            (Err(DeserializationError::UnexpectedTag{expected: 0x2, actual: 0x3}), b"\x03"),
             (Err(DeserializationError::ShortData), b"\x02\x02\x00"),
             (Err(DeserializationError::ShortData), b""),
             (Err(DeserializationError::ShortData), b"\x02"),
