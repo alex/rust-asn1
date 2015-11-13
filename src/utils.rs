@@ -58,7 +58,7 @@ impl BitString {
         return self.bit_length;
     }
 
-    pub fn as_bytes(&self) -> &Vec<u8> {
+    pub fn as_bytes(&self) -> &[u8] {
         return &self.data;
     }
 }
