@@ -5,13 +5,13 @@ use byteorder::{self, ReadBytesExt};
 
 use chrono::{DateTime, UTC, TimeZone, Timelike};
 
-use common::{ASN1Tag};
+use common::{Tag};
 use utils::{BitString, Integer, ObjectIdentifier};
 
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum DeserializationError {
-    UnexpectedTag,
+    UnexpectedTag {expected: u8, actual: u8},
     ShortData,
     ExtraData,
     IntegerOverflow,
@@ -91,12 +91,16 @@ impl<'a> Deserializer<'a> {
         return Ok(length);
     }
 
-    fn _read_with_tag<T, F>(&mut self, expected_tag: ASN1Tag, body: F) -> DeserializationResult<T>
+    fn _read_with_tag<T, F>(&mut self, expected_tag: Tag, body: F) -> DeserializationResult<T>
             where F: Fn(&[u8]) -> DeserializationResult<T> {
         let tag = try!(self.reader.read_u8());
         // TODO: only some of the bits in the first byte are for the tag
-        if tag != expected_tag as u8 {
-            return Err(DeserializationError::UnexpectedTag);
+        let expected_byte = expected_tag as u8;
+        if tag != expected_byte {
+            return Err(DeserializationError::UnexpectedTag{
+                expected: expected_byte,
+                actual: tag,
+            });
         }
         let length = try!(self._read_length());
 
@@ -120,7 +124,7 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_bool(&mut self) -> DeserializationResult<bool> {
-        return self._read_with_tag(ASN1Tag::Bool, |data| {
+        return self._read_with_tag(Tag::Bool, |data| {
             if data == b"\x00" {
                 return Ok(false);
             } else if data == b"\xff" {
@@ -132,7 +136,7 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_int<T>(&mut self) -> DeserializationResult<T> where T: Integer {
-        return self._read_with_tag(ASN1Tag::Integer, |data| {
+        return self._read_with_tag(Tag::Integer, |data| {
             if data.len() > 1 {
                 match (data[0], data[1] & 0x80) {
                     (0xff, 0x80) | (0x00, 0x00) => return Err(DeserializationError::InvalidValue),
@@ -144,13 +148,13 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_octet_string(&mut self) -> DeserializationResult<Vec<u8>> {
-        return self._read_with_tag(ASN1Tag::OctetString, |data| {
+        return self._read_with_tag(Tag::OctetString, |data| {
             return Ok(data.to_owned());
         });
     }
 
     pub fn read_bit_string(&mut self) -> DeserializationResult<BitString> {
-        return self._read_with_tag(ASN1Tag::BitString, |data| {
+        return self._read_with_tag(Tag::BitString, |data| {
             let padding_bits = match data.get(0) {
                 Some(&bits) => bits,
                 None => return Err(DeserializationError::InvalidValue),
@@ -168,7 +172,7 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_object_identifier(&mut self) -> DeserializationResult<ObjectIdentifier> {
-        return self._read_with_tag(ASN1Tag::ObjectIdentifier, |data| {
+        return self._read_with_tag(Tag::ObjectIdentifier, |data| {
             if data.is_empty() {
                 return Err(DeserializationError::InvalidValue);
             }
@@ -214,7 +218,7 @@ impl<'a> Deserializer<'a> {
 
     pub fn read_sequence<F, T>(&mut self, v: F) -> DeserializationResult<T>
             where F: Fn(&mut Deserializer) -> DeserializationResult<T> {
-        return self._read_with_tag(ASN1Tag::Sequence, |data| {
+        return self._read_with_tag(Tag::Sequence, |data| {
             return from_vec(data, &v);
         });
     }
@@ -280,7 +284,7 @@ mod tests {
             (Ok(-129), b"\x02\x02\xff\x7f"),
             (Ok(-256), b"\x02\x02\xff\x00"),
             (Ok(std::i64::MAX), b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff"),
-            (Err(DeserializationError::UnexpectedTag), b"\x03"),
+            (Err(DeserializationError::UnexpectedTag{expected: 0x2, actual: 0x3}), b"\x03"),
             (Err(DeserializationError::ShortData), b"\x02\x02\x00"),
             (Err(DeserializationError::ShortData), b""),
             (Err(DeserializationError::ShortData), b"\x02"),
