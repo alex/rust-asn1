@@ -197,7 +197,7 @@ impl<'a> Deserializer<'a> {
     }
 
     pub fn read_utctime(&mut self) -> DeserializationResult<DateTime<UTC>> {
-        return self._read_with_tag(ASN1Tag::UTCTime, |data| {
+        return self._read_with_tag(Tag::UTCTime, |data| {
             let s = match std::str::from_utf8(data) {
                 Ok(s) => s,
                 Err(_) => return Err(DeserializationError::InvalidValue),
