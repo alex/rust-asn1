@@ -88,4 +88,13 @@ mod tests {
         assert_eq!(d.x, 3);
         assert_eq!(d.y, true);
     }
+
+    #[test]
+    fn test_empty_struct() {
+        asn1!(
+            Empty ::= SEQUENCE {}
+        );
+
+        assert_eq!(Empty, Empty);
+    }
 }
