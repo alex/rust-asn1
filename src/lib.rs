@@ -1,9 +1,12 @@
+#![feature(trace_macros)]
+
 extern crate byteorder;
 extern crate chrono;
 extern crate num;
 
 mod common;
 mod deserializer;
+mod macros;
 mod serializer;
 mod utils;
 
