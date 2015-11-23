@@ -1,5 +1,3 @@
-#![feature(trace_macros)]
-
 extern crate byteorder;
 extern crate chrono;
 extern crate num;
