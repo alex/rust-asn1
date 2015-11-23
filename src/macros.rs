@@ -1,3 +1,10 @@
+#[derive(PartialEq, Eq, Debug)]
+struct FieldDescription {
+    name: &'static str,
+    asn1_type: &'static str,
+    rust_type: &'static str,
+}
+
 macro_rules! asn1 {
     // Base case, we have parsed everything.
     (@field_name [$($parsed:tt)*] []) => (
@@ -21,7 +28,7 @@ macro_rules! asn1 {
         struct $name;
 
         impl $name {
-            fn asn1_description() -> Vec<(&'static str, &'static str, &'static str)> {
+            fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
                 return vec![];
             }
         }
@@ -35,14 +42,14 @@ macro_rules! asn1 {
         }
 
         impl $name {
-            fn asn1_description() -> Vec<(&'static str, &'static str, &'static str)> {
+            fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
                 let mut description = vec![];
                 $(
-                    description.push((
-                        stringify!($field_name),
-                        stringify!($field_type),
-                        stringify!($field_rust_type)
-                    ));
+                    description.push($crate::macros::FieldDescription{
+                        name: stringify!($field_name),
+                        asn1_type: stringify!($field_type),
+                        rust_type: stringify!($field_rust_type)
+                    });
                 )*
                 return description;
             }
@@ -57,6 +64,8 @@ macro_rules! asn1 {
 
 #[cfg(test)]
 mod tests {
+    use super::{FieldDescription};
+
     #[test]
     fn test_empty_sequence() {
         asn1!(
@@ -74,7 +83,9 @@ mod tests {
             }
         );
 
-        assert_eq!(Single::asn1_description(), vec![("x", "INTEGER", "i64")]);
+        assert_eq!(Single::asn1_description(), vec![
+            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64"},
+        ]);
     }
 
     #[test]
@@ -87,8 +98,8 @@ mod tests {
         );
 
         assert_eq!(Double::asn1_description(), vec![
-            ("x", "INTEGER", "i64"),
-            ("y", "BOOLEAN", "bool"),
+            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64"},
+            FieldDescription{name: "y", asn1_type: "BOOLEAN", rust_type: "bool"},
         ])
     }
 
