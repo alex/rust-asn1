@@ -10,6 +10,9 @@ macro_rules! asn1 {
     (@field_type [$($parsed:tt)*] [INTEGER, $($rest:tt)*]) => (
         asn1!(@field_name [$($parsed)* @type INTEGER] [$($rest)*]);
     );
+    (@field_type [$($parsed:tt)*] [BOOLEAN, $($rest:tt)*]) => (
+        asn1!(@field_name [$($parsed)* @type BOOLEAN] [$($rest)*]);
+    );
 
     (@complete $name:ident $(, @name $field_name:ident @type $field_type:ty)*) => {
         struct $name;
@@ -51,5 +54,20 @@ mod tests {
         );
 
         assert_eq!(Single::asn1_description(), vec![("x", "INTEGER")]);
+    }
+
+    #[test]
+    fn test_two_fields() {
+        asn1!(
+            Double := SEQUENCE {
+                x INTEGER,
+                y BOOLEAN,
+            }
+        );
+
+        assert_eq!(Double::asn1_description(), vec![
+            ("x", "INTEGER"),
+            ("y", "BOOLEAN"),
+        ])
     }
 }
