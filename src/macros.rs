@@ -14,6 +14,19 @@ macro_rules! asn1 {
         asn1!(@field_name [$($parsed)* @type BOOLEAN @rust_type bool] [$($rest)*]);
     );
 
+    // Special case empty SEQUENCE until https://github.com/rust-lang/rust/issues/29720 is
+    // resolved
+    (@complete $name:ident) => {
+        #[derive(PartialEq, Eq, Debug)]
+        struct $name;
+
+        impl $name {
+            fn asn1_description() -> Vec<(&'static str, &'static str, &'static str)> {
+                return vec![];
+            }
+        }
+    };
+
     (@complete $name:ident $(, @name $field_name:ident @type $field_type:ident @rust_type $field_rust_type:ty)*) => {
         struct $name {
             $(
