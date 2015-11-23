@@ -14,7 +14,7 @@ macro_rules! asn1 {
         asn1!(@field_name [$($parsed)* @type BOOLEAN @rust_type bool] [$($rest)*]);
     );
 
-    (@complete $name:ident $(, @name $field_name:ident @type $field_type:ident @rust_type $field_rust_type)*) => {
+    (@complete $name:ident $(, @name $field_name:ident @type $field_type:ident @rust_type $field_rust_type:ty)*) => {
         struct $name {
             $(
                 $field_name: $field_rust_type,
