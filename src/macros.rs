@@ -8,14 +8,18 @@ macro_rules! asn1 {
     );
 
     (@field_type [$($parsed:tt)*] [INTEGER, $($rest:tt)*]) => (
-        asn1!(@field_name [$($parsed)* @type INTEGER] [$($rest)*]);
+        asn1!(@field_name [$($parsed)* @type INTEGER @rust_type i64] [$($rest)*]);
     );
     (@field_type [$($parsed:tt)*] [BOOLEAN, $($rest:tt)*]) => (
-        asn1!(@field_name [$($parsed)* @type BOOLEAN] [$($rest)*]);
+        asn1!(@field_name [$($parsed)* @type BOOLEAN @rust_type bool] [$($rest)*]);
     );
 
-    (@complete $name:ident $(, @name $field_name:ident @type $field_type:ty)*) => {
-        struct $name;
+    (@complete $name:ident $(, @name $field_name:ident @type $field_type:ident @rust_type $field_rust_type)*) => {
+        struct $name {
+            $(
+                $field_name: $field_rust_type,
+            )*
+        }
 
         impl $name {
             fn asn1_description() -> Vec<(&'static str, &'static str)> {
@@ -69,5 +73,19 @@ mod tests {
             ("x", "INTEGER"),
             ("y", "BOOLEAN"),
         ])
+    }
+
+    #[test]
+    fn test_struct() {
+        asn1!(
+            Double ::= SEQUENCE {
+                x INTEGER,
+                y BOOLEAN,
+            }
+        );
+
+        let d = Double{x: 3, y: true};
+        assert_eq!(d.x, 3);
+        assert_eq!(d.y, true);
     }
 }
