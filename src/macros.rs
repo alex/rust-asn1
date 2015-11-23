@@ -22,10 +22,14 @@ macro_rules! asn1 {
         }
 
         impl $name {
-            fn asn1_description() -> Vec<(&'static str, &'static str)> {
+            fn asn1_description() -> Vec<(&'static str, &'static str, &'static str)> {
                 let mut description = vec![];
                 $(
-                    description.push((stringify!($field_name), stringify!($field_type)));
+                    description.push((
+                        stringify!($field_name),
+                        stringify!($field_type),
+                        stringify!($field_rust_type)
+                    ));
                 )*
                 return description;
             }
@@ -57,7 +61,7 @@ mod tests {
             }
         );
 
-        assert_eq!(Single::asn1_description(), vec![("x", "INTEGER")]);
+        assert_eq!(Single::asn1_description(), vec![("x", "INTEGER", "i64")]);
     }
 
     #[test]
@@ -70,8 +74,8 @@ mod tests {
         );
 
         assert_eq!(Double::asn1_description(), vec![
-            ("x", "INTEGER"),
-            ("y", "BOOLEAN"),
+            ("x", "INTEGER", "i64"),
+            ("y", "BOOLEAN", "bool"),
         ])
     }
 
