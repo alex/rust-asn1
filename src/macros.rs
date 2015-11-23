@@ -29,7 +29,7 @@ macro_rules! asn1 {
     };
     // This rule must be at the bottom because @word matches as an ident and macro parsing has no
     // backtracking.
-    ($name:ident := SEQUENCE { $($rest:tt)* }) => (
+    ($name:ident ::= SEQUENCE { $($rest:tt)* }) => (
         asn1!(@field_name [$name] [$($rest)*]);
     );
 }
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_empty_sequence() {
         asn1!(
-            Empty := SEQUENCE {}
+            Empty ::= SEQUENCE {}
         );
 
         assert_eq!(Empty::asn1_description().len(), 0);
@@ -48,7 +48,7 @@ mod tests {
     #[test]
     fn test_one_field() {
         asn1!(
-            Single := SEQUENCE {
+            Single ::= SEQUENCE {
                 x INTEGER,
             }
         );
@@ -59,7 +59,7 @@ mod tests {
     #[test]
     fn test_two_fields() {
         asn1!(
-            Double := SEQUENCE {
+            Double ::= SEQUENCE {
                 x INTEGER,
                 y BOOLEAN,
             }
