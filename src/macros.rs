@@ -15,15 +15,6 @@ pub enum Tag {
     Implicit(i8),
 }
 
-macro_rules! asn1_field_type {
-    ($field_rust_type:ty, true) => (
-        Option<$field_rust_type>;
-    );
-    ($field_rust_type:ty, false) => (
-        $field_rust_type;
-    );
-}
-
 macro_rules! asn1_default_stringify {
     (None) => (None);
     ($default:ident) => (Some(stringify!(ident)));
@@ -39,6 +30,14 @@ macro_rules! asn1 {
     (@tag_type None $tag:expr) => (
         $crate::macros::Tag::None;
     );
+
+    (@rust_field_type $field_rust_type:ty, true) => (
+        Option<$field_rust_type>;
+    );
+    (@rust_field_type $field_rust_type:ty, false) => (
+        $field_rust_type;
+    );
+
 
     // Base case, we have parsed everything.
     (@field_start [$($parsed:tt)*] []) => (
@@ -92,7 +91,7 @@ macro_rules! asn1 {
         #[derive(PartialEq, Eq, Debug)]
         struct $name {
             $(
-                $field_name: asn1_field_type!($field_rust_type, $optional),
+                $field_name: asn1!(@rust_field_type $field_rust_type, $optional),
             )*
         }
 
