@@ -18,6 +18,9 @@ macro_rules! asn1_tag {
     (EXPLICIT, $tag:expr) => (
         $crate::macros::Tag::Explicit($tag);
     );
+    (IMPLICIT, $tag:expr) => (
+        $crate::macros::Tag::Implicit($tag);
+    );
     (None, $tag:expr) => (
         $crate::macros::Tag::None;
     );
@@ -43,6 +46,9 @@ macro_rules! asn1 {
 
     (@field_tag [$($parsed:tt)*] [[ $tag:expr ] EXPLICIT $($rest:tt)*]) => (
         asn1!(@field_type [$($parsed)* @tag EXPLICIT $tag ; ] [$($rest)*]);
+    );
+    (@field_tag [$($parsed:tt)*] [[ $tag:expr ] IMPLICIT $($rest:tt)*]) => (
+        asn1!(@field_type [$($parsed)* @tag IMPLICIT $tag ; ] [$($rest)*]);
     );
     (@field_tag [$($parsed:tt)*] [$($rest:tt)*]) => (
         asn1!(@field_type [$($parsed)* @tag None None ; ] [$($rest)*]);
@@ -186,6 +192,29 @@ mod tests {
                 // TODO: should be "Option<i64>"
                 rust_type: "i64",
                 tag: Tag::Explicit(0),
+                optional: true
+            },
+        ]);
+
+        assert_eq!(Single{value: None}, Single{value: None});
+        assert_eq!(Single{value: Some(3)}, Single{value: Some(3)});
+    }
+
+    #[test]
+    fn test_implicit_optional() {
+        asn1!(
+            Single ::= SEQUENCE {
+                value [3] IMPLICIT INTEGER OPTIONAL,
+            }
+        );
+
+        assert_eq!(Single::asn1_description(), vec![
+            FieldDescription{
+                name: "value",
+                asn1_type: "INTEGER",
+                // TODO: should be "Option<i64>"
+                rust_type: "i64",
+                tag: Tag::Implicit(3),
                 optional: true
             },
         ]);
