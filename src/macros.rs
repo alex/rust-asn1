@@ -15,11 +15,6 @@ pub enum Tag {
     Implicit(i8),
 }
 
-macro_rules! asn1_default_stringify {
-    (None) => (None);
-    ($default:ident) => (Some(stringify!(ident)));
-}
-
 macro_rules! asn1 {
     (@tag_type EXPLICIT $tag:expr) => (
         $crate::macros::Tag::Explicit($tag);
@@ -38,6 +33,8 @@ macro_rules! asn1 {
         $field_rust_type;
     );
 
+    (@default_stringify None) => (None);
+    (@default_stringify $default:ident) => (Some(stringify!($default)));
 
     // Base case, we have parsed everything.
     (@field_start [$($parsed:tt)*] []) => (
@@ -106,7 +103,7 @@ macro_rules! asn1 {
                         rust_type: stringify!($field_rust_type),
                         tag: asn1!(@tag_type $tag_type $tag_value),
                         optional: $optional,
-                        default: asn1_default_stringify!($default),
+                        default: asn1!(@default_stringify $default),
                     });
                 )*
                 return description;
