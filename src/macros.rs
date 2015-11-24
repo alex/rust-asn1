@@ -5,6 +5,7 @@ struct FieldDescription {
     rust_type: &'static str,
     tag: Tag,
     optional: bool,
+    default: Option<&'static str>,
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -35,6 +36,11 @@ macro_rules! asn1_field_type {
     );
 }
 
+macro_rules! asn1_default_stringify {
+    (None) => (None);
+    ($default:ident) => (Some(stringify!(ident)));
+}
+
 macro_rules! asn1 {
     // Base case, we have parsed everything.
     (@field_start [$($parsed:tt)*] []) => (
@@ -62,10 +68,13 @@ macro_rules! asn1 {
     );
 
     (@field_end [$($parsed:tt)*] [OPTIONAL, $($rest:tt)*]) => (
-        asn1!(@field_start [$($parsed)* @optional true] [$($rest)*]);
+        asn1!(@field_start [$($parsed)* @optional true @default None] [$($rest)*]);
+    );
+    (@field_end [$($parsed:tt)*] [DEFAULT $default:ident, $($rest:tt)*]) => (
+        asn1!(@field_start [$($parsed)* @optional false @default $default] [$($rest)*]);
     );
     (@field_end [$($parsed:tt)*] [, $($rest:tt)*]) => (
-        asn1!(@field_start [$($parsed)* @optional false] [$($rest)*]);
+        asn1!(@field_start [$($parsed)* @optional false @default None] [$($rest)*]);
     );
 
     // Special case empty SEQUENCE until https://github.com/rust-lang/rust/issues/29720 is
@@ -81,7 +90,7 @@ macro_rules! asn1 {
         }
     };
 
-    (@complete $name:ident $(, @name $field_name:ident @tag $tag_type:ident $tag_value:expr ;  @type $field_type:ident @rust_type $field_rust_type:ty ; @optional $optional:ident)*) => {
+    (@complete $name:ident $(, @name $field_name:ident @tag $tag_type:ident $tag_value:expr ;  @type $field_type:ident @rust_type $field_rust_type:ty ; @optional $optional:ident @default $default:ident)*) => {
         #[derive(PartialEq, Eq, Debug)]
         struct $name {
             $(
@@ -100,6 +109,7 @@ macro_rules! asn1 {
                         rust_type: stringify!($field_rust_type),
                         tag: asn1_tag!($tag_type, $tag_value),
                         optional: $optional,
+                        default: asn1_default_stringify!($default),
                     });
                 )*
                 return description;
@@ -135,7 +145,7 @@ mod tests {
         );
 
         assert_eq!(Single::asn1_description(), vec![
-            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: Tag::None, optional: false},
+            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: Tag::None, optional: false, default: None},
         ]);
     }
 
@@ -149,8 +159,8 @@ mod tests {
         );
 
         assert_eq!(Double::asn1_description(), vec![
-            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: Tag::None, optional: false},
-            FieldDescription{name: "y", asn1_type: "BOOLEAN", rust_type: "bool", tag: Tag::None, optional: false},
+            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: Tag::None, optional: false, default: None},
+            FieldDescription{name: "y", asn1_type: "BOOLEAN", rust_type: "bool", tag: Tag::None, optional: false, default: None},
         ])
     }
 
@@ -192,7 +202,8 @@ mod tests {
                 // TODO: should be "Option<i64>"
                 rust_type: "i64",
                 tag: Tag::Explicit(0),
-                optional: true
+                optional: true,
+                default: None,
             },
         ]);
 
@@ -215,11 +226,31 @@ mod tests {
                 // TODO: should be "Option<i64>"
                 rust_type: "i64",
                 tag: Tag::Implicit(3),
-                optional: true
+                optional: true,
+                default: None
             },
         ]);
 
         assert_eq!(Single{value: None}, Single{value: None});
         assert_eq!(Single{value: Some(3)}, Single{value: Some(3)});
+    }
+
+    fn test_default() {
+        asn1!(
+            Single ::= SEQUENCE {
+                critical BOOLEAN DEFAULT FALSE,
+            }
+        );
+
+        assert_eq!(Single::asn1_description(), vec![
+            FieldDescription{
+                name: "value",
+                asn1_type: "BOOLEAN",
+                rust_type: "bool",
+                tag: Tag::None,
+                optional: false,
+                default: Some("FALSE"),
+            }
+        ]);
     }
 }
