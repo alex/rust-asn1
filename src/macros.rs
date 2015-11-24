@@ -35,6 +35,19 @@ macro_rules! asn1 {
         $field_rust_type;
     );
 
+    (@write_field $d:ident, $value:expr, $field_type:ident, true) => (
+        match $value {
+            Some(v) => asn1!(@write_field $d, v, $field_type, false),
+            None => {}
+        }
+    );
+    (@write_field $d:ident, $value:expr, INTEGER, false) => (
+        $d.write_int($value);
+    );
+    (@write_field $d:ident, $value:expr, BOOLEAN, false) => (
+        $d.write_bool($value);
+    );
+
     (@default_stringify None) => (None);
     (@default_stringify $default:ident) => (Some(stringify!($default)));
 
@@ -84,6 +97,12 @@ macro_rules! asn1 {
             fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
                 return vec![];
             }
+
+            fn to_der(&self) -> Vec<u8> {
+                return $crate::to_vec(|d| {
+                    d.write_sequence(|d| {});
+                });
+            }
         }
     };
 
@@ -111,6 +130,16 @@ macro_rules! asn1 {
                     });
                 )*
                 return description;
+            }
+
+            fn to_der(&self) -> Vec<u8> {
+                $crate::to_vec(|d| {
+                    d.write_sequence(|d| {
+                        $(
+                            asn1!(@write_field d, self.$field_name, $field_type, $optional);
+                        )*
+                    })
+                })
             }
         }
     };
@@ -251,5 +280,39 @@ mod tests {
                 default: Some("FALSE"),
             }
         ]);
+    }
+
+    #[test]
+    fn test_empty_sequence_to_der() {
+        asn1!(
+            Empty ::= SEQUENCE {}
+        );
+
+        assert_eq!(Empty.to_der(), b"\x30\x00")
+    }
+
+    #[test]
+    fn test_simple_sequence_to_der() {
+        asn1!(
+            Point ::= SEQUENCE {
+                x INTEGER,
+                y INTEGER,
+            }
+        );
+
+        assert_eq!(Point{x: 3, y: 4}.to_der(), b"\x30\x06\x02\x01\x03\x02\x01\x04");
+    }
+
+    #[test]
+    fn test_sequence_optional_to_der() {
+        asn1!(
+            Value ::= SEQUENCE {
+                x BOOLEAN OPTIONAL,
+                y INTEGER,
+            }
+        );
+
+        assert_eq!(Value{x: None, y: 3}.to_der(), b"\x30\x03\x02\x01\x03");
+        assert_eq!(Value{x: Some(true), y: 3}.to_der(), b"\x30\x06\x01\x01\xff\x02\x01\x03");
     }
 }
