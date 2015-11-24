@@ -1,3 +1,4 @@
+// type_macros is required until https://github.com/rust-lang/rust/issues/27245 lands
 #![feature(type_macros)]
 
 extern crate byteorder;
