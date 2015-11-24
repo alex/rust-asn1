@@ -80,6 +80,7 @@ macro_rules! asn1 {
         struct $name;
 
         impl $name {
+            #[allow(dead_code)]
             fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
                 return vec![];
             }
@@ -95,6 +96,7 @@ macro_rules! asn1 {
         }
 
         impl $name {
+            #[allow(dead_code)]
             fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
                 let mut description = vec![];
                 $(
