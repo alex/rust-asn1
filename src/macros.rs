@@ -231,6 +231,7 @@ mod tests {
         assert_eq!(Single{value: Some(3)}, Single{value: Some(3)});
     }
 
+    #[test]
     fn test_default() {
         asn1!(
             Single ::= SEQUENCE {
@@ -240,7 +241,7 @@ mod tests {
 
         assert_eq!(Single::asn1_description(), vec![
             FieldDescription{
-                name: "value",
+                name: "critical",
                 asn1_type: "BOOLEAN",
                 rust_type: "bool",
                 tag: Tag::None,
