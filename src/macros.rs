@@ -15,18 +15,6 @@ pub enum Tag {
     Implicit(i8),
 }
 
-macro_rules! asn1_tag {
-    (EXPLICIT, $tag:expr) => (
-        $crate::macros::Tag::Explicit($tag);
-    );
-    (IMPLICIT, $tag:expr) => (
-        $crate::macros::Tag::Implicit($tag);
-    );
-    (None, $tag:expr) => (
-        $crate::macros::Tag::None;
-    );
-}
-
 macro_rules! asn1_field_type {
     ($field_rust_type:ty, true) => (
         Option<$field_rust_type>;
@@ -42,6 +30,16 @@ macro_rules! asn1_default_stringify {
 }
 
 macro_rules! asn1 {
+    (@tag_type EXPLICIT $tag:expr) => (
+        $crate::macros::Tag::Explicit($tag);
+    );
+    (@tag_type IMPLICIT $tag:expr) => (
+        $crate::macros::Tag::Implicit($tag);
+    );
+    (@tag_type None $tag:expr) => (
+        $crate::macros::Tag::None;
+    );
+
     // Base case, we have parsed everything.
     (@field_start [$($parsed:tt)*] []) => (
         asn1!(@complete $($parsed)*);
@@ -107,7 +105,7 @@ macro_rules! asn1 {
                         asn1_type: stringify!($field_type),
                         // TODO: this doesn't show the true native type because of optional.
                         rust_type: stringify!($field_rust_type),
-                        tag: asn1_tag!($tag_type, $tag_value),
+                        tag: asn1!(@tag_type $tag_type $tag_value),
                         optional: $optional,
                         default: asn1_default_stringify!($default),
                     });
