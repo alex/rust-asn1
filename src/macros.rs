@@ -8,7 +8,7 @@ struct FieldDescription {
 }
 
 #[derive(PartialEq, Eq, Debug)]
-enum Tag {
+pub enum Tag {
     None,
     Explicit(i8),
     Implicit(i8),
