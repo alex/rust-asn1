@@ -1,3 +1,5 @@
+#![feature(type_macros)]
+
 extern crate byteorder;
 extern crate chrono;
 extern crate num;

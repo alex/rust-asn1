@@ -3,22 +3,63 @@ struct FieldDescription {
     name: &'static str,
     asn1_type: &'static str,
     rust_type: &'static str,
+    tag: Tag,
+    optional: bool,
+}
+
+#[derive(PartialEq, Eq, Debug)]
+enum Tag {
+    None,
+    Explicit(i8),
+    Implicit(i8),
+}
+
+macro_rules! asn1_tag {
+    (EXPLICIT, $tag:expr) => (
+        $crate::macros::Tag::Explicit($tag);
+    );
+    (None, $tag:expr) => (
+        $crate::macros::Tag::None;
+    );
+}
+
+macro_rules! asn1_field_type {
+    ($field_rust_type:ty, true) => (
+        Option<$field_rust_type>;
+    );
+    ($field_rust_type:ty, false) => (
+        $field_rust_type;
+    );
 }
 
 macro_rules! asn1 {
     // Base case, we have parsed everything.
-    (@field_name [$($parsed:tt)*] []) => (
+    (@field_start [$($parsed:tt)*] []) => (
         asn1!(@complete $($parsed)*);
     );
-    (@field_name [$($parsed:tt)*] [$field_name:ident $($rest:tt)*]) => (
-        asn1!(@field_type [$($parsed)* , @name $field_name] [$($rest)*]);
+    (@field_start [$($parsed:tt)*] [$field_name:ident $($rest:tt)*]) => (
+        asn1!(@field_tag [$($parsed)* , @name $field_name] [$($rest)*]);
     );
 
-    (@field_type [$($parsed:tt)*] [INTEGER, $($rest:tt)*]) => (
-        asn1!(@field_name [$($parsed)* @type INTEGER @rust_type i64] [$($rest)*]);
+    (@field_tag [$($parsed:tt)*] [[ $tag:expr ] EXPLICIT $($rest:tt)*]) => (
+        asn1!(@field_type [$($parsed)* @tag EXPLICIT $tag ; ] [$($rest)*]);
     );
-    (@field_type [$($parsed:tt)*] [BOOLEAN, $($rest:tt)*]) => (
-        asn1!(@field_name [$($parsed)* @type BOOLEAN @rust_type bool] [$($rest)*]);
+    (@field_tag [$($parsed:tt)*] [$($rest:tt)*]) => (
+        asn1!(@field_type [$($parsed)* @tag None None ; ] [$($rest)*]);
+    );
+
+    (@field_type [$($parsed:tt)*] [INTEGER $($rest:tt)*]) => (
+        asn1!(@field_end [$($parsed)* @type INTEGER @rust_type i64 ; ] [$($rest)*]);
+    );
+    (@field_type [$($parsed:tt)*] [BOOLEAN $($rest:tt)*]) => (
+        asn1!(@field_end [$($parsed)* @type BOOLEAN @rust_type bool ; ] [$($rest)*]);
+    );
+
+    (@field_end [$($parsed:tt)*] [OPTIONAL, $($rest:tt)*]) => (
+        asn1!(@field_start [$($parsed)* @optional true] [$($rest)*]);
+    );
+    (@field_end [$($parsed:tt)*] [, $($rest:tt)*]) => (
+        asn1!(@field_start [$($parsed)* @optional false] [$($rest)*]);
     );
 
     // Special case empty SEQUENCE until https://github.com/rust-lang/rust/issues/29720 is
@@ -34,10 +75,11 @@ macro_rules! asn1 {
         }
     };
 
-    (@complete $name:ident $(, @name $field_name:ident @type $field_type:ident @rust_type $field_rust_type:ty)*) => {
+    (@complete $name:ident $(, @name $field_name:ident @tag $tag_type:ident $tag_value:expr ;  @type $field_type:ident @rust_type $field_rust_type:ty ; @optional $optional:ident)*) => {
+        #[derive(PartialEq, Eq, Debug)]
         struct $name {
             $(
-                $field_name: $field_rust_type,
+                $field_name: asn1_field_type!($field_rust_type, $optional),
             )*
         }
 
@@ -48,7 +90,10 @@ macro_rules! asn1 {
                     description.push($crate::macros::FieldDescription{
                         name: stringify!($field_name),
                         asn1_type: stringify!($field_type),
-                        rust_type: stringify!($field_rust_type)
+                        // TODO: this doesn't show the true native type because of optional.
+                        rust_type: stringify!($field_rust_type),
+                        tag: asn1_tag!($tag_type, $tag_value),
+                        optional: $optional,
                     });
                 )*
                 return description;
@@ -58,13 +103,13 @@ macro_rules! asn1 {
     // This rule must be at the bottom because @word matches as an ident and macro parsing has no
     // backtracking.
     ($name:ident ::= SEQUENCE { $($rest:tt)* }) => (
-        asn1!(@field_name [$name] [$($rest)*]);
+        asn1!(@field_start [$name] [$($rest)*]);
     );
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{FieldDescription};
+    use super::{FieldDescription, Tag};
 
     #[test]
     fn test_empty_sequence() {
@@ -84,7 +129,7 @@ mod tests {
         );
 
         assert_eq!(Single::asn1_description(), vec![
-            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64"},
+            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: Tag::None, optional: false},
         ]);
     }
 
@@ -98,8 +143,8 @@ mod tests {
         );
 
         assert_eq!(Double::asn1_description(), vec![
-            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64"},
-            FieldDescription{name: "y", asn1_type: "BOOLEAN", rust_type: "bool"},
+            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: Tag::None, optional: false},
+            FieldDescription{name: "y", asn1_type: "BOOLEAN", rust_type: "bool", tag: Tag::None, optional: false},
         ])
     }
 
@@ -124,5 +169,28 @@ mod tests {
         );
 
         assert_eq!(Empty, Empty);
+    }
+
+    #[test]
+    fn test_explicit_optional() {
+        asn1!(
+            Single ::= SEQUENCE {
+                value [0] EXPLICIT INTEGER OPTIONAL,
+            }
+        );
+
+        assert_eq!(Single::asn1_description(), vec![
+            FieldDescription{
+                name: "value",
+                asn1_type: "INTEGER",
+                // TODO: should be "Option<i64>"
+                rust_type: "i64",
+                tag: Tag::Explicit(0),
+                optional: true
+            },
+        ]);
+
+        assert_eq!(Single{value: None}, Single{value: None});
+        assert_eq!(Single{value: Some(3)}, Single{value: Some(3)});
     }
 }
