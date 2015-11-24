@@ -16,6 +16,8 @@ pub enum Tag {
 }
 
 macro_rules! asn1 {
+    // These are utility "functions" rather than part of the tt-munching state machine. They're
+    // inside asn1 because of how scoping and macro imports work.
     (@tag_type EXPLICIT $tag:expr) => (
         $crate::macros::Tag::Explicit($tag);
     );
