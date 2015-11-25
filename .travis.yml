@@ -9,5 +9,9 @@ cache:
         - $HOME/.cargo
 
 
+branches:
+    only:
+        - master
+
 notifications:
     email: false
