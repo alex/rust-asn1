@@ -81,6 +81,8 @@ macro_rules! asn1 {
     );
 
     (@field_type [$($parsed:tt)*] [INTEGER $($rest:tt)*]) => (
+        // TODO: i64 is incorrect, figure out the right way for a caller to express their integer
+        // type preference.
         asn1!(@field_end [$($parsed)* @type INTEGER @rust_type i64 ; ] [$($rest)*]);
     );
     (@field_type [$($parsed:tt)*] [BOOLEAN $($rest:tt)*]) => (
