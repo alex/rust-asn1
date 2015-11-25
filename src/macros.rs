@@ -3,13 +3,13 @@ struct FieldDescription {
     name: &'static str,
     asn1_type: &'static str,
     rust_type: &'static str,
-    tag: Tag,
+    tag: FieldTag,
     optional: bool,
     default: Option<&'static str>,
 }
 
 #[derive(PartialEq, Eq, Debug)]
-pub enum Tag {
+pub enum FieldTag {
     None,
     Explicit(i8),
     Implicit(i8),
@@ -19,13 +19,13 @@ macro_rules! asn1 {
     // These are utility "functions" rather than part of the tt-munching state machine. They're
     // inside asn1 because of how scoping and macro imports work.
     (@tag_type EXPLICIT $tag:expr) => (
-        $crate::macros::Tag::Explicit($tag);
+        $crate::macros::FieldTag::Explicit($tag);
     );
     (@tag_type IMPLICIT $tag:expr) => (
-        $crate::macros::Tag::Implicit($tag);
+        $crate::macros::FieldTag::Implicit($tag);
     );
     (@tag_type None $tag:expr) => (
-        $crate::macros::Tag::None;
+        $crate::macros::FieldTag::None;
     );
 
     (@rust_field_type $field_rust_type:ty, true) => (
@@ -152,7 +152,7 @@ macro_rules! asn1 {
 
 #[cfg(test)]
 mod tests {
-    use super::{FieldDescription, Tag};
+    use super::{FieldDescription, FieldTag};
 
     #[test]
     fn test_empty_sequence() {
@@ -172,7 +172,7 @@ mod tests {
         );
 
         assert_eq!(Single::asn1_description(), vec![
-            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: Tag::None, optional: false, default: None},
+            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: FieldTag::None, optional: false, default: None},
         ]);
     }
 
@@ -186,8 +186,8 @@ mod tests {
         );
 
         assert_eq!(Double::asn1_description(), vec![
-            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: Tag::None, optional: false, default: None},
-            FieldDescription{name: "y", asn1_type: "BOOLEAN", rust_type: "bool", tag: Tag::None, optional: false, default: None},
+            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: FieldTag::None, optional: false, default: None},
+            FieldDescription{name: "y", asn1_type: "BOOLEAN", rust_type: "bool", tag: FieldTag::None, optional: false, default: None},
         ])
     }
 
@@ -228,7 +228,7 @@ mod tests {
                 asn1_type: "INTEGER",
                 // TODO: should be "Option<i64>"
                 rust_type: "i64",
-                tag: Tag::Explicit(0),
+                tag: FieldTag::Explicit(0),
                 optional: true,
                 default: None,
             },
@@ -252,7 +252,7 @@ mod tests {
                 asn1_type: "INTEGER",
                 // TODO: should be "Option<i64>"
                 rust_type: "i64",
-                tag: Tag::Implicit(3),
+                tag: FieldTag::Implicit(3),
                 optional: true,
                 default: None
             },
@@ -275,7 +275,7 @@ mod tests {
                 name: "critical",
                 asn1_type: "BOOLEAN",
                 rust_type: "bool",
-                tag: Tag::None,
+                tag: FieldTag::None,
                 optional: false,
                 default: Some("FALSE"),
             }
