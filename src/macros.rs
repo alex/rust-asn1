@@ -48,6 +48,17 @@ macro_rules! asn1 {
         $d.write_bool($value);
     );
 
+    (@read_field $d:ident, $field_type:ident, true) => (
+        // TODO: actually handle optional values.
+        Some(asn1!(@read_field $d, $field_type, false));
+    );
+    (@read_field $d:ident, INTEGER, false) => (
+        try!($d.read_int());
+    );
+    (@read_field $d:ident, BOOLEAN, false) => (
+        try!($d.read_bool());
+    );
+
     (@default_stringify None) => (None);
     (@default_stringify $default:ident) => (Some(stringify!($default)));
 
@@ -103,6 +114,14 @@ macro_rules! asn1 {
                     d.write_sequence(|_| {});
                 });
             }
+
+            fn from_der(data: &[u8]) -> $crate::DeserializationResult<$name> {
+                return $crate::from_vec(data, |d| {
+                    d.read_sequence(|_| {
+                        return Ok($name);
+                    })
+                })
+            }
         }
     };
 
@@ -141,6 +160,18 @@ macro_rules! asn1 {
                     })
                 })
             }
+
+            fn from_der(data: &[u8]) -> $crate::DeserializationResult<$name> {
+                return $crate::from_vec(data, |d| {
+                    d.read_sequence(|d| {
+                        return Ok($name{
+                            $(
+                                $field_name: asn1!(@read_field d, $field_type, $optional),
+                            )*
+                        });
+                    })
+                });
+            }
         }
     };
     // This rule must be at the bottom because @word matches as an ident and macro parsing has no
@@ -152,6 +183,9 @@ macro_rules! asn1 {
 
 #[cfg(test)]
 mod tests {
+    use common::{Tag};
+    use deserializer::{DeserializationError};
+
     use super::{FieldDescription, FieldTag};
 
     #[test]
@@ -314,5 +348,28 @@ mod tests {
 
         assert_eq!(Value{x: None, y: 3}.to_der(), b"\x30\x03\x02\x01\x03");
         assert_eq!(Value{x: Some(true), y: 3}.to_der(), b"\x30\x06\x01\x01\xff\x02\x01\x03");
+    }
+
+    #[test]
+    fn test_empty_sequence_from_der() {
+        asn1!(
+            Empty ::= SEQUENCE {}
+        );
+
+        assert_eq!(Empty::from_der(b"\x30\x00"), Ok(Empty));
+        assert_eq!(Empty::from_der(b"\x31\x00"), Err(DeserializationError::UnexpectedTag {expected: Tag::Sequence as u8, actual: 0x31}));
+        assert_eq!(Empty::from_der(b"\x30\x01"), Err(DeserializationError::ShortData));
+    }
+
+    #[test]
+    fn test_simple_sequence_from_der() {
+        asn1!(
+            Point ::= SEQUENCE {
+                x INTEGER,
+                y INTEGER,
+            }
+        );
+
+        assert_eq!(Point::from_der(b"\x30\x06\x02\x01\x03\x02\x01\x04"), Ok(Point{x: 3, y: 4}));
     }
 }
