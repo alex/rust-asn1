@@ -92,15 +92,15 @@ macro_rules! asn1 {
         #[derive(PartialEq, Eq, Debug)]
         struct $name;
 
+        #[allow(dead_code)]
         impl $name {
-            #[allow(dead_code)]
             fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
                 return vec![];
             }
 
             fn to_der(&self) -> Vec<u8> {
                 return $crate::to_vec(|d| {
-                    d.write_sequence(|d| {});
+                    d.write_sequence(|_| {});
                 });
             }
         }
@@ -114,8 +114,8 @@ macro_rules! asn1 {
             )*
         }
 
+        #[allow(dead_code)]
         impl $name {
-            #[allow(dead_code)]
             fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
                 let mut description = vec![];
                 $(
