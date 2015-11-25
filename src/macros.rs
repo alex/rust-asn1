@@ -47,6 +47,9 @@ macro_rules! asn1 {
     (@write_field $d:ident, $value:expr, BOOLEAN, false) => (
         $d.write_bool($value);
     );
+    (@write_field $d:ident, $value:expr, OCTETSTRING, false) => (
+        $d.write_octet_string(&$value);
+    );
 
     (@read_field $d:ident, $field_type:ident, true) => (
         // TODO: actually handle optional values.
@@ -57,6 +60,9 @@ macro_rules! asn1 {
     );
     (@read_field $d:ident, BOOLEAN, false) => (
         try!($d.read_bool());
+    );
+    (@read_field $d:ident, OCTETSTRING, false) => (
+        try!($d.read_octet_string());
     );
 
     (@default_stringify None) => (None);
@@ -87,6 +93,9 @@ macro_rules! asn1 {
     );
     (@field_type [$($parsed:tt)*] [BOOLEAN $($rest:tt)*]) => (
         asn1!(@field_end [$($parsed)* @type BOOLEAN @rust_type bool ; ] [$($rest)*]);
+    );
+    (@field_type [$($parsed:tt)*] [OCTET STRING $($rest:tt)*]) => (
+        asn1!(@field_end [$($parsed)* @type OCTETSTRING @rust_type Vec<u8> ;] [$($rest)*]);
     );
 
     (@field_end [$($parsed:tt)*] [OPTIONAL, $($rest:tt)*]) => (
@@ -373,5 +382,28 @@ mod tests {
         );
 
         assert_eq!(Point::from_der(b"\x30\x06\x02\x01\x03\x02\x01\x04"), Ok(Point{x: 3, y: 4}));
+    }
+
+    #[test]
+    fn test_octet_string() {
+        asn1!(
+            S ::= SEQUENCE {
+                x OCTET STRING,
+            }
+        );
+
+        assert_eq!(S::asn1_description(), vec![
+            FieldDescription{
+                name: "x",
+                asn1_type: "OCTETSTRING",
+                rust_type: "Vec<u8>",
+                tag: FieldTag::None,
+                optional: false,
+                default: None,
+            }
+        ]);
+
+        assert_eq!(S{x: b"abc".to_vec()}.to_der(), b"\x30\x05\x04\x03abc");
+        assert_eq!(S::from_der(b"\x30\x05\x04\x03abc"), Ok(S{x: b"abc".to_vec()}));
     }
 }
