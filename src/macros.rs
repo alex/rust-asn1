@@ -236,7 +236,14 @@ mod tests {
         );
 
         assert_eq!(Single::asn1_description(), vec![
-            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: FieldTag::None, optional: false, default: None},
+            FieldDescription{
+                name: "x",
+                asn1_type: "INTEGER",
+                rust_type: "i64",
+                tag: FieldTag::None,
+                optional: false,
+                default: None
+            },
         ]);
     }
 
@@ -250,8 +257,22 @@ mod tests {
         );
 
         assert_eq!(Double::asn1_description(), vec![
-            FieldDescription{name: "x", asn1_type: "INTEGER", rust_type: "i64", tag: FieldTag::None, optional: false, default: None},
-            FieldDescription{name: "y", asn1_type: "BOOLEAN", rust_type: "bool", tag: FieldTag::None, optional: false, default: None},
+            FieldDescription{
+                name: "x",
+                asn1_type: "INTEGER",
+                rust_type: "i64",
+                tag: FieldTag::None,
+                optional: false,
+                default: None
+            },
+            FieldDescription{
+                name: "y",
+                asn1_type: "BOOLEAN",
+                rust_type: "bool",
+                tag: FieldTag::None,
+                optional: false,
+                default: None
+            },
         ])
     }
 
