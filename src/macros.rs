@@ -224,7 +224,7 @@ mod tests {
             Empty ::= SEQUENCE {}
         );
 
-        assert_eq!(Empty::asn1_description().len(), 0);
+        assert_eq!(Empty::asn1_description(), vec![]);
     }
 
     #[test]
