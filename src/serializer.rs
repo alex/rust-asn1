@@ -110,7 +110,7 @@ impl<'a> Serializer<'a> {
         });
     }
 
-    pub fn write_bit_string(&mut self, v: BitString) {
+    pub fn write_bit_string(&mut self, v: &BitString) {
         return self._write_with_tag(Tag::BitString, || {
             let data = v.as_bytes();
             let mut result = Vec::with_capacity(1 + data.len());
@@ -279,7 +279,7 @@ mod tests {
             (BitString::new(b"\x80".to_vec(), 1).unwrap(), b"\x03\x02\x07\x80".to_vec()),
             (BitString::new(b"\x81\xf0".to_vec(), 12).unwrap(), b"\x03\x03\x04\x81\xf0".to_vec()),
         ], |serializer, v| {
-            serializer.write_bit_string(v);
+            serializer.write_bit_string(&v);
         })
     }
 

@@ -50,6 +50,9 @@ macro_rules! asn1 {
     (@write_field $d:ident, $value:expr, OCTETSTRING, false) => (
         $d.write_octet_string(&$value);
     );
+    (@write_field $d:ident, $value:expr, BITSTRING, false) => (
+        $d.write_bit_string(&$value);
+    );
 
     (@read_field $d:ident, $field_type:ident, true) => (
         // TODO: actually handle optional values.
@@ -63,6 +66,9 @@ macro_rules! asn1 {
     );
     (@read_field $d:ident, OCTETSTRING, false) => (
         try!($d.read_octet_string());
+    );
+    (@read_field $d:ident, BITSTRING, false) => (
+        try!($d.read_bit_string());
     );
 
     (@default_stringify None) => (None);
@@ -96,6 +102,9 @@ macro_rules! asn1 {
     );
     (@field_type [$($parsed:tt)*] [OCTET STRING $($rest:tt)*]) => (
         asn1!(@field_end [$($parsed)* @type OCTETSTRING @rust_type Vec<u8> ;] [$($rest)*]);
+    );
+    (@field_type [$($parsed:tt)*] [BIT STRING $($rest:tt)*]) => (
+        asn1!(@field_end [$($parsed)* @type BITSTRING @rust_type $crate::BitString ;] [$($rest)*]);
     );
 
     (@field_end [$($parsed:tt)*] [OPTIONAL, $($rest:tt)*]) => (
@@ -196,6 +205,7 @@ macro_rules! asn1 {
 mod tests {
     use common::{Tag};
     use deserializer::{DeserializationError};
+    use utils::{BitString};
 
     use super::{FieldDescription, FieldTag};
 
@@ -405,5 +415,28 @@ mod tests {
 
         assert_eq!(S{x: b"abc".to_vec()}.to_der(), b"\x30\x05\x04\x03abc");
         assert_eq!(S::from_der(b"\x30\x05\x04\x03abc"), Ok(S{x: b"abc".to_vec()}));
+    }
+
+    #[test]
+    fn test_bit_string() {
+        asn1!(
+            S ::= SEQUENCE {
+                x BIT STRING,
+            }
+        );
+
+        assert_eq!(S::asn1_description(), vec![
+            FieldDescription{
+                name: "x",
+                asn1_type: "BITSTRING",
+                rust_type: "::BitString",
+                tag: FieldTag::None,
+                optional: false,
+                default: None,
+            }
+        ]);
+
+        assert_eq!(S{x: BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()}.to_der(), b"\x30\x05\x03\x03\x04\x81\xf0");
+        assert_eq!(S::from_der(b"\x30\x05\x03\x03\x04\x81\xf0"), Ok(S{x: BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()}));
     }
 }
