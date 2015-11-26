@@ -29,10 +29,10 @@ macro_rules! asn1 {
     );
 
     (@rust_field_type $field_rust_type:ty, true) => (
-        Option<$field_rust_type>;
+        Option<$field_rust_type>
     );
     (@rust_field_type $field_rust_type:ty, false) => (
-        $field_rust_type;
+        $field_rust_type
     );
 
     (@write_field $d:ident, $value:expr, $field_type:ident, true) => (
