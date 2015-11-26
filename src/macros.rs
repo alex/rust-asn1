@@ -53,6 +53,9 @@ macro_rules! asn1 {
     (@write_field $d:ident, $value:expr, BITSTRING, false) => (
         $d.write_bit_string(&$value);
     );
+    (@write_field $d:ident, $value:expr, OBJECTIDENTIFIER, false) => (
+        $d.write_object_identifier(&$value);
+    );
 
     (@read_field $d:ident, $field_type:ident, true) => (
         // TODO: actually handle optional values.
@@ -69,6 +72,9 @@ macro_rules! asn1 {
     );
     (@read_field $d:ident, BITSTRING, false) => (
         try!($d.read_bit_string());
+    );
+    (@read_field $d:ident, OBJECTIDENTIFIER, false) => (
+        try!($d.read_object_identifier());
     );
 
     (@default_stringify None) => (None);
@@ -105,6 +111,9 @@ macro_rules! asn1 {
     );
     (@field_type [$($parsed:tt)*] [BIT STRING $($rest:tt)*]) => (
         asn1!(@field_end [$($parsed)* @type BITSTRING @rust_type $crate::BitString ;] [$($rest)*]);
+    );
+    (@field_type [$($parsed:tt)*] [OBJECT IDENTIFIER $($rest:tt)*]) => (
+        asn1!(@field_end [$($parsed)* @type OBJECTIDENTIFIER @rust_type $crate::ObjectIdentifier ;] [$($rest)*]);
     );
 
     (@field_end [$($parsed:tt)*] [OPTIONAL, $($rest:tt)*]) => (
@@ -205,7 +214,7 @@ macro_rules! asn1 {
 mod tests {
     use common::{Tag};
     use deserializer::{DeserializationError};
-    use utils::{BitString};
+    use utils::{BitString, ObjectIdentifier};
 
     use super::{FieldDescription, FieldTag};
 
@@ -438,5 +447,28 @@ mod tests {
 
         assert_eq!(S{x: BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()}.to_der(), b"\x30\x05\x03\x03\x04\x81\xf0");
         assert_eq!(S::from_der(b"\x30\x05\x03\x03\x04\x81\xf0"), Ok(S{x: BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()}));
+    }
+
+    #[test]
+    fn test_object_identifier() {
+        asn1!(
+            O ::= SEQUENCE {
+                x OBJECT IDENTIFIER,
+            }
+        );
+
+        assert_eq!(O::asn1_description(), vec![
+            FieldDescription{
+                name: "x",
+                asn1_type: "OBJECTIDENTIFIER",
+                rust_type: "::ObjectIdentifier",
+                tag: FieldTag::None,
+                optional: false,
+                default: None,
+            }
+        ]);
+
+        assert_eq!(O{x: ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap()}.to_der(), b"\x30\x08\x06\x06\x2a\x86\x48\x86\xf7\x0d");
+        assert_eq!(O::from_der(b"\x30\x08\x06\x06\x2a\x86\x48\x86\xf7\x0d"), Ok(O{x: ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap()}));
     }
 }

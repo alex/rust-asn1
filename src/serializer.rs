@@ -120,7 +120,7 @@ impl<'a> Serializer<'a> {
         })
     }
 
-    pub fn write_object_identifier(&mut self, v: ObjectIdentifier) {
+    pub fn write_object_identifier(&mut self, v: &ObjectIdentifier) {
         return self._write_with_tag(Tag::ObjectIdentifier, || {
             let mut data = Vec::new();
             _write_base128_int(&mut data, 40 * v.parts[0] + v.parts[1]);
@@ -303,7 +303,7 @@ mod tests {
                 b"\x06\x03\x81\x34\x03".to_vec(),
             ),
         ], |serializer, oid| {
-            serializer.write_object_identifier(oid);
+            serializer.write_object_identifier(&oid);
         });
     }
 
