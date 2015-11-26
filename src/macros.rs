@@ -35,25 +35,42 @@ macro_rules! asn1 {
         $field_rust_type
     );
 
-    (@write_field $d:ident, $value:expr, $field_type:ident, true) => (
+    (@default_value BOOLEAN, $default:expr) => (
+        match stringify!($default) {
+            "FALSE" => false,
+            "TRUE" => true,
+            _ => unreachable!(),
+        }
+    );
+    (@default_value INTEGER, $default:expr) => (
+        // TODO: i64 isn't necessarily correct
+        stringify!($default).parse::<i64>().unwrap();
+    );
+
+    (@write_field $d:ident, $value:expr, $field_type:ident, true, false, $default:expr) => (
         match $value {
-            Some(v) => asn1!(@write_field $d, v, $field_type, false),
+            Some(v) => asn1!(@write_field $d, v, $field_type, false, false, None),
             None => {}
         }
     );
-    (@write_field $d:ident, $value:expr, INTEGER, false) => (
+    (@write_field $d:ident, $value:expr, $field_type:ident, false, true, $default:expr) => (
+        if $value != asn1!(@default_value $field_type, $default) {
+            asn1!(@write_field $d, $value, $field_type, false, false, None);
+        }
+    );
+    (@write_field $d:ident, $value:expr, INTEGER, false, false, $default:expr) => (
         $d.write_int($value);
     );
-    (@write_field $d:ident, $value:expr, BOOLEAN, false) => (
+    (@write_field $d:ident, $value:expr, BOOLEAN, false, false, $default:expr) => (
         $d.write_bool($value);
     );
-    (@write_field $d:ident, $value:expr, OCTETSTRING, false) => (
+    (@write_field $d:ident, $value:expr, OCTETSTRING, false, false, $default:expr) => (
         $d.write_octet_string(&$value);
     );
-    (@write_field $d:ident, $value:expr, BITSTRING, false) => (
+    (@write_field $d:ident, $value:expr, BITSTRING, false, false, $default:expr) => (
         $d.write_bit_string(&$value);
     );
-    (@write_field $d:ident, $value:expr, OBJECTIDENTIFIER, false) => (
+    (@write_field $d:ident, $value:expr, OBJECTIDENTIFIER, false, false, $default:expr) => (
         $d.write_object_identifier(&$value);
     );
 
@@ -77,8 +94,8 @@ macro_rules! asn1 {
         try!($d.read_object_identifier());
     );
 
-    (@default_stringify None) => (None);
-    (@default_stringify $default:ident) => (Some(stringify!($default)));
+    (@default_stringify false, $default:expr) => (None);
+    (@default_stringify true, $default:expr) => (Some(stringify!($default)));
 
     // Base case, we have parsed everything.
     (@field_start [$($parsed:tt)*] []) => (
@@ -117,13 +134,13 @@ macro_rules! asn1 {
     );
 
     (@field_end [$($parsed:tt)*] [OPTIONAL, $($rest:tt)*]) => (
-        asn1!(@field_start [$($parsed)* @optional true @default None] [$($rest)*]);
+        asn1!(@field_start [$($parsed)* @optional true @default false None] [$($rest)*]);
     );
-    (@field_end [$($parsed:tt)*] [DEFAULT $default:ident, $($rest:tt)*]) => (
-        asn1!(@field_start [$($parsed)* @optional false @default $default] [$($rest)*]);
+    (@field_end [$($parsed:tt)*] [DEFAULT $default:expr, $($rest:tt)*]) => (
+        asn1!(@field_start [$($parsed)* @optional false @default true $default] [$($rest)*]);
     );
     (@field_end [$($parsed:tt)*] [, $($rest:tt)*]) => (
-        asn1!(@field_start [$($parsed)* @optional false @default None] [$($rest)*]);
+        asn1!(@field_start [$($parsed)* @optional false @default false None] [$($rest)*]);
     );
 
     // Special case empty SEQUENCE until https://github.com/rust-lang/rust/issues/29720 is
@@ -154,7 +171,7 @@ macro_rules! asn1 {
         }
     };
 
-    (@complete $name:ident $(, @name $field_name:ident @tag $tag_type:ident $tag_value:expr ;  @type $field_type:ident @rust_type $field_rust_type:ty ; @optional $optional:ident @default $default:ident)*) => {
+    (@complete $name:ident $(, @name $field_name:ident @tag $tag_type:ident $tag_value:expr ;  @type $field_type:ident @rust_type $field_rust_type:ty ; @optional $optional:ident @default $has_default:ident $default:expr)*) => {
         #[derive(PartialEq, Eq, Debug)]
         struct $name {
             $(
@@ -174,7 +191,7 @@ macro_rules! asn1 {
                         rust_type: stringify!($field_rust_type),
                         tag: asn1!(@tag_type $tag_type $tag_value),
                         optional: $optional,
-                        default: asn1!(@default_stringify $default),
+                        default: asn1!(@default_stringify $has_default, $default),
                     });
                 )*
                 return description;
@@ -184,7 +201,7 @@ macro_rules! asn1 {
                 $crate::to_vec(|d| {
                     d.write_sequence(|d| {
                         $(
-                            asn1!(@write_field d, self.$field_name, $field_type, $optional);
+                            asn1!(@write_field d, self.$field_name, $field_type, $optional, $has_default, $default);
                         )*
                     })
                 })
@@ -491,5 +508,18 @@ mod tests {
 
         assert_eq!(O{x: ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap()}.to_der(), b"\x30\x08\x06\x06\x2a\x86\x48\x86\xf7\x0d");
         assert_eq!(O::from_der(b"\x30\x08\x06\x06\x2a\x86\x48\x86\xf7\x0d"), Ok(O{x: ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap()}));
+    }
+
+    #[test]
+    fn test_to_der_defaults() {
+        asn1!(
+            S ::= SEQUENCE {
+                critical BOOLEAN DEFAULT FALSE,
+                value INTEGER DEFAULT 12,
+            }
+        );
+
+        assert_eq!(S{critical: false, value: 12}.to_der(), b"\x30\x00");
+        assert_eq!(S{critical: true, value: 12}.to_der(), b"\x30\x03\x01\x01\xff");
     }
 }
