@@ -35,42 +35,41 @@ macro_rules! asn1 {
         $field_rust_type
     );
 
-    (@default_value BOOLEAN, $default:expr) => (
+    (@default_value BOOLEAN, $rust_type:ty, $default:expr) => (
         match stringify!($default) {
             "FALSE" => false,
             "TRUE" => true,
             _ => unreachable!(),
         }
     );
-    (@default_value INTEGER, $default:expr) => (
-        // TODO: i64 isn't necessarily correct
-        stringify!($default).parse::<i64>().unwrap();
+    (@default_value INTEGER, $rust_type:ty, $default:expr) => (
+        stringify!($default).parse::<$rust_type>().unwrap();
     );
 
-    (@write_field $d:ident, $value:expr, $field_type:ident, true, false, $default:expr) => (
+    (@write_field $d:ident, $value:expr, $field_type:ident, $rust_field_type:ty, true, false, $default:expr) => (
         match $value {
-            Some(v) => asn1!(@write_field $d, v, $field_type, false, false, None),
+            Some(v) => asn1!(@write_field $d, v, $field_type, $rust_field_type, false, false, None),
             None => {}
         }
     );
-    (@write_field $d:ident, $value:expr, $field_type:ident, false, true, $default:expr) => (
-        if $value != asn1!(@default_value $field_type, $default) {
-            asn1!(@write_field $d, $value, $field_type, false, false, None);
+    (@write_field $d:ident, $value:expr, $field_type:ident, $rust_field_type:ty, false, true, $default:expr) => (
+        if $value != asn1!(@default_value $field_type, $rust_field_type, $default) {
+            asn1!(@write_field $d, $value, $field_type, $rust_field_type, false, false, None);
         }
     );
-    (@write_field $d:ident, $value:expr, INTEGER, false, false, $default:expr) => (
+    (@write_field $d:ident, $value:expr, INTEGER, $rust_field_type:ty, false, false, $default:expr) => (
         $d.write_int($value);
     );
-    (@write_field $d:ident, $value:expr, BOOLEAN, false, false, $default:expr) => (
+    (@write_field $d:ident, $value:expr, BOOLEAN, $rust_field_type:ty, false, false, $default:expr) => (
         $d.write_bool($value);
     );
-    (@write_field $d:ident, $value:expr, OCTETSTRING, false, false, $default:expr) => (
+    (@write_field $d:ident, $value:expr, OCTETSTRING, $rust_field_type:ty, false, false, $default:expr) => (
         $d.write_octet_string(&$value);
     );
-    (@write_field $d:ident, $value:expr, BITSTRING, false, false, $default:expr) => (
+    (@write_field $d:ident, $value:expr, BITSTRING, $rust_field_type:ty, false, false, $default:expr) => (
         $d.write_bit_string(&$value);
     );
-    (@write_field $d:ident, $value:expr, OBJECTIDENTIFIER, false, false, $default:expr) => (
+    (@write_field $d:ident, $value:expr, OBJECTIDENTIFIER, $rust_field_type:ty, false, false, $default:expr) => (
         $d.write_object_identifier(&$value);
     );
 
@@ -201,7 +200,7 @@ macro_rules! asn1 {
                 $crate::to_vec(|d| {
                     d.write_sequence(|d| {
                         $(
-                            asn1!(@write_field d, self.$field_name, $field_type, $optional, $has_default, $default);
+                            asn1!(@write_field d, self.$field_name, $field_type, $field_rust_type, $optional, $has_default, $default);
                         )*
                     })
                 })
