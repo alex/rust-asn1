@@ -221,8 +221,10 @@ macro_rules! asn1 {
     };
     // This rule must be at the bottom because @word matches as an ident and macro parsing has no
     // backtracking.
-    ($name:ident ::= SEQUENCE { $($rest:tt)* }) => (
-        asn1!(@field_start [$name] [$($rest)*]);
+    ($($name:ident ::= SEQUENCE { $($rest:tt)* })*) => (
+        $(
+            asn1!(@field_start [$name] [$($rest)*]);
+        )*
     );
 }
 
@@ -241,6 +243,17 @@ mod tests {
         );
 
         assert_eq!(Empty::asn1_description(), vec![]);
+    }
+
+    #[test]
+    fn test_multiple_sequences() {
+        asn1!(
+            Seq1 ::= SEQUENCE {}
+            Seq2 ::= SEQUENCE {}
+        );
+
+        assert_eq!(Seq1, Seq1);
+        assert_eq!(Seq2, Seq2);
     }
 
     #[test]
