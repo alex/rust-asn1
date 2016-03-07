@@ -1,5 +1,5 @@
 #[derive(PartialEq, Eq, Debug)]
-struct FieldDescription {
+pub struct FieldDescription {
     name: &'static str,
     asn1_type: &'static str,
     rust_type: &'static str,
