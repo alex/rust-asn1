@@ -1,11 +1,11 @@
 #[derive(PartialEq, Eq, Debug)]
 pub struct FieldDescription {
-    name: &'static str,
-    asn1_type: &'static str,
-    rust_type: &'static str,
-    tag: FieldTag,
-    optional: bool,
-    default: Option<&'static str>,
+    pub name: &'static str,
+    pub asn1_type: &'static str,
+    pub rust_type: &'static str,
+    pub tag: FieldTag,
+    pub optional: bool,
+    pub default: Option<&'static str>,
 }
 
 #[derive(PartialEq, Eq, Debug)]
