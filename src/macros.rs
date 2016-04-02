@@ -143,34 +143,6 @@ macro_rules! asn1 {
         asn1!(@field_start [$($parsed)* @optional false @default false None] [$($rest)*]);
     );
 
-    // Special case empty SEQUENCE until https://github.com/rust-lang/rust/issues/29720 is
-    // resolved
-    (@complete $name:ident) => {
-        #[derive(PartialEq, Eq, Debug)]
-        struct $name;
-
-        #[allow(dead_code)]
-        impl $name {
-            fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
-                return vec![];
-            }
-
-            fn to_der(&self) -> Vec<u8> {
-                return $crate::to_vec(|d| {
-                    d.write_sequence(|_| {});
-                });
-            }
-
-            fn from_der(data: &[u8]) -> $crate::DeserializationResult<$name> {
-                return $crate::from_vec(data, |d| {
-                    d.read_sequence(|_| {
-                        return Ok($name);
-                    })
-                })
-            }
-        }
-    };
-
     (@complete $name:ident $(, @name $field_name:ident @tag $tag_type:ident $tag_value:expr ;  @type $field_type:ident @rust_type $field_rust_type:ty ; @optional $optional:ident @default $has_default:ident $default:expr)*) => {
         #[derive(PartialEq, Eq, Debug)]
         struct $name {
@@ -253,8 +225,8 @@ mod tests {
             Seq2 ::= SEQUENCE {}
         );
 
-        assert_eq!(Seq1, Seq1);
-        assert_eq!(Seq2, Seq2);
+        assert_eq!(Seq1{}, Seq1{});
+        assert_eq!(Seq2{}, Seq2{});
     }
 
     #[test]
@@ -326,7 +298,7 @@ mod tests {
             Empty ::= SEQUENCE {}
         );
 
-        assert_eq!(Empty, Empty);
+        assert_eq!(Empty{}, Empty{});
     }
 
     #[test]
@@ -403,7 +375,7 @@ mod tests {
             Empty ::= SEQUENCE {}
         );
 
-        assert_eq!(Empty.to_der(), b"\x30\x00")
+        assert_eq!(Empty{}.to_der(), b"\x30\x00")
     }
 
     #[test]
@@ -437,7 +409,7 @@ mod tests {
             Empty ::= SEQUENCE {}
         );
 
-        assert_eq!(Empty::from_der(b"\x30\x00"), Ok(Empty));
+        assert_eq!(Empty::from_der(b"\x30\x00"), Ok(Empty{}));
         assert_eq!(Empty::from_der(b"\x31\x00"), Err(DeserializationError::UnexpectedTag {expected: Tag::Sequence as u8, actual: 0x31}));
         assert_eq!(Empty::from_der(b"\x30\x01"), Err(DeserializationError::ShortData));
     }
