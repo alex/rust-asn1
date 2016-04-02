@@ -1,7 +1,7 @@
 use std::{convert};
-use std::io::{BufRead, Cursor};
+use std::io::{self, BufRead, Cursor};
 
-use byteorder::{self, ReadBytesExt};
+use byteorder::{ReadBytesExt};
 
 use common::{Tag};
 use utils::{BitString, Integer, ObjectIdentifier};
@@ -16,10 +16,10 @@ pub enum DeserializationError {
     InvalidValue,
 }
 
-impl convert::From<byteorder::Error> for DeserializationError {
-    fn from(e: byteorder::Error) -> DeserializationError {
-        return match e {
-            byteorder::Error::UnexpectedEOF => DeserializationError::ShortData,
+impl convert::From<io::Error> for DeserializationError {
+    fn from(e: io::Error) -> DeserializationError {
+        return match e.kind() {
+            io::ErrorKind::UnexpectedEof => DeserializationError::ShortData,
             _ => panic!("Unexpected error!"),
         }
     }
