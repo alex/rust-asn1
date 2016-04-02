@@ -151,7 +151,7 @@ macro_rules! asn1 {
             )*
         }
 
-        #[allow(dead_code)]
+        #[allow(dead_code, unused_variables, unused_mut)]
         impl $name {
             fn asn1_description() -> Vec<$crate::macros::FieldDescription> {
                 let mut description = vec![];
