@@ -20,6 +20,8 @@ Add ``asn1`` to the ``[dependencies]`` section of your ``Cargo.toml``:
 Usage
 -----
 
+For complete examples, see the `examples` directory.
+
 To write a structure like::
 
     Signature ::= SEQUENCE {
