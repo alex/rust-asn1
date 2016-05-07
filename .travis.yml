@@ -6,10 +6,7 @@ rust:
     - nightly
 
 
-cache:
-    directories:
-        - $HOME/.cargo
-
+cache: cargo
 
 branches:
     only:
