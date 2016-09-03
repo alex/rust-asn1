@@ -8,6 +8,6 @@ license = "BSD-3-Clause"
 description = "ASN.1 (DER) serializer for Rust."
 
 [dependencies]
-byteorder = "*"
+byteorder = ">= 0.5.0"
 chrono = "*"
 num = "*"
