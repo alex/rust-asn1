@@ -27,34 +27,37 @@ To write a structure like::
         s INTEGER
     }
 
-you would write:
+you'd first declare it:
 
 .. code-block:: rust
 
     extern crate asn1;
 
-    let data = asn1::to_vec(|s| {
-        s.write_sequence(|new_s| {
-            new_s.write_int(r);
-            new_s.write_int(s);
-        });
-    });
+    asn1!(
+        Signature ::= SEQUENCE {
+            r INTEGER,
+            s INTEGER,
+        }
+    );
 
-and to read it:
+Yes, that's right, with ``rust-asn1`` you declare an ASN.1 ``SEQUENCE`` the
+same way the RFC does.
+
+Then to serialize one:
 
 .. code-block:: rust
 
-    extern crate asn1;
+    let sig = Signature{
+        r: 100,
+        s: 200
+    };
+    let data = sig.to_der();
 
-    let result = asn1::from_vec(data, |d| {
-        return d.read_sequence(|d| {
-            r = try!(d.read_int());
-            s = try!(d.read_int());
-            return Ok((r, s))
-        });
-    });
+and to read one:
 
-    match result {
-        Ok((r, s)) => println("r={}, s={}", r, s),
-        Err(_) => println!("Error!"),
+.. code-block:: rust
+
+    match Signature::from_der(data) {
+        Ok(sig) => println!("r={}, s={}", sig.r, sig.s),
+        Err(e) => println!("Error! {}", e),
     }

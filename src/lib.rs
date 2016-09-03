@@ -4,6 +4,7 @@ extern crate num;
 
 mod common;
 mod deserializer;
+pub mod macros;
 mod serializer;
 mod utils;
 
