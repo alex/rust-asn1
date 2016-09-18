@@ -117,6 +117,65 @@ impl Asn1Element for OctetString {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct ObjectIdentifier {
+    pub parts: Vec<u32>
+}
+
+
+fn _read_base128_int(reader: &mut Cursor<&[u8]>) -> ParseResult<u32> {
+    let mut ret = 0u32;
+    for _ in 0..4 {
+        let b = try!(reader.read_u8());
+        ret <<= 7;
+        ret |= (b & 0x7f) as u32;
+        if b & 0x80 == 0 {
+            return Ok(ret);
+        }
+    }
+    return Err(ParseError::InvalidValue);
+}
+
+impl Asn1Element for ObjectIdentifier {
+    type Result = Self;
+    const TAG: u8 = 0x6;
+
+    fn parse(data: &[u8]) -> ParseResult<ObjectIdentifier> {
+        if data.is_empty() {
+            return Err(ParseError::InvalidValue);
+        }
+        let mut reader = Cursor::new(data);
+        let mut s = vec![];
+        let v = try!(_read_base128_int(&mut reader));
+
+        if v < 80 {
+            s.push(v / 40);
+            s.push(v % 40);
+        } else {
+            s.push(2);
+            s.push(v - 80);
+        }
+
+        while (reader.position() as usize) < reader.get_ref().len() {
+            s.push(try!(_read_base128_int(&mut reader)));
+        }
+
+        return Ok(ObjectIdentifier::new(s).unwrap());
+    }
+}
+
+impl ObjectIdentifier {
+    pub fn new(oid: Vec<u32>) -> Option<ObjectIdentifier> {
+        if oid.len() < 2 || oid[0] > 2 || (oid[0] < 2 && oid[1] >= 40) {
+            return None;
+        }
+
+        return Some(ObjectIdentifier{
+            parts: oid,
+        });
+    }
+}
+
 struct TLV {
     pub tag: u8,
     pub value: Vec<u8>,
@@ -202,7 +261,7 @@ pub fn parse<T, F>(data: &[u8], f: F) -> ParseResult<T>
 mod tests {
     use std::{self, fmt};
 
-    use super::{parse, Parser, ParseError, ParseResult};
+    use super::{parse, Parser, ParseError, ParseResult, ObjectIdentifier};
 
     fn assert_parses<T, F>(values: Vec<(ParseResult<T>, &[u8])>, f: F)
             where T: Eq + fmt::Debug, F: Fn(&mut Parser) -> ParseResult<T> {
@@ -315,6 +374,30 @@ mod tests {
             (Err(ParseError::ShortData), b"\x04\x86\xff\xff\xff\xff\xff\xff"),
         ], |p| {
             return p.read::<super::OctetString>();
+        });
+    }
+
+
+    #[test]
+    fn test_read_object_identifier() {
+        assert_parses(vec![
+            (Ok(ObjectIdentifier::new(vec![2, 5]).unwrap()), b"\x06\x01\x55"),
+            (Ok(ObjectIdentifier::new(vec![2, 5, 2]).unwrap()), b"\x06\x02\x55\x02"),
+            (
+                Ok(ObjectIdentifier::new(vec![1, 2, 840, 113549]).unwrap()),
+                b"\x06\x06\x2a\x86\x48\x86\xf7\x0d"
+            ),
+            (Ok(ObjectIdentifier::new(vec![1, 2, 3, 4]).unwrap()), b"\x06\x03\x2a\x03\x04"),
+            (
+                Ok(ObjectIdentifier::new(vec![1, 2, 840, 133549, 1, 1, 5]).unwrap()),
+                b"\x06\x09\x2a\x86\x48\x88\x93\x2d\x01\x01\x05",
+            ),
+            (Ok(ObjectIdentifier::new(vec![2, 100, 3]).unwrap()), b"\x06\x03\x81\x34\x03"),
+            (Err(ParseError::InvalidValue), b"\x06\x00"),
+            (Err(ParseError::InvalidValue), b"\x06\x07\x55\x02\xc0\x80\x80\x80\x80"),
+            (Err(ParseError::ShortData), b"\x06\x02\x2a\x86"),
+        ], |p| {
+            return p.read::<ObjectIdentifier>();
         });
     }
 }
