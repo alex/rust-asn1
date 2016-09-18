@@ -205,6 +205,17 @@ fn _read_base128_int(reader: &mut Cursor<&[u8]>) -> ParseResult<u32> {
     return Err(ParseError::InvalidValue);
 }
 
+
+impl ObjectIdentifier {
+    pub fn new(oid: Vec<u32>) -> Option<ObjectIdentifier> {
+        if oid.len() < 2 || oid[0] > 2 || (oid[0] < 2 && oid[1] >= 40) {
+            return None;
+        }
+
+        return Some(ObjectIdentifier { parts: oid });
+    }
+}
+
 impl Asn1Element for ObjectIdentifier {
     type Result = Self;
     const TAG: u8 = 0x6;
@@ -233,13 +244,24 @@ impl Asn1Element for ObjectIdentifier {
     }
 }
 
-impl ObjectIdentifier {
-    pub fn new(oid: Vec<u32>) -> Option<ObjectIdentifier> {
-        if oid.len() < 2 || oid[0] > 2 || (oid[0] < 2 && oid[1] >= 40) {
-            return None;
-        }
+pub struct Sequence {
+    data: Vec<u8>,
+}
 
-        return Some(ObjectIdentifier { parts: oid });
+impl Sequence {
+    pub fn parse<T, F>(&self, f: F) -> ParseResult<T>
+        where F: Fn(&mut Parser) -> ParseResult<T>
+    {
+        return parse(&self.data, f);
+    }
+}
+
+impl Asn1Element for Sequence {
+    type Result = Self;
+    const TAG: u8 = 0x30;
+
+    fn parse(data: &[u8]) -> ParseResult<Sequence> {
+        return Ok(Sequence { data: data.to_owned() });
     }
 }
 
@@ -520,6 +542,21 @@ mod tests {
         ],
                       |p| {
                           return p.read::<ObjectIdentifier>();
+                      });
+    }
+
+    #[test]
+    fn test_read_sequence() {
+        assert_parses(vec![
+            (Ok((1, 2)), b"\x30\x06\x02\x01\x01\x02\x01\x02"),
+            (Err(ParseError::ShortData), b"\x30\x03\x02\x01\x01"),
+            (Err(ParseError::ExtraData), b"\x30\x07\x02\x01\x01\x02\x01\x02\x00"),
+        ],
+                      |p| {
+                          return try!(p.read::<super::Sequence>()).parse(|p| {
+                              return Ok((try!(p.read::<super::Integer<_>>()),
+                                         try!(p.read::<super::Integer<_>>())));
+                          });
                       });
     }
 }
