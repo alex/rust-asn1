@@ -37,7 +37,7 @@ you would write:
         return try!(d.read()).parse(|p| {
             r = try!(d.read());
             s = try!(d.read());
-            return Ok((r, s))
+            return Ok((r, s));
         });
     });
 
