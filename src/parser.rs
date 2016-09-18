@@ -4,6 +4,9 @@ use std::marker::{PhantomData};
 
 use byteorder::{ReadBytesExt};
 
+use num::{BigInt, One};
+use num::bigint::{Sign};
+
 
 
 #[derive(Debug, PartialEq)]
@@ -105,6 +108,22 @@ macro_rules! primitive_integer {
 primitive_integer!(i8);
 primitive_integer!(i32);
 primitive_integer!(i64);
+
+impl Asn1Integer for BigInt {
+    fn parse(data: &[u8]) -> ParseResult<BigInt> {
+        if data.is_empty() {
+            return Err(ParseError::InvalidValue);
+        }
+
+        if data[0] & 0x80 == 0x80 {
+            let inverse_bytes = data.iter().map(|b| !b).collect::<Vec<u8>>();
+            let n_minus_1 = BigInt::from_bytes_be(Sign::Plus, &inverse_bytes[..]);
+            return Ok(-(n_minus_1 + BigInt::one()));
+        } else {
+            return Ok(BigInt::from_bytes_be(Sign::Plus, &data[..]));
+        }
+    }
+}
 
 struct OctetString {}
 
@@ -308,6 +327,8 @@ pub fn parse<T, F>(data: &[u8], f: F) -> ParseResult<T>
 mod tests {
     use std::{self, fmt};
 
+    use num::{BigInt, FromPrimitive, One};
+
     use super::{parse, Parser, ParseError, ParseResult, BitString, ObjectIdentifier};
 
     fn assert_parses<T, F>(values: Vec<(ParseResult<T>, &[u8])>, f: F)
@@ -400,6 +421,29 @@ mod tests {
         });
     }
 
+    #[test]
+    fn test_read_int_bigint() {
+        assert_parses(vec![
+            (Ok(BigInt::from_i64(0).unwrap()), b"\x02\x01\x00"),
+            (Ok(BigInt::from_i64(127).unwrap()), b"\x02\x01\x7f"),
+            (Ok(BigInt::from_i64(128).unwrap()), b"\x02\x02\x00\x80"),
+            (Ok(BigInt::from_i64(256).unwrap()), b"\x02\x02\x01\x00"),
+            (Ok(BigInt::from_i64(-128).unwrap()), b"\x02\x01\x80"),
+            (Ok(BigInt::from_i64(-129).unwrap()), b"\x02\x02\xff\x7f"),
+            (Ok(BigInt::from_i64(-256).unwrap()), b"\x02\x02\xff\x00"),
+            (
+                Ok(BigInt::from_i64(std::i64::MAX).unwrap()),
+                b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff"
+            ),
+            (
+                Ok(BigInt::from_i64(std::i64::MAX).unwrap() + BigInt::one()),
+                b"\x02\x09\x00\x80\x00\x00\x00\x00\x00\x00\x00"
+            ),
+            (Err(ParseError::InvalidValue), b"\x02\x00"),
+        ], |p| {
+            return p.read::<super::Integer<_>>();
+        });
+    }
 
     #[test]
     fn test_read_octet_string() {

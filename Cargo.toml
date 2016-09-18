@@ -9,3 +9,4 @@ description = "ASN.1 (DER) serializer for Rust."
 
 [dependencies]
 byteorder = ">= 0.5.0"
+num = "*"
