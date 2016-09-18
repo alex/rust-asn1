@@ -1,11 +1,11 @@
 use std::{convert, mem};
 use std::io::{self, BufRead, Cursor};
-use std::marker::{PhantomData};
+use std::marker::PhantomData;
 
-use byteorder::{ReadBytesExt};
+use byteorder::ReadBytesExt;
 
 use num::{BigInt, One};
-use num::bigint::{Sign};
+use num::bigint::Sign;
 
 
 
@@ -15,7 +15,7 @@ pub enum ParseError {
     InvalidValue,
     IntegerOverflow,
     ShortData,
-    UnexpectedTag{expected: u8, actual: u8},
+    UnexpectedTag { expected: u8, actual: u8 },
 }
 
 
@@ -24,7 +24,7 @@ impl convert::From<io::Error> for ParseError {
         return match e.kind() {
             io::ErrorKind::UnexpectedEof => ParseError::ShortData,
             _ => panic!("Unexpected error!"),
-        }
+        };
     }
 }
 
@@ -51,7 +51,7 @@ impl Asn1Element for Boolean {
         if data == b"\x00" {
             return Ok(false);
         } else if data == b"\xff" {
-            return Ok(true)
+            return Ok(true);
         } else {
             return Err(ParseError::InvalidValue);
         }
@@ -62,11 +62,15 @@ trait Asn1Integer: Sized {
     fn parse(&[u8]) -> ParseResult<Self>;
 }
 
-struct Integer<T> where T: Asn1Integer {
+struct Integer<T>
+    where T: Asn1Integer
+{
     integer_type: PhantomData<T>,
 }
 
-impl<T> Asn1Element for Integer<T> where T: Asn1Integer {
+impl<T> Asn1Element for Integer<T>
+    where T: Asn1Integer
+{
     type Result = T;
     const TAG: u8 = 0x2;
 
@@ -74,7 +78,7 @@ impl<T> Asn1Element for Integer<T> where T: Asn1Integer {
         if data.len() > 1 {
             match (data[0], data[1] & 0x80) {
                 (0xff, 0x80) | (0x00, 0x00) => return Err(ParseError::InvalidValue),
-                _ => {},
+                _ => {}
             }
         }
         T::parse(data)
@@ -177,16 +181,15 @@ impl Asn1Element for BitString {
             return Err(ParseError::InvalidValue);
         }
 
-        return BitString::new(
-            data[1..].to_vec(),
-            (data.len() - 1) * 8 - (padding_bits as usize),
-        ).ok_or(ParseError::InvalidValue);
+        return BitString::new(data[1..].to_vec(),
+                              (data.len() - 1) * 8 - (padding_bits as usize))
+            .ok_or(ParseError::InvalidValue);
     }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ObjectIdentifier {
-    pub parts: Vec<u32>
+    pub parts: Vec<u32>,
 }
 
 fn _read_base128_int(reader: &mut Cursor<&[u8]>) -> ParseResult<u32> {
@@ -236,9 +239,7 @@ impl ObjectIdentifier {
             return None;
         }
 
-        return Some(ObjectIdentifier{
-            parts: oid,
-        });
+        return Some(ObjectIdentifier { parts: oid });
     }
 }
 
@@ -249,12 +250,12 @@ struct TLV {
 
 impl<'a> Parser<'a> {
     pub fn new(data: &[u8]) -> Parser {
-        return Parser{reader: Cursor::new(data)};
+        return Parser { reader: Cursor::new(data) };
     }
 
     fn read_length(&mut self) -> ParseResult<usize> {
         let b = try!(self.reader.read_u8());
-        if b&0x80 == 0 {
+        if b & 0x80 == 0 {
             return Ok((b & 0x7f) as usize);
         }
         let num_bytes = b & 0x7f;
@@ -295,13 +296,21 @@ impl<'a> Parser<'a> {
             buf[..length].to_vec()
         };
         self.reader.consume(length);
-        return Ok(TLV{tag: tag, value: value});
+        return Ok(TLV {
+            tag: tag,
+            value: value,
+        });
     }
 
-    pub fn read<T>(&mut self) -> ParseResult<T::Result> where T: Asn1Element {
+    pub fn read<T>(&mut self) -> ParseResult<T::Result>
+        where T: Asn1Element
+    {
         let tlv = try!(self.read_tlv());
         if tlv.tag != T::TAG {
-            return Err(ParseError::UnexpectedTag{expected: T::TAG, actual: tlv.tag});
+            return Err(ParseError::UnexpectedTag {
+                expected: T::TAG,
+                actual: tlv.tag,
+            });
         }
         return T::parse(&tlv.value);
     }
@@ -316,7 +325,8 @@ impl<'a> Parser<'a> {
 
 
 pub fn parse<T, F>(data: &[u8], f: F) -> ParseResult<T>
-        where F: Fn(&mut Parser) -> ParseResult<T> {
+    where F: Fn(&mut Parser) -> ParseResult<T>
+{
     let mut parser = Parser::new(data);
     let result = try!(f(&mut parser));
     try!(parser.finish());
@@ -332,7 +342,9 @@ mod tests {
     use super::{parse, Parser, ParseError, ParseResult, BitString, ObjectIdentifier};
 
     fn assert_parses<T, F>(values: Vec<(ParseResult<T>, &[u8])>, f: F)
-            where T: Eq + fmt::Debug, F: Fn(&mut Parser) -> ParseResult<T> {
+        where T: Eq + fmt::Debug,
+              F: Fn(&mut Parser) -> ParseResult<T>
+    {
         for (expected, value) in values {
             let result = parse(value, &f);
             assert_eq!(result, expected);
@@ -343,9 +355,10 @@ mod tests {
     fn test_read_extra_data() {
         assert_parses(vec![
             (Err(ParseError::ExtraData), b"\x00"),
-        ], |_| {
-            return Ok(());
-        });
+        ],
+                      |_| {
+                          return Ok(());
+                      });
     }
 
     #[test]
@@ -357,9 +370,8 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x01\x01\x01"),
             (Err(ParseError::InvalidValue), b"\x01\x02\x00\x00"),
             (Err(ParseError::InvalidValue), b"\x01\x02\xff\x01"),
-        ], |p| {
-            p.read::<super::Boolean>()
-        });
+        ],
+                      |p| p.read::<super::Boolean>());
     }
 
 
@@ -385,9 +397,8 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x02\x05\x00\x00\x00\x00\x01"),
             (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
-        ], |p| {
-            p.read::<super::Integer<_>>()
-        });
+        ],
+                      |p| p.read::<super::Integer<_>>());
     }
 
     #[test]
@@ -403,9 +414,10 @@ mod tests {
             (Ok(std::i32::MAX), b"\x02\x04\x7f\xff\xff\xff"),
             (Err(ParseError::IntegerOverflow), b"\x02\x05\x02\x00\x00\x00\x00"),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
-        ], |p| {
-            return p.read::<super::Integer<_>>();
-        });
+        ],
+                      |p| {
+                          return p.read::<super::Integer<_>>();
+                      });
     }
 
     #[test]
@@ -416,9 +428,10 @@ mod tests {
             (Ok(-128i8), b"\x02\x01\x80"),
             (Err(ParseError::IntegerOverflow), b"\x02\x02\x02\x00"),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
-        ], |p| {
-            return p.read::<super::Integer<_>>();
-        });
+        ],
+                      |p| {
+                          return p.read::<super::Integer<_>>();
+                      });
     }
 
     #[test]
@@ -440,9 +453,10 @@ mod tests {
                 b"\x02\x09\x00\x80\x00\x00\x00\x00\x00\x00\x00"
             ),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
-        ], |p| {
-            return p.read::<super::Integer<_>>();
-        });
+        ],
+                      |p| {
+                          return p.read::<super::Integer<_>>();
+                      });
     }
 
     #[test]
@@ -479,9 +493,10 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x03\x02\x07\x01"),
             (Err(ParseError::InvalidValue), b"\x03\x02\x07\x40"),
             (Err(ParseError::InvalidValue), b"\x03\x02\x08\x00"),
-        ], |p| {
-            return p.read::<BitString>();
-        })
+        ],
+                      |p| {
+                          return p.read::<BitString>();
+                      })
     }
 
     #[test]
@@ -502,8 +517,9 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x06\x00"),
             (Err(ParseError::InvalidValue), b"\x06\x07\x55\x02\xc0\x80\x80\x80\x80"),
             (Err(ParseError::ShortData), b"\x06\x02\x2a\x86"),
-        ], |p| {
-            return p.read::<ObjectIdentifier>();
-        });
+        ],
+                      |p| {
+                          return p.read::<ObjectIdentifier>();
+                      });
     }
 }
