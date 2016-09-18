@@ -155,6 +155,7 @@ impl<'a> Parser<'a> {
             if buf.len() < length {
                 return Err(ParseError::ShortData);
             }
+            // TODO: excessive copying, hopefully unnecesary
             buf[..length].to_vec()
         };
         self.reader.consume(length);
