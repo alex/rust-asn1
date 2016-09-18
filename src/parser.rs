@@ -423,6 +423,7 @@ mod tests {
             (Ok(-129), b"\x02\x02\xff\x7f"),
             (Ok(-256), b"\x02\x02\xff\x00"),
             (Ok(std::i64::MAX), b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff"),
+            (Ok(std::i64::MIN), b"\x02\x08\x80\x00\x00\x00\x00\x00\x00\x00"),
             (Err(ParseError::UnexpectedTag{expected: 0x2, actual: 0x3}), b"\x03\x00"),
             (Err(ParseError::ShortData), b"\x02\x02\x00"),
             (Err(ParseError::ShortData), b""),
