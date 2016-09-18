@@ -41,7 +41,7 @@ pub trait Asn1Element {
     fn parse(&[u8]) -> ParseResult<Self::Result>;
 }
 
-struct Boolean {}
+struct Boolean;
 
 impl Asn1Element for Boolean {
     type Result = bool;
@@ -129,7 +129,7 @@ impl Asn1Integer for BigInt {
     }
 }
 
-struct OctetString {}
+struct OctetString;
 
 impl Asn1Element for OctetString {
     type Result = Vec<u8>;
