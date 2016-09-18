@@ -4,3 +4,5 @@
 extern crate byteorder;
 
 mod parser;
+
+pub use parser::{parse, Parser, ParseError, ParseResult};
