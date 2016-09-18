@@ -374,6 +374,21 @@ mod tests {
     }
 
     #[test]
+    fn test_object_identifier_new() {
+        assert!(ObjectIdentifier::new(vec![]).is_none());
+        assert!(ObjectIdentifier::new(vec![3, 10]).is_none());
+        assert!(ObjectIdentifier::new(vec![1, 50]).is_none());
+    }
+
+    #[test]
+    fn test_bit_string_new() {
+        assert!(BitString::new(b"".to_vec(), 1).is_none());
+        assert!(BitString::new(b"\x00".to_vec(), 0).is_none());
+        assert!(BitString::new(b"\x00".to_vec(), 9).is_none());
+        assert!(BitString::new(b"\xff".to_vec(), 3).is_none());
+    }
+
+    #[test]
     fn test_read_extra_data() {
         assert_parses(vec![
             (Err(ParseError::ExtraData), b"\x00"),
