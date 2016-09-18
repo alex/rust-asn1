@@ -118,10 +118,57 @@ impl Asn1Element for OctetString {
 }
 
 #[derive(Debug, PartialEq, Eq)]
+struct BitString {
+    data: Vec<u8>,
+    bit_length: usize,
+}
+
+impl BitString {
+    pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
+        match (data.len(), bit_length) {
+            (0, 0) => (),
+            (_, 0) | (0, _) => return None,
+            (i, j) if (i * 8 < j) || (i - 1) * 8 > j => return None,
+            _ => (),
+        }
+
+        let padding_bits = data.len() * 8 - bit_length;
+        if padding_bits > 0 && data[data.len() - 1] & ((1 << padding_bits) - 1) != 0 {
+            return None;
+        }
+
+        return Some(BitString {
+            data: data,
+            bit_length: bit_length,
+        });
+    }
+}
+
+impl Asn1Element for BitString {
+    type Result = Self;
+    const TAG: u8 = 0x3;
+
+    fn parse(data: &[u8]) -> ParseResult<BitString> {
+        let padding_bits = match data.get(0) {
+            Some(&bits) => bits,
+            None => return Err(ParseError::InvalidValue),
+        };
+
+        if padding_bits > 7 || (data.len() == 1 && padding_bits > 0) {
+            return Err(ParseError::InvalidValue);
+        }
+
+        return BitString::new(
+            data[1..].to_vec(),
+            (data.len() - 1) * 8 - (padding_bits as usize),
+        ).ok_or(ParseError::InvalidValue);
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
 pub struct ObjectIdentifier {
     pub parts: Vec<u32>
 }
-
 
 fn _read_base128_int(reader: &mut Cursor<&[u8]>) -> ParseResult<u32> {
     let mut ret = 0u32;
@@ -261,7 +308,7 @@ pub fn parse<T, F>(data: &[u8], f: F) -> ParseResult<T>
 mod tests {
     use std::{self, fmt};
 
-    use super::{parse, Parser, ParseError, ParseResult, ObjectIdentifier};
+    use super::{parse, Parser, ParseError, ParseResult, BitString, ObjectIdentifier};
 
     fn assert_parses<T, F>(values: Vec<(ParseResult<T>, &[u8])>, f: F)
             where T: Eq + fmt::Debug, F: Fn(&mut Parser) -> ParseResult<T> {
@@ -377,6 +424,21 @@ mod tests {
         });
     }
 
+    #[test]
+    fn test_read_bit_string() {
+        assert_parses(vec![
+            (Ok(BitString::new(b"".to_vec(), 0).unwrap()), b"\x03\x01\x00"),
+            (Ok(BitString::new(b"\x00".to_vec(), 1).unwrap()), b"\x03\x02\x07\x00"),
+            (Ok(BitString::new(b"\x80".to_vec(), 1).unwrap()), b"\x03\x02\x07\x80"),
+            (Ok(BitString::new(b"\x81\xf0".to_vec(), 12).unwrap()), b"\x03\x03\x04\x81\xf0"),
+            (Err(ParseError::InvalidValue), b"\x03\x00"),
+            (Err(ParseError::InvalidValue), b"\x03\x02\x07\x01"),
+            (Err(ParseError::InvalidValue), b"\x03\x02\x07\x40"),
+            (Err(ParseError::InvalidValue), b"\x03\x02\x08\x00"),
+        ], |p| {
+            return p.read::<BitString>();
+        })
+    }
 
     #[test]
     fn test_read_object_identifier() {
