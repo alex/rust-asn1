@@ -20,7 +20,7 @@ Add ``asn1`` to the ``[dependencies]`` section of your ``Cargo.toml``:
 Usage
 -----
 
-To write a structure like::
+To parse a structure like::
 
     Signature ::= SEQUENCE {
         r INTEGER,
@@ -33,23 +33,10 @@ you would write:
 
     extern crate asn1;
 
-    let data = asn1::to_vec(|s| {
-        s.write_sequence(|new_s| {
-            new_s.write_int(r);
-            new_s.write_int(s);
-        });
-    });
-
-and to read it:
-
-.. code-block:: rust
-
-    extern crate asn1;
-
-    let result = asn1::from_vec(data, |d| {
-        return d.read_sequence(|d| {
-            r = try!(d.read_int());
-            s = try!(d.read_int());
+    let result = asn1::parse(data, |p| {
+        return try!(d.read()).parse(|p| {
+            r = try!(d.read());
+            s = try!(d.read());
             return Ok((r, s))
         });
     });
