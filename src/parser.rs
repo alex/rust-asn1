@@ -106,6 +106,17 @@ primitive_integer!(i8);
 primitive_integer!(i32);
 primitive_integer!(i64);
 
+struct OctetString {}
+
+impl Asn1Element for OctetString {
+    type Result = Vec<u8>;
+    const TAG: u8 = 0x4;
+
+    fn parse(data: &[u8]) -> ParseResult<Vec<u8>> {
+        return Ok(data.to_owned());
+    }
+}
+
 struct TLV {
     pub tag: u8,
     pub value: Vec<u8>,
@@ -179,7 +190,7 @@ impl<'a> Parser<'a> {
 }
 
 
-fn parse<T, F>(data: &[u8], f: F) -> ParseResult<T>
+pub fn parse<T, F>(data: &[u8], f: F) -> ParseResult<T>
         where F: Fn(&mut Parser) -> ParseResult<T> {
     let mut parser = Parser::new(data);
     let result = try!(f(&mut parser));
@@ -280,6 +291,30 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x02\x00"),
         ], |p| {
             return p.read::<super::Integer<_>>();
+        });
+    }
+
+
+    #[test]
+    fn test_read_octet_string() {
+        assert_parses(vec![
+            (Ok(b"".to_vec()), b"\x04\x00"),
+            (Ok(b"\x01\x02\x03".to_vec()), b"\x04\x03\x01\x02\x03"),
+            (
+                Ok(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa".to_vec()),
+                b"\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ),
+            (Err(ParseError::InvalidValue), b"\x04\x80"),
+            (Err(ParseError::InvalidValue), b"\x04\x81\x00"),
+            (Err(ParseError::InvalidValue), b"\x04\x81\x01\x09"),
+            (
+                Err(ParseError::IntegerOverflow),
+                b"\x04\x89\x01\x01\x01\x01\x01\x01\x01\x01\x01"
+            ),
+            (Err(ParseError::ShortData), b"\x04\x03\x01\x02"),
+            (Err(ParseError::ShortData), b"\x04\x86\xff\xff\xff\xff\xff\xff"),
+        ], |p| {
+            return p.read::<super::OctetString>();
         });
     }
 }
