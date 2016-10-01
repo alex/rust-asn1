@@ -1,6 +1,5 @@
 use std::{convert, mem};
 use std::io::{self, BufRead, Cursor};
-use std::marker::PhantomData;
 
 use byteorder::ReadBytesExt;
 
@@ -34,17 +33,13 @@ pub struct Parser<'a> {
     reader: Cursor<&'a [u8]>,
 }
 
-pub trait Asn1Element {
-    type Result;
+pub trait Asn1Element: Sized {
     const TAG: u8;
 
-    fn parse(&[u8]) -> ParseResult<Self::Result>;
+    fn parse(&[u8]) -> ParseResult<Self>;
 }
 
-struct Boolean;
-
-impl Asn1Element for Boolean {
-    type Result = bool;
+impl Asn1Element for bool {
     const TAG: u8 = 0x1;
 
     fn parse(data: &[u8]) -> ParseResult<bool> {
@@ -58,20 +53,14 @@ impl Asn1Element for Boolean {
     }
 }
 
-trait Asn1Integer: Sized {
+pub trait Asn1Integer: Sized
+{
     fn parse(&[u8]) -> ParseResult<Self>;
 }
 
-struct Integer<T>
+impl<T> Asn1Element for T
     where T: Asn1Integer
 {
-    integer_type: PhantomData<T>,
-}
-
-impl<T> Asn1Element for Integer<T>
-    where T: Asn1Integer
-{
-    type Result = T;
     const TAG: u8 = 0x2;
 
     fn parse(data: &[u8]) -> ParseResult<T> {
@@ -129,10 +118,7 @@ impl Asn1Integer for BigInt {
     }
 }
 
-struct OctetString;
-
-impl Asn1Element for OctetString {
-    type Result = Vec<u8>;
+impl Asn1Element for Vec<u8> {
     const TAG: u8 = 0x4;
 
     fn parse(data: &[u8]) -> ParseResult<Vec<u8>> {
@@ -168,7 +154,6 @@ impl BitString {
 }
 
 impl Asn1Element for BitString {
-    type Result = Self;
     const TAG: u8 = 0x3;
 
     fn parse(data: &[u8]) -> ParseResult<BitString> {
@@ -217,7 +202,6 @@ impl ObjectIdentifier {
 }
 
 impl Asn1Element for ObjectIdentifier {
-    type Result = Self;
     const TAG: u8 = 0x6;
 
     fn parse(data: &[u8]) -> ParseResult<ObjectIdentifier> {
@@ -257,7 +241,6 @@ impl Sequence {
 }
 
 impl Asn1Element for Sequence {
-    type Result = Self;
     const TAG: u8 = 0x30;
 
     fn parse(data: &[u8]) -> ParseResult<Sequence> {
@@ -324,7 +307,7 @@ impl<'a> Parser<'a> {
         });
     }
 
-    pub fn read<T>(&mut self) -> ParseResult<T::Result>
+    pub fn read<T>(&mut self) -> ParseResult<T>
         where T: Asn1Element
     {
         let tlv = try!(self.read_tlv());
@@ -408,7 +391,7 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x01\x02\x00\x00"),
             (Err(ParseError::InvalidValue), b"\x01\x02\xff\x01"),
         ],
-                      |p| p.read::<super::Boolean>());
+                      |p| p.read());
     }
 
 
@@ -436,7 +419,7 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
         ],
-                      |p| p.read::<super::Integer<_>>());
+                      |p| p.read());
     }
 
     #[test]
@@ -454,7 +437,7 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x02\x00"),
         ],
                       |p| {
-                          return p.read::<super::Integer<_>>();
+                          return p.read();
                       });
     }
 
@@ -468,7 +451,7 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x02\x00"),
         ],
                       |p| {
-                          return p.read::<super::Integer<_>>();
+                          return p.read();
                       });
     }
 
@@ -493,7 +476,7 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x02\x00"),
         ],
                       |p| {
-                          return p.read::<super::Integer<_>>();
+                          return p.read();
                       });
     }
 
@@ -516,7 +499,7 @@ mod tests {
             (Err(ParseError::ShortData), b"\x04\x03\x01\x02"),
             (Err(ParseError::ShortData), b"\x04\x86\xff\xff\xff\xff\xff\xff"),
         ], |p| {
-            return p.read::<super::OctetString>();
+            return p.read();
         });
     }
 
@@ -570,8 +553,8 @@ mod tests {
         ],
                       |p| {
                           return try!(p.read::<super::Sequence>()).parse(|p| {
-                              return Ok((try!(p.read::<super::Integer<_>>()),
-                                         try!(p.read::<super::Integer<_>>())));
+                              return Ok((try!(p.read()),
+                                         try!(p.read())));
                           });
                       });
     }
