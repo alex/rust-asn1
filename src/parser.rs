@@ -53,8 +53,7 @@ impl Asn1Element for bool {
     }
 }
 
-pub trait Asn1Integer: Sized
-{
+pub trait Asn1Integer: Sized {
     fn parse(&[u8]) -> ParseResult<Self>;
 }
 
@@ -553,8 +552,7 @@ mod tests {
         ],
                       |p| {
                           return try!(p.read::<super::Sequence>()).parse(|p| {
-                              return Ok((try!(p.read()),
-                                         try!(p.read())));
+                              return Ok((try!(p.read()), try!(p.read())));
                           });
                       });
     }
