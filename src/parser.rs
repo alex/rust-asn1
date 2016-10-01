@@ -44,12 +44,10 @@ impl Asn1Element for bool {
     const TAG: Tag = Tag::Bool;
 
     fn parse(data: &[u8]) -> ParseResult<bool> {
-        if data == b"\x00" {
-            return Ok(false);
-        } else if data == b"\xff" {
-            return Ok(true);
-        } else {
-            return Err(ParseError::InvalidValue);
+        match data {
+            b"\x00" => Ok(false),
+            b"\xff" => Ok(true),
+            _ => Err(ParseError::InvalidValue),
         }
     }
 }
