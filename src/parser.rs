@@ -6,6 +6,7 @@ use byteorder::ReadBytesExt;
 use num::{BigInt, One};
 use num::bigint::Sign;
 
+use common::{BitString, ObjectIdentifier};
 
 
 #[derive(Debug, PartialEq)]
@@ -125,33 +126,6 @@ impl Asn1Element for Vec<u8> {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-struct BitString {
-    data: Vec<u8>,
-    bit_length: usize,
-}
-
-impl BitString {
-    pub fn new(data: Vec<u8>, bit_length: usize) -> Option<BitString> {
-        match (data.len(), bit_length) {
-            (0, 0) => (),
-            (_, 0) | (0, _) => return None,
-            (i, j) if (i * 8 < j) || (i - 1) * 8 > j => return None,
-            _ => (),
-        }
-
-        let padding_bits = data.len() * 8 - bit_length;
-        if padding_bits > 0 && data[data.len() - 1] & ((1 << padding_bits) - 1) != 0 {
-            return None;
-        }
-
-        return Some(BitString {
-            data: data,
-            bit_length: bit_length,
-        });
-    }
-}
-
 impl Asn1Element for BitString {
     const TAG: u8 = 0x3;
 
@@ -171,11 +145,6 @@ impl Asn1Element for BitString {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct ObjectIdentifier {
-    pub parts: Vec<u32>,
-}
-
 fn _read_base128_int(reader: &mut Cursor<&[u8]>) -> ParseResult<u32> {
     let mut ret = 0u32;
     for _ in 0..4 {
@@ -189,16 +158,6 @@ fn _read_base128_int(reader: &mut Cursor<&[u8]>) -> ParseResult<u32> {
     return Err(ParseError::InvalidValue);
 }
 
-
-impl ObjectIdentifier {
-    pub fn new(oid: Vec<u32>) -> Option<ObjectIdentifier> {
-        if oid.len() < 2 || oid[0] > 2 || (oid[0] < 2 && oid[1] >= 40) {
-            return None;
-        }
-
-        return Some(ObjectIdentifier { parts: oid });
-    }
-}
 
 impl Asn1Element for ObjectIdentifier {
     const TAG: u8 = 0x6;
@@ -343,7 +302,8 @@ mod tests {
 
     use num::{BigInt, FromPrimitive, One};
 
-    use super::{parse, Parser, ParseError, ParseResult, BitString, ObjectIdentifier};
+    use common::{BitString, ObjectIdentifier};
+    use super::{parse, Parser, ParseError, ParseResult};
 
     fn assert_parses<T, F>(values: Vec<(ParseResult<T>, &[u8])>, f: F)
         where T: Eq + fmt::Debug,
@@ -353,21 +313,6 @@ mod tests {
             let result = parse(value, &f);
             assert_eq!(result, expected);
         }
-    }
-
-    #[test]
-    fn test_object_identifier_new() {
-        assert!(ObjectIdentifier::new(vec![]).is_none());
-        assert!(ObjectIdentifier::new(vec![3, 10]).is_none());
-        assert!(ObjectIdentifier::new(vec![1, 50]).is_none());
-    }
-
-    #[test]
-    fn test_bit_string_new() {
-        assert!(BitString::new(b"".to_vec(), 1).is_none());
-        assert!(BitString::new(b"\x00".to_vec(), 0).is_none());
-        assert!(BitString::new(b"\x00".to_vec(), 9).is_none());
-        assert!(BitString::new(b"\xff".to_vec(), 3).is_none());
     }
 
     #[test]
