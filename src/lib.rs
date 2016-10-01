@@ -7,5 +7,5 @@ extern crate num;
 mod common;
 mod parser;
 
-pub use common::{BitString, ObjectIdentifier};
+pub use common::{BitString, ObjectIdentifier, Tag};
 pub use parser::{parse, Parser, ParseError, ParseResult};

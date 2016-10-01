@@ -6,7 +6,7 @@ use byteorder::ReadBytesExt;
 use num::{BigInt, One};
 use num::bigint::Sign;
 
-use common::{BitString, ObjectIdentifier};
+use common::{BitString, ObjectIdentifier, Tag};
 
 
 #[derive(Debug, PartialEq)]
@@ -15,7 +15,7 @@ pub enum ParseError {
     InvalidValue,
     IntegerOverflow,
     ShortData,
-    UnexpectedTag { expected: u8, actual: u8 },
+    UnexpectedTag { expected: Tag, actual: u8 },
 }
 
 
@@ -35,13 +35,13 @@ pub struct Parser<'a> {
 }
 
 pub trait Asn1Element: Sized {
-    const TAG: u8;
+    const TAG: Tag;
 
     fn parse(&[u8]) -> ParseResult<Self>;
 }
 
 impl Asn1Element for bool {
-    const TAG: u8 = 0x1;
+    const TAG: Tag = Tag::Bool;
 
     fn parse(data: &[u8]) -> ParseResult<bool> {
         if data == b"\x00" {
@@ -61,7 +61,7 @@ pub trait Asn1Integer: Sized {
 impl<T> Asn1Element for T
     where T: Asn1Integer
 {
-    const TAG: u8 = 0x2;
+    const TAG: Tag = Tag::Integer;
 
     fn parse(data: &[u8]) -> ParseResult<T> {
         if data.len() > 1 {
@@ -119,7 +119,7 @@ impl Asn1Integer for BigInt {
 }
 
 impl Asn1Element for Vec<u8> {
-    const TAG: u8 = 0x4;
+    const TAG: Tag = Tag::OctetString;
 
     fn parse(data: &[u8]) -> ParseResult<Vec<u8>> {
         return Ok(data.to_owned());
@@ -127,7 +127,7 @@ impl Asn1Element for Vec<u8> {
 }
 
 impl Asn1Element for BitString {
-    const TAG: u8 = 0x3;
+    const TAG: Tag = Tag::BitString;
 
     fn parse(data: &[u8]) -> ParseResult<BitString> {
         let padding_bits = match data.get(0) {
@@ -160,7 +160,7 @@ fn _read_base128_int(reader: &mut Cursor<&[u8]>) -> ParseResult<u32> {
 
 
 impl Asn1Element for ObjectIdentifier {
-    const TAG: u8 = 0x6;
+    const TAG: Tag = Tag::ObjectIdentifier;
 
     fn parse(data: &[u8]) -> ParseResult<ObjectIdentifier> {
         if data.is_empty() {
@@ -199,7 +199,7 @@ impl Sequence {
 }
 
 impl Asn1Element for Sequence {
-    const TAG: u8 = 0x30;
+    const TAG: Tag = Tag::Sequence;
 
     fn parse(data: &[u8]) -> ParseResult<Sequence> {
         return Ok(Sequence { data: data.to_owned() });
@@ -269,7 +269,7 @@ impl<'a> Parser<'a> {
         where T: Asn1Element
     {
         let tlv = try!(self.read_tlv());
-        if tlv.tag != T::TAG {
+        if tlv.tag != T::TAG as u8 {
             return Err(ParseError::UnexpectedTag {
                 expected: T::TAG,
                 actual: tlv.tag,
@@ -302,7 +302,7 @@ mod tests {
 
     use num::{BigInt, FromPrimitive, One};
 
-    use common::{BitString, ObjectIdentifier};
+    use common::{BitString, ObjectIdentifier, Tag};
     use super::{parse, Parser, ParseError, ParseResult};
 
     fn assert_parses<T, F>(values: Vec<(ParseResult<T>, &[u8])>, f: F)
@@ -351,7 +351,7 @@ mod tests {
             (Ok(-256), b"\x02\x02\xff\x00"),
             (Ok(std::i64::MAX), b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff"),
             (Ok(std::i64::MIN), b"\x02\x08\x80\x00\x00\x00\x00\x00\x00\x00"),
-            (Err(ParseError::UnexpectedTag{expected: 0x2, actual: 0x3}), b"\x03\x00"),
+            (Err(ParseError::UnexpectedTag{expected: Tag::Integer, actual: 0x3}), b"\x03\x00"),
             (Err(ParseError::ShortData), b"\x02\x02\x00"),
             (Err(ParseError::ShortData), b""),
             (Err(ParseError::ShortData), b"\x02"),
