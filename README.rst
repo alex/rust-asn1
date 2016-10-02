@@ -34,7 +34,7 @@ you would write:
     extern crate asn1;
 
     let result = asn1::parse(data, |p| {
-        return try!(d.read()).parse(|p| {
+        return try!(d.read::<asn1::Sequence>()).parse(|p| {
             r = try!(d.read());
             s = try!(d.read());
             return Ok((r, s));
