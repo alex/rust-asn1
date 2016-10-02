@@ -8,4 +8,4 @@ mod common;
 mod parser;
 
 pub use common::{BitString, ObjectIdentifier, Tag};
-pub use parser::{parse, Parser, ParseError, ParseResult};
+pub use parser::{parse, Parser, ParseError, ParseResult, Sequence};
