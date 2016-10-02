@@ -200,6 +200,8 @@ impl Asn1Element for Sequence {
     const TAG: Tag = Tag::Sequence;
 
     fn parse(data: &[u8]) -> ParseResult<Sequence> {
+        // TODO: would it make more sense to return an `&Sequence` and therefore we wouldn't have
+        // to copy `data`?
         return Ok(Sequence { data: data.to_owned() });
     }
 }
