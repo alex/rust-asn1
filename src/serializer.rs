@@ -3,7 +3,7 @@ use std::io::{Write};
 
 use byteorder::{WriteBytesExt};
 
-use chrono::{DateTime, UTC};
+use chrono::{DateTime, Utc};
 
 use common::{Tag};
 use utils::{BitString, Integer, ObjectIdentifier};
@@ -131,7 +131,7 @@ impl<'a> Serializer<'a> {
         });
     }
 
-    pub fn write_utctime(&mut self, v: DateTime<UTC>) {
+    pub fn write_utctime(&mut self, v: DateTime<Utc>) {
         return self._write_with_tag(Tag::UTCTime, || {
             return format!("{}", v.format("%y%m%d%H%M%SZ")).into_bytes();
         });
@@ -158,7 +158,7 @@ pub fn to_vec<F>(f: F) -> Vec<u8> where F: Fn(&mut Serializer) {
 mod tests {
     use std;
 
-    use chrono::{TimeZone, UTC};
+    use chrono::{TimeZone, Utc};
 
     use num::{BigInt, FromPrimitive, One};
 
@@ -311,15 +311,15 @@ mod tests {
     fn test_write_utctime() {
         assert_serializes(vec![
             (
-                UTC.ymd(1991, 5, 6).and_hms(23, 45, 40),
+                Utc.ymd(1991, 5, 6).and_hms(23, 45, 40),
                 b"\x17\x0d\x39\x31\x30\x35\x30\x36\x32\x33\x34\x35\x34\x30\x5a".to_vec(),
             ),
             (
-                UTC.timestamp(0, 0),
+                Utc.timestamp(0, 0),
                 b"\x17\x0d\x37\x30\x30\x31\x30\x31\x30\x30\x30\x30\x30\x30\x5a".to_vec(),
             ),
             (
-                UTC.timestamp(1258325776, 0),
+                Utc.timestamp(1258325776, 0),
                 b"\x17\x0d\x30\x39\x31\x31\x31\x35\x32\x32\x35\x36\x31\x36\x5a".to_vec(),
             ),
         ], |serializer, v| {
