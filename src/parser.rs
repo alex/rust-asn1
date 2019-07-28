@@ -1,6 +1,6 @@
 use std::mem;
 
-use crate::ObjectIdentifier;
+use crate::{BitString, ObjectIdentifier};
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
@@ -173,10 +173,20 @@ impl<'a> Asn1Element<'a> for ObjectIdentifier<'a> {
     }
 }
 
+impl<'a> Asn1Element<'a> for BitString<'a> {
+    const TAG: u8 = 0x03;
+    fn parse(data: &'a [u8]) -> ParseResult<BitString<'a>> {
+        if data.is_empty() {
+            return Err(ParseError::InvalidValue);
+        }
+        return BitString::new(&data[1..], data[0]).ok_or(ParseError::InvalidValue);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Asn1Element;
-    use crate::{ObjectIdentifier, ParseError, ParseResult};
+    use crate::{BitString, ObjectIdentifier, ParseError, ParseResult};
     use std::fmt;
 
     fn assert_parses<'a, T: Asn1Element<'a> + fmt::Debug + PartialEq>(
@@ -298,5 +308,22 @@ mod tests {
             ),
             (Err(ParseError::InvalidValue), b"\x06\x02\x2a\x86"),
         ])
+    }
+
+    #[test]
+    fn test_read_bit_string() {
+        assert_parses(&[
+            (Ok(BitString::new(b"", 0).unwrap()), b"\x03\x01\x00"),
+            (Ok(BitString::new(b"\x00", 7).unwrap()), b"\x03\x02\x07\x00"),
+            (Ok(BitString::new(b"\x80", 7).unwrap()), b"\x03\x02\x07\x80"),
+            (
+                Ok(BitString::new(b"\x81\xf0", 4).unwrap()),
+                b"\x03\x03\x04\x81\xf0",
+            ),
+            (Err(ParseError::InvalidValue), b"\x03\x00"),
+            (Err(ParseError::InvalidValue), b"\x03\x02\x07\x01"),
+            (Err(ParseError::InvalidValue), b"\x03\x02\x07\x40"),
+            (Err(ParseError::InvalidValue), b"\x03\x02\x08\x00"),
+        ]);
     }
 }
