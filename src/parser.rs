@@ -1,3 +1,5 @@
+use std::mem;
+
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     InvalidValue,
@@ -133,6 +135,35 @@ impl<'a> Asn1Element<'a> for &'a [u8] {
     }
 }
 
+impl Asn1Element<'_> for i64 {
+    const TAG: u8 = 0x02;
+    fn parse(data: &[u8]) -> ParseResult<i64> {
+        if data.is_empty() {
+            return Err(ParseError::InvalidValue);
+        }
+        if data.len() > 1 {
+            if (data[0] == 0 && data[1] & 0x80 == 0) || (data[0] == 0xff && data[1] & 0x80 == 0x80)
+            {
+                return Err(ParseError::InvalidValue);
+            }
+        }
+
+        if data.len() > mem::size_of::<Self>() {
+            return Err(ParseError::IntegerOverflow);
+        }
+
+        let mut ret = 0;
+        for b in data {
+            ret <<= 8;
+            ret |= *b as Self;
+        }
+        // Shift up and down in order to sign extend the result.
+        ret <<= 64 - data.len() * 8;
+        ret >>= 64 - data.len() * 8;
+        return Ok(ret);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Asn1Element;
@@ -185,5 +216,42 @@ mod tests {
             (Err(ParseError::ShortData), b"\x04\x03\x01\x02"),
             (Err(ParseError::ShortData), b"\x04\x86\xff\xff\xff\xff\xff\xff"),
         ]);
+    }
+
+    #[test]
+    fn test_parse_int_i64() {
+        assert_parses(&[
+            (Ok(0), b"\x02\x01\x00"),
+            (Ok(127), b"\x02\x01\x7f"),
+            (Ok(128), b"\x02\x02\x00\x80"),
+            (Ok(256), b"\x02\x02\x01\x00"),
+            (Ok(-128), b"\x02\x01\x80"),
+            (Ok(-129), b"\x02\x02\xff\x7f"),
+            (Ok(-256), b"\x02\x02\xff\x00"),
+            (
+                Ok(std::i64::MAX),
+                b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff",
+            ),
+            (
+                Err(ParseError::UnexpectedTag {
+                    expected: 0x2,
+                    actual: 0x3,
+                }),
+                b"\x03\x00",
+            ),
+            (Err(ParseError::ShortData), b"\x02\x02\x00"),
+            (Err(ParseError::ShortData), b""),
+            (Err(ParseError::ShortData), b"\x02"),
+            (
+                Err(ParseError::IntegerOverflow),
+                b"\x02\x09\x02\x00\x00\x00\x00\x00\x00\x00\x00",
+            ),
+            (
+                Err(ParseError::InvalidValue),
+                b"\x02\x05\x00\x00\x00\x00\x01",
+            ),
+            (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
+            (Err(ParseError::InvalidValue), b"\x02\x00"),
+        ])
     }
 }
