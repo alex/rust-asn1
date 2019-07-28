@@ -1,5 +1,7 @@
 use std::mem;
 
+use crate::ObjectIdentifier;
+
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     InvalidValue,
@@ -164,10 +166,17 @@ impl Asn1Element<'_> for i64 {
     }
 }
 
+impl<'a> Asn1Element<'a> for ObjectIdentifier<'a> {
+    const TAG: u8 = 0x06;
+    fn parse(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
+        return ObjectIdentifier::from_der(data).ok_or(ParseError::InvalidValue);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::Asn1Element;
-    use crate::{ParseError, ParseResult};
+    use crate::{ObjectIdentifier, ParseError, ParseResult};
     use std::fmt;
 
     fn assert_parses<'a, T: Asn1Element<'a> + fmt::Debug + PartialEq>(
@@ -252,6 +261,42 @@ mod tests {
             ),
             (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
+        ])
+    }
+
+    #[test]
+    fn test_parse_object_identitifer() {
+        assert_parses(&[
+            (
+                Ok(ObjectIdentifier::from_string("2.5").unwrap()),
+                b"\x06\x01\x55",
+            ),
+            (
+                Ok(ObjectIdentifier::from_string("2.5.2").unwrap()),
+                b"\x06\x02\x55\x02",
+            ),
+            (
+                Ok(ObjectIdentifier::from_string("1.2.840.113549").unwrap()),
+                b"\x06\x06\x2a\x86\x48\x86\xf7\x0d",
+            ),
+            (
+                Ok(ObjectIdentifier::from_string("1.2.3.4").unwrap()),
+                b"\x06\x03\x2a\x03\x04",
+            ),
+            (
+                Ok(ObjectIdentifier::from_string("1.2.840.133549.1.1.5").unwrap()),
+                b"\x06\x09\x2a\x86\x48\x88\x93\x2d\x01\x01\x05",
+            ),
+            (
+                Ok(ObjectIdentifier::from_string("2.100.3").unwrap()),
+                b"\x06\x03\x81\x34\x03",
+            ),
+            (Err(ParseError::InvalidValue), b"\x06\x00"),
+            (
+                Err(ParseError::InvalidValue),
+                b"\x06\x07\x55\x02\xc0\x80\x80\x80\x80",
+            ),
+            (Err(ParseError::InvalidValue), b"\x06\x02\x2a\x86"),
         ])
     }
 }
