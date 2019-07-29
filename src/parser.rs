@@ -13,7 +13,7 @@ pub enum ParseError {
 
 pub type ParseResult<T> = Result<T, ParseError>;
 
-pub fn parse<'a, T, F: Fn(&mut Parser<'a>) -> Result<T, ParseError>>(
+pub fn parse<'a, T, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
     data: &'a [u8],
     f: F,
 ) -> ParseResult<T> {
@@ -183,19 +183,48 @@ impl<'a> Asn1Element<'a> for BitString<'a> {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Sequence<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> Sequence<'a> {
+    fn new(data: &'a [u8]) -> Sequence<'a> {
+        return Sequence { data };
+    }
+
+    pub fn parse<T, F: Fn(&mut Parser) -> ParseResult<T>>(self, f: F) -> ParseResult<T> {
+        parse(self.data, f)
+    }
+}
+
+impl<'a> Asn1Element<'a> for Sequence<'a> {
+    const TAG: u8 = 0x30;
+    fn parse(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
+        return Ok(Sequence::new(data));
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Asn1Element;
-    use crate::{BitString, ObjectIdentifier, ParseError, ParseResult};
+    use super::{Asn1Element, Parser};
+    use crate::{BitString, ObjectIdentifier, ParseError, ParseResult, Sequence};
     use std::fmt;
+
+    fn assert_parses_cb<'a, T: fmt::Debug + PartialEq, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
+        data: &[(ParseResult<T>, &'a [u8])],
+        f: F,
+    ) {
+        for (expected, der_bytes) in data {
+            let result = crate::parse(der_bytes, &f);
+            assert_eq!(&result, expected)
+        }
+    }
 
     fn assert_parses<'a, T: Asn1Element<'a> + fmt::Debug + PartialEq>(
         data: &[(ParseResult<T>, &'a [u8])],
     ) {
-        for (expected, der_bytes) in data {
-            let result = crate::parse(der_bytes, |p| p.read_element::<T>());
-            assert_eq!(&result, expected);
-        }
+        assert_parses_cb(data, |p| p.read_element::<T>());
     }
 
     #[test]
@@ -325,5 +354,38 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x03\x02\x07\x40"),
             (Err(ParseError::InvalidValue), b"\x03\x02\x08\x00"),
         ]);
+    }
+
+    #[test]
+    fn test_parse_sequence() {
+        assert_parses(&[
+            (
+                Ok(Sequence::new(b"\x02\x01\x01\x02\x01\x02")),
+                b"\x30\x06\x02\x01\x01\x02\x01\x02",
+            ),
+            (Err(ParseError::ShortData), b"\x30\x04\x02\x01\x01"),
+            (
+                Err(ParseError::ExtraData),
+                b"\x30\x06\x02\x01\x01\x02\x01\x02\x00",
+            ),
+        ])
+    }
+
+    #[test]
+    fn test_sequence_parse() {
+        assert_parses_cb(
+            &[
+                (Ok((1, 2)), b"\x30\x06\x02\x01\x01\x02\x01\x02"),
+                (Err(ParseError::ShortData), b"\x30\x03\x02\x01\x01"),
+                (
+                    Err(ParseError::ExtraData),
+                    b"\x30\x07\x02\x01\x01\x02\x01\x02\x00",
+                ),
+            ],
+            |p| {
+                p.read_element::<Sequence>()?
+                    .parse(|p| Ok((p.read_element::<i64>()?, p.read_element::<i64>()?)))
+            },
+        );
     }
 }
