@@ -101,7 +101,7 @@ impl<'a> Parser<'a> {
         });
     }
 
-    pub fn read_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<T> {
+    pub fn read_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<T::Output> {
         let tlv = self.read_tlv()?;
         if tlv.tag != T::TAG {
             return Err(ParseError::UnexpectedTag {
@@ -112,10 +112,10 @@ impl<'a> Parser<'a> {
         return T::parse(tlv.data);
     }
 
-    pub fn read_optional_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<Option<T>> {
+    pub fn read_optional_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<Option<T::Output>> {
         let tag = self.peek_u8();
         if tag == Some(T::TAG) {
-            return Ok(Some(self.read_element::<T>()?))
+            return Ok(Some(self.read_element::<T>()?));
         } else {
             return Ok(None);
         }
@@ -129,11 +129,13 @@ struct Tlv<'a> {
 
 pub trait Asn1Element<'a>: Sized {
     const TAG: u8;
-    fn parse(tlv: &'a [u8]) -> ParseResult<Self>;
+    type Output;
+    fn parse(data: &'a [u8]) -> ParseResult<Self::Output>;
 }
 
 impl Asn1Element<'_> for bool {
     const TAG: u8 = 0x1;
+    type Output = bool;
     fn parse(data: &[u8]) -> ParseResult<bool> {
         match data {
             b"\x00" => Ok(false),
@@ -145,6 +147,7 @@ impl Asn1Element<'_> for bool {
 
 impl<'a> Asn1Element<'a> for &'a [u8] {
     const TAG: u8 = 0x04;
+    type Output = &'a [u8];
     fn parse(data: &'a [u8]) -> ParseResult<&'a [u8]> {
         return Ok(data);
     }
@@ -152,6 +155,7 @@ impl<'a> Asn1Element<'a> for &'a [u8] {
 
 impl Asn1Element<'_> for i64 {
     const TAG: u8 = 0x02;
+    type Output = i64;
     fn parse(data: &[u8]) -> ParseResult<i64> {
         if data.is_empty() {
             return Err(ParseError::InvalidValue);
@@ -181,6 +185,7 @@ impl Asn1Element<'_> for i64 {
 
 impl<'a> Asn1Element<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
+    type Output = ObjectIdentifier<'a>;
     fn parse(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
         return ObjectIdentifier::from_der(data).ok_or(ParseError::InvalidValue);
     }
@@ -188,6 +193,7 @@ impl<'a> Asn1Element<'a> for ObjectIdentifier<'a> {
 
 impl<'a> Asn1Element<'a> for BitString<'a> {
     const TAG: u8 = 0x03;
+    type Output = BitString<'a>;
     fn parse(data: &'a [u8]) -> ParseResult<BitString<'a>> {
         if data.is_empty() {
             return Err(ParseError::InvalidValue);
@@ -213,6 +219,7 @@ impl<'a> Sequence<'a> {
 
 impl<'a> Asn1Element<'a> for Sequence<'a> {
     const TAG: u8 = 0x30;
+    type Output = Sequence<'a>;
     fn parse(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
         return Ok(Sequence::new(data));
     }
@@ -234,9 +241,11 @@ mod tests {
         }
     }
 
-    fn assert_parses<'a, T: Asn1Element<'a> + fmt::Debug + PartialEq>(
-        data: &[(ParseResult<T>, &'a [u8])],
-    ) {
+    fn assert_parses<'a, T>(data: &[(ParseResult<T::Output>, &'a [u8])])
+    where
+        T: Asn1Element<'a>,
+        T::Output: fmt::Debug + PartialEq,
+    {
         assert_parses_cb(data, |p| p.read_element::<T>());
     }
 
@@ -248,7 +257,7 @@ mod tests {
 
     #[test]
     fn test_parse_bool() {
-        assert_parses(&[
+        assert_parses::<bool>(&[
             (Ok(true), b"\x01\x01\xff"),
             (Ok(false), b"\x01\x01\x00"),
             (Err(ParseError::InvalidValue), b"\x01\x00"),
@@ -281,7 +290,7 @@ mod tests {
 
     #[test]
     fn test_parse_int_i64() {
-        assert_parses(&[
+        assert_parses::<i64>(&[
             (Ok(0), b"\x02\x01\x00"),
             (Ok(127), b"\x02\x01\x7f"),
             (Ok(128), b"\x02\x02\x00\x80"),
@@ -318,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_parse_object_identitifer() {
-        assert_parses(&[
+        assert_parses::<ObjectIdentifier<'_>>(&[
             (
                 Ok(ObjectIdentifier::from_string("2.5").unwrap()),
                 b"\x06\x01\x55",
@@ -354,7 +363,7 @@ mod tests {
 
     #[test]
     fn test_read_bit_string() {
-        assert_parses(&[
+        assert_parses::<BitString<'_>>(&[
             (Ok(BitString::new(b"", 0).unwrap()), b"\x03\x01\x00"),
             (Ok(BitString::new(b"\x00", 7).unwrap()), b"\x03\x02\x07\x00"),
             (Ok(BitString::new(b"\x80", 7).unwrap()), b"\x03\x02\x07\x80"),
@@ -371,7 +380,7 @@ mod tests {
 
     #[test]
     fn test_parse_sequence() {
-        assert_parses(&[
+        assert_parses::<Sequence<'_>>(&[
             (
                 Ok(Sequence::new(b"\x02\x01\x01\x02\x01\x02")),
                 b"\x30\x06\x02\x01\x01\x02\x01\x02",
@@ -404,16 +413,23 @@ mod tests {
 
     #[test]
     fn test_parse_optional() {
-        assert_parses_cb(&[
-            (Ok((Some(true), None)), b"\x01\x01\xff"),
-            (Ok((Some(false), None)), b"\x01\x01\x00"),
-            (Ok((None, Some(18))), b"\x02\x01\x12"),
-            (Ok((Some(true), Some(18))), b"\x01\x01\xff\x02\x01\x12"),
-            (Ok((None, None)), b""),
-            (Err(ParseError::ShortData), b"\x01"),
-            (Err(ParseError::ShortData), b"\x02"),
-        ], |p| {
-            Ok((p.read_optional_element::<bool>()?, p.read_optional_element::<i64>()?))
-        })
+        assert_parses_cb(
+            &[
+                (Ok((Some(true), None)), b"\x01\x01\xff"),
+                (Ok((Some(false), None)), b"\x01\x01\x00"),
+                (Ok((None, Some(18))), b"\x02\x01\x12"),
+                (Ok((Some(true), Some(18))), b"\x01\x01\xff\x02\x01\x12"),
+                (Ok((None, None)), b""),
+                (Err(ParseError::ShortData), b"\x01"),
+                (Err(ParseError::ShortData), b"\x02"),
+            ],
+            |p| {
+                Ok((
+                    p.read_optional_element::<bool>()?,
+                    p.read_optional_element::<i64>()?,
+                ))
+            },
+        )
     }
+
 }
