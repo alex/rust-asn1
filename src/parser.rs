@@ -39,6 +39,10 @@ impl<'a> Parser<'a> {
         return Ok(());
     }
 
+    fn peek_u8(&mut self) -> Option<u8> {
+        return self.data.get(0).map(|v| *v);
+    }
+
     fn read_u8(&mut self) -> ParseResult<u8> {
         if self.data.is_empty() {
             return Err(ParseError::ShortData);
@@ -106,6 +110,15 @@ impl<'a> Parser<'a> {
             });
         }
         return T::parse(tlv.data);
+    }
+
+    pub fn read_optional_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<Option<T>> {
+        let tag = self.peek_u8();
+        if tag == Some(T::TAG) {
+            return Ok(Some(self.read_element::<T>()?))
+        } else {
+            return Ok(None);
+        }
     }
 }
 
@@ -387,5 +400,20 @@ mod tests {
                     .parse(|p| Ok((p.read_element::<i64>()?, p.read_element::<i64>()?)))
             },
         );
+    }
+
+    #[test]
+    fn test_parse_optional() {
+        assert_parses_cb(&[
+            (Ok((Some(true), None)), b"\x01\x01\xff"),
+            (Ok((Some(false), None)), b"\x01\x01\x00"),
+            (Ok((None, Some(18))), b"\x02\x01\x12"),
+            (Ok((Some(true), Some(18))), b"\x01\x01\xff\x02\x01\x12"),
+            (Ok((None, None)), b""),
+            (Err(ParseError::ShortData), b"\x01"),
+            (Err(ParseError::ShortData), b"\x02"),
+        ], |p| {
+            Ok((p.read_optional_element::<bool>()?, p.read_optional_element::<i64>()?))
+        })
     }
 }
