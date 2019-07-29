@@ -83,7 +83,18 @@ mod tests {
 
     #[test]
     fn test_object_identitifier_from_string() {
-        for val in &["", "1", "3.10", "1.50", "2.12.a3.4", "a.4", "1.a"] {
+        for val in &[
+            "",
+            "1",
+            "3.10",
+            "1.50",
+            "2.12.a3.4",
+            "a.4",
+            "1.a",
+            ".2.5",
+            "2..5",
+            "2.5.",
+        ] {
             assert_eq!(ObjectIdentifier::from_string(val), None);
         }
 
