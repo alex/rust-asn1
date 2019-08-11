@@ -20,7 +20,7 @@ pub fn parse<'a, T, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
     let mut p = Parser::new(data);
     let result = f(&mut p)?;
     p.finish()?;
-    return Ok(result);
+    Ok(result)
 }
 
 pub struct Parser<'a> {
@@ -29,18 +29,18 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn new(data: &'a [u8]) -> Parser<'a> {
-        return Parser { data };
+        Parser { data }
     }
 
     fn finish(self) -> ParseResult<()> {
         if !self.data.is_empty() {
             return Err(ParseError::ExtraData);
         }
-        return Ok(());
+        Ok(())
     }
 
     fn peek_u8(&mut self) -> Option<u8> {
-        return self.data.get(0).map(|v| *v);
+        self.data.get(0).copied()
     }
 
     fn read_u8(&mut self) -> ParseResult<u8> {
@@ -49,7 +49,7 @@ impl<'a> Parser<'a> {
         }
         let (val, data) = self.data.split_at(1);
         self.data = data;
-        return Ok(val[0]);
+        Ok(val[0])
     }
 
     fn read_bytes(&mut self, length: usize) -> ParseResult<&'a [u8]> {
@@ -58,7 +58,7 @@ impl<'a> Parser<'a> {
         }
         let (result, data) = self.data.split_at(length);
         self.data = data;
-        return Ok(result);
+        Ok(result)
     }
 
     fn read_length(&mut self) -> ParseResult<usize> {
@@ -89,16 +89,16 @@ impl<'a> Parser<'a> {
         if length < 0x80 {
             return Err(ParseError::InvalidValue);
         }
-        return Ok(length);
+        Ok(length)
     }
 
     fn read_tlv(&mut self) -> ParseResult<Tlv<'a>> {
         let tag = self.read_u8()?;
         let length = self.read_length()?;
-        return Ok(Tlv {
-            tag: tag,
+        Ok(Tlv {
+            tag,
             data: self.read_bytes(length)?,
-        });
+        })
     }
 
     pub fn read_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<T::Output> {
@@ -109,15 +109,15 @@ impl<'a> Parser<'a> {
                 actual: tlv.tag,
             });
         }
-        return T::parse(tlv.data);
+        T::parse(tlv.data)
     }
 
     pub fn read_optional_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<Option<T::Output>> {
         let tag = self.peek_u8();
         if tag == Some(T::TAG) {
-            return Ok(Some(self.read_element::<T>()?));
+            Ok(Some(self.read_element::<T>()?))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 }
@@ -149,7 +149,7 @@ impl<'a> Asn1Element<'a> for &'a [u8] {
     const TAG: u8 = 0x04;
     type Output = &'a [u8];
     fn parse(data: &'a [u8]) -> ParseResult<&'a [u8]> {
-        return Ok(data);
+        Ok(data)
     }
 }
 
@@ -160,11 +160,11 @@ impl Asn1Element<'_> for i64 {
         if data.is_empty() {
             return Err(ParseError::InvalidValue);
         }
-        if data.len() > 1 {
-            if (data[0] == 0 && data[1] & 0x80 == 0) || (data[0] == 0xff && data[1] & 0x80 == 0x80)
-            {
-                return Err(ParseError::InvalidValue);
-            }
+        if data.len() > 1
+            && ((data[0] == 0 && data[1] & 0x80 == 0)
+                || (data[0] == 0xff && data[1] & 0x80 == 0x80))
+        {
+            return Err(ParseError::InvalidValue);
         }
 
         if data.len() > mem::size_of::<Self>() {
@@ -174,12 +174,12 @@ impl Asn1Element<'_> for i64 {
         let mut ret = 0;
         for b in data {
             ret <<= 8;
-            ret |= *b as Self;
+            ret |= Self::from(*b);
         }
         // Shift up and down in order to sign extend the result.
         ret <<= 64 - data.len() * 8;
         ret >>= 64 - data.len() * 8;
-        return Ok(ret);
+        Ok(ret)
     }
 }
 
@@ -187,7 +187,7 @@ impl<'a> Asn1Element<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
     type Output = ObjectIdentifier<'a>;
     fn parse(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
-        return ObjectIdentifier::from_der(data).ok_or(ParseError::InvalidValue);
+        ObjectIdentifier::from_der(data).ok_or(ParseError::InvalidValue)
     }
 }
 
@@ -198,7 +198,7 @@ impl<'a> Asn1Element<'a> for BitString<'a> {
         if data.is_empty() {
             return Err(ParseError::InvalidValue);
         }
-        return BitString::new(&data[1..], data[0]).ok_or(ParseError::InvalidValue);
+        BitString::new(&data[1..], data[0]).ok_or(ParseError::InvalidValue)
     }
 }
 
@@ -209,7 +209,7 @@ pub struct Sequence<'a> {
 
 impl<'a> Sequence<'a> {
     fn new(data: &'a [u8]) -> Sequence<'a> {
-        return Sequence { data };
+        Sequence { data }
     }
 
     pub fn parse<T, F: Fn(&mut Parser) -> ParseResult<T>>(self, f: F) -> ParseResult<T> {
@@ -221,7 +221,7 @@ impl<'a> Asn1Element<'a> for Sequence<'a> {
     const TAG: u8 = 0x30;
     type Output = Sequence<'a>;
     fn parse(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
-        return Ok(Sequence::new(data));
+        Ok(Sequence::new(data))
     }
 }
 
@@ -431,5 +431,4 @@ mod tests {
             },
         )
     }
-
 }

@@ -13,6 +13,6 @@ impl<'a> BitString<'a> {
             return None;
         }
 
-        return Some(BitString { data, padding_bits });
+        Some(BitString { data, padding_bits })
     }
 }

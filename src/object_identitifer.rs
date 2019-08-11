@@ -11,12 +11,12 @@ fn _read_base128_int<I: Iterator<Item = u8>>(mut reader: I) -> Option<u32> {
     for _ in 0..4 {
         let b = reader.next()?;
         ret <<= 7;
-        ret |= (b & 0x7f) as u32;
+        ret |= u32::from(b & 0x7f);
         if b & 0x80 == 0 {
             return Some(ret);
         }
     }
-    return None;
+    None
 }
 
 fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
@@ -57,9 +57,9 @@ impl<'a> ObjectIdentifier<'a> {
         for part in parts {
             _write_base128_int(&mut der_data, part.parse::<u32>().ok()?);
         }
-        return Some(ObjectIdentifier {
+        Some(ObjectIdentifier {
             der_encoded: Cow::Owned(der_data),
-        });
+        })
     }
 
     pub(crate) fn from_der(data: &'a [u8]) -> Option<ObjectIdentifier<'a>> {
@@ -71,9 +71,9 @@ impl<'a> ObjectIdentifier<'a> {
             _read_base128_int(&mut cursor)?;
         }
 
-        return Some(ObjectIdentifier {
+        Some(ObjectIdentifier {
             der_encoded: Cow::Borrowed(data),
-        });
+        })
     }
 }
 
