@@ -133,6 +133,17 @@ pub trait Asn1Element<'a>: Sized {
     fn parse(data: &'a [u8]) -> ParseResult<Self::Output>;
 }
 
+impl Asn1Element<'_> for () {
+    const TAG: u8 = 0x05;
+    type Output = ();
+    fn parse(data: &[u8]) -> ParseResult<()> {
+        match data {
+            b"" => Ok(()),
+            _ => Err(ParseError::InvalidValue),
+        }
+    }
+}
+
 impl Asn1Element<'_> for bool {
     const TAG: u8 = 0x1;
     type Output = bool;
@@ -253,6 +264,14 @@ mod tests {
     fn test_read_extra_data() {
         let result = crate::parse(b"\x00", |_| Ok(()));
         assert_eq!(result, Err(ParseError::ExtraData));
+    }
+
+    #[test]
+    fn test_parse_null() {
+        assert_parses::<()>(&[
+            (Ok(()), b"\x05\x00"),
+            (Err(ParseError::InvalidValue), b"\x05\x01\x00"),
+        ]);
     }
 
     #[test]
