@@ -1,3 +1,7 @@
+#![cfg_attr(not(feature = "std"), no_std)]
+
+extern crate alloc;
+
 mod bit_string;
 mod object_identitifer;
 mod parser;

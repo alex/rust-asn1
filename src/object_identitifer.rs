@@ -1,4 +1,6 @@
-use std::borrow::Cow;
+use alloc::borrow::Cow;
+use alloc::vec;
+use alloc::vec::Vec;
 
 #[derive(Debug, PartialEq)]
 pub struct ObjectIdentifier<'a> {

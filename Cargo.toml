@@ -7,3 +7,7 @@ keywords = ["asn1"]
 license = "BSD-3-Clause"
 description = "ASN.1 (DER) serializer for Rust."
 edition = "2018"
+
+[features]
+default = ["std"]
+std = []

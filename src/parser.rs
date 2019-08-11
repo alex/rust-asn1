@@ -1,4 +1,4 @@
-use std::mem;
+use core::mem;
 
 use crate::{BitString, ObjectIdentifier};
 
@@ -229,7 +229,7 @@ impl<'a> Asn1Element<'a> for Sequence<'a> {
 mod tests {
     use super::{Asn1Element, Parser};
     use crate::{BitString, ObjectIdentifier, ParseError, ParseResult, Sequence};
-    use std::fmt;
+    use core::fmt;
 
     fn assert_parses_cb<'a, T: fmt::Debug + PartialEq, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
         data: &[(ParseResult<T>, &'a [u8])],
@@ -299,7 +299,7 @@ mod tests {
             (Ok(-129), b"\x02\x02\xff\x7f"),
             (Ok(-256), b"\x02\x02\xff\x00"),
             (
-                Ok(std::i64::MAX),
+                Ok(core::i64::MAX),
                 b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff",
             ),
             (
