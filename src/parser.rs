@@ -1,6 +1,10 @@
+use core::marker::PhantomData;
 use core::mem;
 
 use crate::{BitString, ObjectIdentifier};
+
+const CONTEXT_SPECIFIC: u8 = 0x80;
+const CONSTRUCTED: u8 = 0x20;
 
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
@@ -229,17 +233,45 @@ impl<'a> Sequence<'a> {
 }
 
 impl<'a> Asn1Element<'a> for Sequence<'a> {
-    const TAG: u8 = 0x30;
+    const TAG: u8 = 0x10 | CONSTRUCTED;
     type Output = Sequence<'a>;
     fn parse(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
         Ok(Sequence::new(data))
     }
 }
 
+pub struct Implicit<'a, T: Asn1Element<'a>, const TAG: u8> {
+    _inner: PhantomData<T>,
+    _lifetime: PhantomData<&'a ()>,
+}
+
+impl<'a, T: Asn1Element<'a>, const TAG: u8> Asn1Element<'a> for Implicit<'a, T, { TAG }> {
+    const TAG: u8 = CONTEXT_SPECIFIC | TAG | (T::TAG & CONSTRUCTED);
+    type Output = T::Output;
+    fn parse(data: &'a [u8]) -> ParseResult<T::Output> {
+        T::parse(data)
+    }
+}
+
+pub struct Explicit<'a, T: Asn1Element<'a>, const TAG: u8> {
+    _inner: PhantomData<T>,
+    _lifetime: PhantomData<&'a ()>,
+}
+
+impl<'a, T: Asn1Element<'a>, const TAG: u8> Asn1Element<'a> for Explicit<'a, T, { TAG }> {
+    const TAG: u8 = CONTEXT_SPECIFIC | CONSTRUCTED | TAG;
+    type Output = T::Output;
+    fn parse(data: &'a [u8]) -> ParseResult<T::Output> {
+        parse(data, |p| p.read_element::<T>())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Asn1Element, Parser};
-    use crate::{BitString, ObjectIdentifier, ParseError, ParseResult, Sequence};
+    use crate::{
+        BitString, Explicit, Implicit, ObjectIdentifier, ParseError, ParseResult, Sequence,
+    };
     use core::fmt;
 
     fn assert_parses_cb<'a, T: fmt::Debug + PartialEq, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
@@ -449,5 +481,56 @@ mod tests {
                 ))
             },
         )
+    }
+
+    #[test]
+    fn test_parse_implicit() {
+        assert_parses::<Implicit<bool, 2>>(&[
+            (Ok(true), b"\x82\x01\xff"),
+            (Ok(false), b"\x82\x01\x00"),
+            (
+                Err(ParseError::UnexpectedTag {
+                    expected: 0x82,
+                    actual: 0x01,
+                }),
+                b"\x01\x01\xff",
+            ),
+            (
+                Err(ParseError::UnexpectedTag {
+                    expected: 0x82,
+                    actual: 0x02,
+                }),
+                b"\x02\x01\xff",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_parse_explicit() {
+        assert_parses::<Explicit<bool, 2>>(&[
+            (Ok(true), b"\xa2\x03\x01\x01\xff"),
+            (Ok(false), b"\xa2\x03\x01\x01\x00"),
+            (
+                Err(ParseError::UnexpectedTag {
+                    expected: 0xa2,
+                    actual: 0x01,
+                }),
+                b"\x01\x01\xff",
+            ),
+            (
+                Err(ParseError::UnexpectedTag {
+                    expected: 0xa2,
+                    actual: 0x02,
+                }),
+                b"\x02\x01\xff",
+            ),
+            (
+                Err(ParseError::UnexpectedTag {
+                    expected: 0x01,
+                    actual: 0x03,
+                }),
+                b"\xa2\x03\x03\x01\xff",
+            ),
+        ]);
     }
 }

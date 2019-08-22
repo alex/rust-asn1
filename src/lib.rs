@@ -1,3 +1,4 @@
+#![feature(const_generics)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 
@@ -9,4 +10,4 @@ mod parser;
 
 pub use crate::bit_string::BitString;
 pub use crate::object_identitifer::ObjectIdentifier;
-pub use crate::parser::{parse, ParseError, ParseResult, Sequence};
+pub use crate::parser::{parse, Explicit, Implicit, ParseError, ParseResult, Sequence};
