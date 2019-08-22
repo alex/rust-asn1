@@ -16,6 +16,7 @@ Add ``asn1`` to the ``[dependencies]`` section of your ``Cargo.toml``:
     [dependencies]
     asn1 = "0.3"
 
+Currently requires Rust Nightly.
 
 Usage
 -----
