@@ -168,6 +168,38 @@ impl<'a> Asn1Element<'a> for &'a [u8] {
     }
 }
 
+pub enum PrintableString {}
+
+impl<'a> Asn1Element<'a> for PrintableString {
+    const TAG: u8 = 0x13;
+    type Output = &'a str;
+    fn parse(data: &'a [u8]) -> ParseResult<&'a str> {
+        for b in data {
+            match b {
+                b'A'..=b'Z'
+                | b'a'..=b'z'
+                | b'0'..=b'9'
+                | b'\''
+                | b'('
+                | b')'
+                | b'+'
+                | b','
+                | b'-'
+                | b'.'
+                | b'/'
+                | b':'
+                | b'='
+                | b'?' => {}
+                _ => return Err(ParseError::InvalidValue),
+            };
+        }
+        // TODO: This value is always valid utf-8 because we just verified the contents, but I
+        // don't want to call an unsafe function, so we end up validating it twice. If your profile
+        // says this is slow, now you know why.
+        return Ok(core::str::from_utf8(data).unwrap());
+    }
+}
+
 impl Asn1Element<'_> for i64 {
     const TAG: u8 = 0x02;
     type Output = i64;
@@ -270,7 +302,8 @@ impl<'a, T: Asn1Element<'a>, const TAG: u8> Asn1Element<'a> for Explicit<'a, T, 
 mod tests {
     use super::{Asn1Element, Parser};
     use crate::{
-        BitString, Explicit, Implicit, ObjectIdentifier, ParseError, ParseResult, Sequence,
+        BitString, Explicit, Implicit, ObjectIdentifier, ParseError, ParseResult, PrintableString,
+        Sequence,
     };
     use core::fmt;
 
@@ -293,7 +326,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_extra_data() {
+    fn test_parse_extra_data() {
         let result = crate::parse(b"\x00", |_| Ok(()));
         assert_eq!(result, Err(ParseError::ExtraData));
     }
@@ -413,7 +446,7 @@ mod tests {
     }
 
     #[test]
-    fn test_read_bit_string() {
+    fn test_parse_bit_string() {
         assert_parses::<BitString<'_>>(&[
             (Ok(BitString::new(b"", 0).unwrap()), b"\x03\x01\x00"),
             (Ok(BitString::new(b"\x00", 7).unwrap()), b"\x03\x02\x07\x00"),
@@ -426,6 +459,15 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x03\x02\x07\x01"),
             (Err(ParseError::InvalidValue), b"\x03\x02\x07\x40"),
             (Err(ParseError::InvalidValue), b"\x03\x02\x08\x00"),
+        ]);
+    }
+
+    #[test]
+    fn test_printable_string() {
+        assert_parses::<PrintableString>(&[
+            (Ok("abc"), b"\x13\x03abc"),
+            (Ok(")"), b"\x13\x01)"),
+            (Err(ParseError::InvalidValue), b"\x13\x03ab\x00"),
         ]);
     }
 

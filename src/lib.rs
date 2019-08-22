@@ -10,4 +10,6 @@ mod parser;
 
 pub use crate::bit_string::BitString;
 pub use crate::object_identitifer::ObjectIdentifier;
-pub use crate::parser::{parse, Explicit, Implicit, ParseError, ParseResult, Sequence};
+pub use crate::parser::{
+    parse, Explicit, Implicit, ParseError, ParseResult, PrintableString, Sequence,
+};
