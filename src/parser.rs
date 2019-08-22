@@ -106,23 +106,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn read_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<T::Output> {
-        let tlv = self.read_tlv()?;
-        if tlv.tag != T::TAG {
-            return Err(ParseError::UnexpectedTag {
-                expected: T::TAG,
-                actual: tlv.tag,
-            });
-        }
-        T::parse(tlv.data)
-    }
-
-    pub fn read_optional_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<Option<T::Output>> {
-        let tag = self.peek_u8();
-        if tag == Some(T::TAG) {
-            Ok(Some(self.read_element::<T>()?))
-        } else {
-            Ok(None)
-        }
+        T::parse(self)
     }
 }
 
@@ -132,15 +116,35 @@ struct Tlv<'a> {
 }
 
 pub trait Asn1Element<'a>: Sized {
-    const TAG: u8;
     type Output;
-    fn parse(data: &'a [u8]) -> ParseResult<Self::Output>;
+    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::Output>;
 }
 
-impl Asn1Element<'_> for () {
+pub trait SimpleAsn1Element<'a>: Sized {
+    const TAG: u8;
+    type Output;
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self::Output>;
+}
+
+impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for T {
+    type Output = T::Output;
+
+    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::Output> {
+        let tlv = parser.read_tlv()?;
+        if tlv.tag != Self::TAG {
+            return Err(ParseError::UnexpectedTag {
+                expected: Self::TAG,
+                actual: tlv.tag,
+            });
+        }
+        Self::parse_data(tlv.data)
+    }
+}
+
+impl SimpleAsn1Element<'_> for () {
     const TAG: u8 = 0x05;
     type Output = ();
-    fn parse(data: &[u8]) -> ParseResult<()> {
+    fn parse_data(data: &[u8]) -> ParseResult<()> {
         match data {
             b"" => Ok(()),
             _ => Err(ParseError::InvalidValue),
@@ -148,10 +152,10 @@ impl Asn1Element<'_> for () {
     }
 }
 
-impl Asn1Element<'_> for bool {
+impl SimpleAsn1Element<'_> for bool {
     const TAG: u8 = 0x1;
     type Output = bool;
-    fn parse(data: &[u8]) -> ParseResult<bool> {
+    fn parse_data(data: &[u8]) -> ParseResult<bool> {
         match data {
             b"\x00" => Ok(false),
             b"\xff" => Ok(true),
@@ -160,20 +164,20 @@ impl Asn1Element<'_> for bool {
     }
 }
 
-impl<'a> Asn1Element<'a> for &'a [u8] {
+impl<'a> SimpleAsn1Element<'a> for &'a [u8] {
     const TAG: u8 = 0x04;
     type Output = &'a [u8];
-    fn parse(data: &'a [u8]) -> ParseResult<&'a [u8]> {
+    fn parse_data(data: &'a [u8]) -> ParseResult<&'a [u8]> {
         Ok(data)
     }
 }
 
 pub enum PrintableString {}
 
-impl<'a> Asn1Element<'a> for PrintableString {
+impl<'a> SimpleAsn1Element<'a> for PrintableString {
     const TAG: u8 = 0x13;
     type Output = &'a str;
-    fn parse(data: &'a [u8]) -> ParseResult<&'a str> {
+    fn parse_data(data: &'a [u8]) -> ParseResult<&'a str> {
         for b in data {
             match b {
                 b'A'..=b'Z'
@@ -200,10 +204,10 @@ impl<'a> Asn1Element<'a> for PrintableString {
     }
 }
 
-impl Asn1Element<'_> for i64 {
+impl SimpleAsn1Element<'_> for i64 {
     const TAG: u8 = 0x02;
     type Output = i64;
-    fn parse(data: &[u8]) -> ParseResult<i64> {
+    fn parse_data(data: &[u8]) -> ParseResult<i64> {
         if data.is_empty() {
             return Err(ParseError::InvalidValue);
         }
@@ -230,22 +234,35 @@ impl Asn1Element<'_> for i64 {
     }
 }
 
-impl<'a> Asn1Element<'a> for ObjectIdentifier<'a> {
+impl<'a> SimpleAsn1Element<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
     type Output = ObjectIdentifier<'a>;
-    fn parse(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
+    fn parse_data(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
         ObjectIdentifier::from_der(data).ok_or(ParseError::InvalidValue)
     }
 }
 
-impl<'a> Asn1Element<'a> for BitString<'a> {
+impl<'a> SimpleAsn1Element<'a> for BitString<'a> {
     const TAG: u8 = 0x03;
     type Output = BitString<'a>;
-    fn parse(data: &'a [u8]) -> ParseResult<BitString<'a>> {
+    fn parse_data(data: &'a [u8]) -> ParseResult<BitString<'a>> {
         if data.is_empty() {
             return Err(ParseError::InvalidValue);
         }
         BitString::new(&data[1..], data[0]).ok_or(ParseError::InvalidValue)
+    }
+}
+
+impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for Option<T> {
+    type Output = Option<T::Output>;
+
+    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::Output> {
+        let tag = parser.peek_u8();
+        if tag == Some(T::TAG) {
+            Ok(Some(parser.read_element::<T>()?))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -264,10 +281,10 @@ impl<'a> Sequence<'a> {
     }
 }
 
-impl<'a> Asn1Element<'a> for Sequence<'a> {
+impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
     type Output = Sequence<'a>;
-    fn parse(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
+    fn parse_data(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
         Ok(Sequence::new(data))
     }
 }
@@ -277,11 +294,13 @@ pub struct Implicit<'a, T: Asn1Element<'a>, const TAG: u8> {
     _lifetime: PhantomData<&'a ()>,
 }
 
-impl<'a, T: Asn1Element<'a>, const TAG: u8> Asn1Element<'a> for Implicit<'a, T, { TAG }> {
+impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
+    for Implicit<'a, T, { TAG }>
+{
     const TAG: u8 = CONTEXT_SPECIFIC | TAG | (T::TAG & CONSTRUCTED);
     type Output = T::Output;
-    fn parse(data: &'a [u8]) -> ParseResult<T::Output> {
-        T::parse(data)
+    fn parse_data(data: &'a [u8]) -> ParseResult<T::Output> {
+        T::parse_data(data)
     }
 }
 
@@ -290,10 +309,10 @@ pub struct Explicit<'a, T: Asn1Element<'a>, const TAG: u8> {
     _lifetime: PhantomData<&'a ()>,
 }
 
-impl<'a, T: Asn1Element<'a>, const TAG: u8> Asn1Element<'a> for Explicit<'a, T, { TAG }> {
+impl<'a, T: Asn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a> for Explicit<'a, T, { TAG }> {
     const TAG: u8 = CONTEXT_SPECIFIC | CONSTRUCTED | TAG;
     type Output = T::Output;
-    fn parse(data: &'a [u8]) -> ParseResult<T::Output> {
+    fn parse_data(data: &'a [u8]) -> ParseResult<T::Output> {
         parse(data, |p| p.read_element::<T>())
     }
 }
@@ -518,8 +537,8 @@ mod tests {
             ],
             |p| {
                 Ok((
-                    p.read_optional_element::<bool>()?,
-                    p.read_optional_element::<i64>()?,
+                    p.read_element::<Option<bool>>()?,
+                    p.read_element::<Option<i64>>()?,
                 ))
             },
         )
