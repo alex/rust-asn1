@@ -196,7 +196,7 @@ impl<'a> Asn1Element<'a> for PrintableString {
         // TODO: This value is always valid utf-8 because we just verified the contents, but I
         // don't want to call an unsafe function, so we end up validating it twice. If your profile
         // says this is slow, now you know why.
-        return Ok(core::str::from_utf8(data).unwrap());
+        Ok(core::str::from_utf8(data).unwrap())
     }
 }
 
