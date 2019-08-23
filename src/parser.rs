@@ -9,7 +9,7 @@ const CONSTRUCTED: u8 = 0x20;
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
     InvalidValue,
-    UnexpectedTag { expected: u8, actual: u8 },
+    UnexpectedTag { actual: u8 },
     ShortData,
     IntegerOverflow,
     ExtraData,
@@ -132,10 +132,7 @@ impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for T {
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::Output> {
         let tlv = parser.read_tlv()?;
         if tlv.tag != Self::TAG {
-            return Err(ParseError::UnexpectedTag {
-                expected: Self::TAG,
-                actual: tlv.tag,
-            });
+            return Err(ParseError::UnexpectedTag { actual: tlv.tag });
         }
         Self::parse_data(tlv.data)
     }
@@ -266,6 +263,45 @@ impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for Option<T> {
     }
 }
 
+macro_rules! declare_choice {
+    ($count:ident => $(($number:ident $name:ident)),*) => {
+        #[derive(Debug, PartialEq)]
+        pub enum $count<
+            'a,
+            $(
+                $number: SimpleAsn1Element<'a>,
+            )*
+        > {
+            $(
+                $name($number::Output),
+            )*
+        }
+
+        impl<
+            'a,
+            $(
+                $number: SimpleAsn1Element<'a>,
+            )*
+        > Asn1Element<'a> for $count<'a, $($number,)*> {
+            type Output = Self;
+
+            fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::Output> {
+                let tag = parser.peek_u8();
+                match tag {
+                    $(
+                        Some(tag) if tag == $number::TAG => Ok($count::$name(parser.read_element::<$number>()?)),
+                    )*
+                    Some(tag) => Err(ParseError::UnexpectedTag{actual: tag}),
+                    None => Err(ParseError::ShortData),
+                }
+            }
+        }
+    }
+}
+
+declare_choice!(Choice2 => (T1 ChoiceA), (T2 ChoiceB));
+declare_choice!(Choice3 => (T1 ChoiceA), (T2 ChoiceB), (T3 ChoiceC));
+
 #[derive(Debug, PartialEq)]
 pub struct Sequence<'a> {
     data: &'a [u8],
@@ -321,8 +357,8 @@ impl<'a, T: Asn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a> for Explicit<'
 mod tests {
     use super::{Asn1Element, Parser};
     use crate::{
-        BitString, Explicit, Implicit, ObjectIdentifier, ParseError, ParseResult, PrintableString,
-        Sequence,
+        BitString, Choice2, Choice3, Explicit, Implicit, ObjectIdentifier, ParseError, ParseResult,
+        PrintableString, Sequence,
     };
     use core::fmt;
 
@@ -405,13 +441,7 @@ mod tests {
                 Ok(core::i64::MAX),
                 b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff",
             ),
-            (
-                Err(ParseError::UnexpectedTag {
-                    expected: 0x2,
-                    actual: 0x3,
-                }),
-                b"\x03\x00",
-            ),
+            (Err(ParseError::UnexpectedTag { actual: 0x3 }), b"\x03\x00"),
             (Err(ParseError::ShortData), b"\x02\x02\x00"),
             (Err(ParseError::ShortData), b""),
             (Err(ParseError::ShortData), b"\x02"),
@@ -545,22 +575,37 @@ mod tests {
     }
 
     #[test]
+    fn test_choice2() {
+        assert_parses::<Choice2<bool, i64>>(&[
+            (Ok(Choice2::ChoiceA(true)), b"\x01\x01\xff"),
+            (Ok(Choice2::ChoiceB(18)), b"\x02\x01\x12"),
+            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03"),
+            (Err(ParseError::ShortData), b""),
+        ]);
+    }
+
+    #[test]
+    fn test_choice3() {
+        assert_parses::<Choice3<bool, i64, ()>>(&[
+            (Ok(Choice3::ChoiceA(true)), b"\x01\x01\xff"),
+            (Ok(Choice3::ChoiceB(18)), b"\x02\x01\x12"),
+            (Ok(Choice3::ChoiceC(())), b"\x05\x00"),
+            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03"),
+            (Err(ParseError::ShortData), b""),
+        ]);
+    }
+
+    #[test]
     fn test_parse_implicit() {
         assert_parses::<Implicit<bool, 2>>(&[
             (Ok(true), b"\x82\x01\xff"),
             (Ok(false), b"\x82\x01\x00"),
             (
-                Err(ParseError::UnexpectedTag {
-                    expected: 0x82,
-                    actual: 0x01,
-                }),
+                Err(ParseError::UnexpectedTag { actual: 0x01 }),
                 b"\x01\x01\xff",
             ),
             (
-                Err(ParseError::UnexpectedTag {
-                    expected: 0x82,
-                    actual: 0x02,
-                }),
+                Err(ParseError::UnexpectedTag { actual: 0x02 }),
                 b"\x02\x01\xff",
             ),
         ]);
@@ -572,24 +617,15 @@ mod tests {
             (Ok(true), b"\xa2\x03\x01\x01\xff"),
             (Ok(false), b"\xa2\x03\x01\x01\x00"),
             (
-                Err(ParseError::UnexpectedTag {
-                    expected: 0xa2,
-                    actual: 0x01,
-                }),
+                Err(ParseError::UnexpectedTag { actual: 0x01 }),
                 b"\x01\x01\xff",
             ),
             (
-                Err(ParseError::UnexpectedTag {
-                    expected: 0xa2,
-                    actual: 0x02,
-                }),
+                Err(ParseError::UnexpectedTag { actual: 0x02 }),
                 b"\x02\x01\xff",
             ),
             (
-                Err(ParseError::UnexpectedTag {
-                    expected: 0x01,
-                    actual: 0x03,
-                }),
+                Err(ParseError::UnexpectedTag { actual: 0x03 }),
                 b"\xa2\x03\x03\x01\xff",
             ),
         ]);
