@@ -299,6 +299,7 @@ macro_rules! declare_choice {
     }
 }
 
+declare_choice!(Choice1 => (T1 ChoiceA));
 declare_choice!(Choice2 => (T1 ChoiceA), (T2 ChoiceB));
 declare_choice!(Choice3 => (T1 ChoiceA), (T2 ChoiceB), (T3 ChoiceC));
 
@@ -357,8 +358,8 @@ impl<'a, T: Asn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a> for Explicit<'
 mod tests {
     use super::{Asn1Element, Parser};
     use crate::{
-        BitString, Choice2, Choice3, Explicit, Implicit, ObjectIdentifier, ParseError, ParseResult,
-        PrintableString, Sequence,
+        BitString, Choice1, Choice2, Choice3, Explicit, Implicit, ObjectIdentifier, ParseError,
+        ParseResult, PrintableString, Sequence,
     };
     use core::fmt;
 
@@ -572,6 +573,15 @@ mod tests {
                 ))
             },
         )
+    }
+
+    #[test]
+    fn test_choice1() {
+        assert_parses::<Choice1<bool>>(&[
+            (Ok(Choice1::ChoiceA(true)), b"\x01\x01\xff"),
+            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03"),
+            (Err(ParseError::ShortData), b""),
+        ]);
     }
 
     #[test]
