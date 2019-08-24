@@ -201,35 +201,40 @@ impl<'a> SimpleAsn1Element<'a> for PrintableString {
     }
 }
 
-impl SimpleAsn1Element<'_> for i64 {
-    const TAG: u8 = 0x02;
-    type Output = i64;
-    fn parse_data(data: &[u8]) -> ParseResult<i64> {
-        if data.is_empty() {
-            return Err(ParseError::InvalidValue);
-        }
-        if data.len() > 1
-            && ((data[0] == 0 && data[1] & 0x80 == 0)
-                || (data[0] == 0xff && data[1] & 0x80 == 0x80))
-        {
-            return Err(ParseError::InvalidValue);
-        }
+macro_rules! impl_asn1_element_for_int {
+    ($t:ty) => {
+        impl SimpleAsn1Element<'_> for $t {
+            const TAG: u8 = 0x02;
+            type Output = Self;
+            fn parse_data(data: &[u8]) -> ParseResult<Self::Output> {
+                if data.is_empty() {
+                    return Err(ParseError::InvalidValue);
+                }
+                if data.len() > 1
+                    && ((data[0] == 0 && data[1] & 0x80 == 0)
+                        || (data[0] == 0xff && data[1] & 0x80 == 0x80))
+                {
+                    return Err(ParseError::InvalidValue);
+                }
 
-        if data.len() > mem::size_of::<Self>() {
-            return Err(ParseError::IntegerOverflow);
-        }
+                if data.len() > mem::size_of::<Self>() {
+                    return Err(ParseError::IntegerOverflow);
+                }
 
-        let mut ret = 0;
-        for b in data {
-            ret <<= 8;
-            ret |= Self::from(*b);
+                let mut fixed_data = [0; mem::size_of::<Self>()];
+                fixed_data[mem::size_of::<Self>() - data.len()..].copy_from_slice(data);
+                let mut ret = Self::from_be_bytes(fixed_data);
+                // // Shift up and down in order to sign extend the result.
+                ret <<= (8 * mem::size_of::<Self>()) - data.len() * 8;
+                ret >>= (8 * mem::size_of::<Self>()) - data.len() * 8;
+                Ok(ret)
+            }
         }
-        // Shift up and down in order to sign extend the result.
-        ret <<= 64 - data.len() * 8;
-        ret >>= 64 - data.len() * 8;
-        Ok(ret)
-    }
+    };
 }
+
+impl_asn1_element_for_int!(i8);
+impl_asn1_element_for_int!(i64);
 
 impl<'a> SimpleAsn1Element<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
@@ -455,6 +460,17 @@ mod tests {
                 b"\x02\x05\x00\x00\x00\x00\x01",
             ),
             (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
+            (Err(ParseError::InvalidValue), b"\x02\x00"),
+        ])
+    }
+
+    #[test]
+    fn test_parse_int_i8() {
+        assert_parses::<i8>(&[
+            (Ok(0i8), b"\x02\x01\x00"),
+            (Ok(127i8), b"\x02\x01\x7f"),
+            (Ok(-128i8), b"\x02\x01\x80"),
+            (Err(ParseError::IntegerOverflow), b"\x02\x02\x02\x00"),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
         ])
     }
