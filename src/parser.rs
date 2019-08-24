@@ -202,11 +202,11 @@ impl<'a> SimpleAsn1Element<'a> for PrintableString {
 }
 
 macro_rules! impl_asn1_element_for_int {
-    ($t:ty) => {
+    ($t:ty; $signed:expr) => {
         impl SimpleAsn1Element<'_> for $t {
             const TAG: u8 = 0x02;
             type Output = Self;
-            fn parse_data(data: &[u8]) -> ParseResult<Self::Output> {
+            fn parse_data(mut data: &[u8]) -> ParseResult<Self::Output> {
                 if data.is_empty() {
                     return Err(ParseError::InvalidValue);
                 }
@@ -217,6 +217,16 @@ macro_rules! impl_asn1_element_for_int {
                     return Err(ParseError::InvalidValue);
                 }
 
+                // Reject negatives for unsigned types.
+                if !$signed && data[0] & 0x80 == 0x80 {
+                    return Err(ParseError::InvalidValue);
+                }
+
+                // If we've got something like \x00\xff trim off the first \x00, since it's just
+                // there to not mark the value as a negative.
+                if data.len() == mem::size_of::<Self>() + 1 && data[0] == 0 {
+                    data = &data[1..];
+                }
                 if data.len() > mem::size_of::<Self>() {
                     return Err(ParseError::IntegerOverflow);
                 }
@@ -233,8 +243,9 @@ macro_rules! impl_asn1_element_for_int {
     };
 }
 
-impl_asn1_element_for_int!(i8);
-impl_asn1_element_for_int!(i64);
+impl_asn1_element_for_int!(i8; true);
+impl_asn1_element_for_int!(u8; false);
+impl_asn1_element_for_int!(i64; true);
 
 impl<'a> SimpleAsn1Element<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
@@ -472,6 +483,17 @@ mod tests {
             (Ok(-128i8), b"\x02\x01\x80"),
             (Err(ParseError::IntegerOverflow), b"\x02\x02\x02\x00"),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
+        ])
+    }
+
+    #[test]
+    fn test_parse_int_u8() {
+        assert_parses::<u8>(&[
+            (Ok(0u8), b"\x02\x01\x00"),
+            (Ok(127u8), b"\x02\x01\x7f"),
+            (Ok(255u8), b"\x02\x02\x00\xff"),
+            (Err(ParseError::IntegerOverflow), b"\x02\x02\x01\x00"),
+            (Err(ParseError::InvalidValue), b"\x02\x01\x80"),
         ])
     }
 
