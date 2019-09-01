@@ -11,3 +11,6 @@ edition = "2018"
 [features]
 default = ["std"]
 std = []
+
+[dev-dependencies]
+libc = "0.2"
