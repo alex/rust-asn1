@@ -8,17 +8,26 @@ use crate::{BitString, ObjectIdentifier};
 const CONTEXT_SPECIFIC: u8 = 0x80;
 const CONSTRUCTED: u8 = 0x20;
 
+/// ParseError are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq)]
 pub enum ParseError {
+    /// Something about the value was invalid.
     InvalidValue,
+    /// An unexpected tag was encountered.
     UnexpectedTag { actual: u8 },
+    /// There was not enough data available to complete parsing.
     ShortData,
+    /// An internal computation would have overflowed.
     IntegerOverflow,
+    /// There was extraneous data in the input.
     ExtraData,
 }
 
+/// The result of a `parse`. Either a successful value or a `ParseError`.
 pub type ParseResult<T> = Result<T, ParseError>;
 
+/// Parse takes a sequence of bytes of DER encoded ASN.1 data, constructs a parser, and invokes a
+/// callback to read elements from the ASN.1 parser.
 pub fn parse<'a, T, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
     data: &'a [u8],
     f: F,
