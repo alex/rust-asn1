@@ -2,6 +2,11 @@ use alloc::borrow::Cow;
 use alloc::vec;
 use alloc::vec::Vec;
 
+/// Represents an ASN.1 `OBJECT IDENTIFIER`. ObjectIdentifiers are opaque, the only thing may be
+/// done with them is test if they are equal to another `ObjectIdentifier`. The generally
+/// recommended practice for handling them is to create some `ObjectIdentifier` constants with
+/// `ObjectIdentifier::from_string` and then compare ObjectIdentifiers you get from parsing to
+/// those.
 #[derive(Debug, PartialEq)]
 pub struct ObjectIdentifier<'a> {
     // Store the OID as DER encoded. This means we can 0-copy on parse.
@@ -45,6 +50,7 @@ fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
 }
 
 impl<'a> ObjectIdentifier<'a> {
+    /// Parses an OID from a dotted string, e.g. `"1.2.840.113549"`.
     pub fn from_string(oid: &str) -> Option<ObjectIdentifier<'a>> {
         let mut parts = oid.split('.');
 
