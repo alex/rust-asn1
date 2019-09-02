@@ -33,9 +33,9 @@ you would write:
 .. code-block:: rust
 
     let result = asn1::parse(data, |d| {
-        return d.parse::<asn1::Sequence>()?.parse(|d| {
-            let r = d.parse::<IntegerType>()?;
-            let s = d.parse::<IntegerType>()?;
+        return d.read_element::<asn1::Sequence>()?.parse(|d| {
+            let r = d.read_element::<IntegerType>()?;
+            let s = d.read_element::<IntegerType>()?;
             return Ok((r, s));
         })
     });
