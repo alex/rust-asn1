@@ -261,6 +261,7 @@ macro_rules! impl_asn1_element_for_int {
 impl_asn1_element_for_int!(i8; true);
 impl_asn1_element_for_int!(u8; false);
 impl_asn1_element_for_int!(i64; true);
+impl_asn1_element_for_int!(u64; false);
 
 impl<'a> SimpleAsn1Element<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
@@ -555,6 +556,21 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
             (Err(ParseError::InvalidValue), b"\x02\x00"),
         ])
+    }
+
+    #[test]
+    fn parse_int_u64() {
+        assert_parses::<u64>(&[
+            (
+                Ok(core::u64::MAX),
+                b"\x02\x09\x00\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
+            (Err(ParseError::InvalidValue), b"\x02\x01\xff"),
+            (
+                Err(ParseError::IntegerOverflow),
+                b"\x02\x09\x02\x00\x00\x00\x00\x00\x00\x00\x00",
+            ),
+        ]);
     }
 
     #[test]
