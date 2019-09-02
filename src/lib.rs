@@ -1,12 +1,16 @@
-extern crate byteorder;
-extern crate chrono;
-extern crate num;
+#![feature(const_generics)]
+#![cfg_attr(not(feature = "std"), no_std)]
+#![forbid(unsafe_code)]
 
-mod common;
-mod deserializer;
-mod serializer;
-mod utils;
+extern crate alloc;
 
-pub use deserializer::{Deserializer, DeserializationError, DeserializationResult, from_vec};
-pub use serializer::{Serializer, to_vec};
-pub use utils::{BitString, ObjectIdentifier};
+mod bit_string;
+mod object_identitifer;
+mod parser;
+
+pub use crate::bit_string::BitString;
+pub use crate::object_identitifer::ObjectIdentifier;
+pub use crate::parser::{
+    parse, Choice1, Choice2, Choice3, Explicit, Implicit, ParseError, ParseResult, PrintableString,
+    Sequence, UTCTime,
+};
