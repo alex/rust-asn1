@@ -182,6 +182,8 @@ impl<'a> SimpleAsn1Element<'a> for &'a [u8] {
     }
 }
 
+/// Placeholder type for use with `Parser.read_element` for parsing an ASN.1 `PrintableString`.
+/// Parsing a `PrintableString` will return an `&str` containing only valid characers.
 pub enum PrintableString {}
 
 impl<'a> SimpleAsn1Element<'a> for PrintableString {
