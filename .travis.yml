@@ -3,12 +3,18 @@ language: rust
 rust:
     - nightly
 
-
-cache: cargo
-
 branches:
     only:
         - master
 
 notifications:
     email: false
+
+before_script:
+  - rustup component add rustfmt
+  - rustup component add clippy-preview
+
+script:
+  - RUSTFLAGS=-Dwarnings cargo test
+  - cargo clippy --all-targets -- -D warnings
+  - cargo fmt --all -- --check
