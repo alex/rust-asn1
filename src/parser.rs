@@ -1,6 +1,8 @@
 use core::marker::PhantomData;
 use core::mem;
 
+use chrono::{Datelike, TimeZone, Timelike};
+
 use crate::{BitString, ObjectIdentifier};
 
 const CONTEXT_SPECIFIC: u8 = 0x80;
@@ -266,6 +268,62 @@ impl<'a> SimpleAsn1Element<'a> for BitString<'a> {
     }
 }
 
+pub enum UTCTime {}
+
+const UTCTIME_WITH_SECONDS_AND_OFFSET: &str = "%y%m%d%H%M%S%z";
+const UTCTIME_WITH_SECONDS: &str = "%y%m%d%H%M%SZ";
+const UTCTIME_WITH_OFFSET: &str = "%y%m%d%H%M%z";
+const UTCTIME: &str = "%y%m%d%H%MZ";
+
+impl SimpleAsn1Element<'_> for UTCTime {
+    const TAG: u8 = 0x17;
+    type Output = chrono::DateTime<chrono::Utc>;
+    fn parse_data(data: &[u8]) -> ParseResult<Self::Output> {
+        let data = std::str::from_utf8(data).map_err(|_| ParseError::InvalidValue)?;
+
+        // Try parsing with every combination of "including seconds or not" and "fixed offset or
+        // UTC".
+        let mut result = None;
+        for format in [UTCTIME_WITH_SECONDS, UTCTIME].iter() {
+            match chrono::Utc.datetime_from_str(data, format) {
+                Ok(dt) => {
+                    result = Some(dt);
+                    break;
+                }
+                Err(_) => {}
+            }
+        }
+        for format in [UTCTIME_WITH_SECONDS_AND_OFFSET, UTCTIME_WITH_OFFSET].iter() {
+            match chrono::DateTime::parse_from_str(data, format) {
+                Ok(dt) => {
+                    result = Some(dt.into());
+                    break;
+                }
+                Err(_) => {}
+            }
+        }
+        match result {
+            Some(mut dt) => {
+                // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes them as
+                // nanoseconds == 1000000.
+                if dt.nanosecond() >= 1000000 {
+                    return Err(ParseError::InvalidValue);
+                }
+                // UTCTime only encodes times prior to 2050. We use the X.509 mapping of two-digit
+                // year ordinals to full year:
+                // https://tools.ietf.org/html/rfc5280#section-4.1.2.5.1
+                if dt.year() >= 2050 {
+                    dt = chrono::Utc
+                        .ymd(dt.year() - 100, dt.month(), dt.day())
+                        .and_hms(dt.hour(), dt.minute(), dt.second());
+                }
+                return Ok(dt);
+            }
+            None => return Err(ParseError::InvalidValue),
+        }
+    }
+}
+
 impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for Option<T> {
     type Output = Option<T::Output>;
 
@@ -375,8 +433,9 @@ mod tests {
     use super::{Asn1Element, Parser};
     use crate::{
         BitString, Choice1, Choice2, Choice3, Explicit, Implicit, ObjectIdentifier, ParseError,
-        ParseResult, PrintableString, Sequence,
+        ParseResult, PrintableString, Sequence, UTCTime,
     };
+    use chrono::{FixedOffset, TimeZone, Utc};
     use core::fmt;
 
     fn assert_parses_cb<'a, T: fmt::Debug + PartialEq, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
@@ -551,11 +610,67 @@ mod tests {
     }
 
     #[test]
-    fn test_printable_string() {
+    fn test_parse_printable_string() {
         assert_parses::<PrintableString>(&[
             (Ok("abc"), b"\x13\x03abc"),
             (Ok(")"), b"\x13\x01)"),
             (Err(ParseError::InvalidValue), b"\x13\x03ab\x00"),
+        ]);
+    }
+
+    #[test]
+    fn test_parse_utctime() {
+        assert_parses::<UTCTime>(&[
+            (
+                Ok(FixedOffset::west(7 * 60 * 60)
+                    .ymd(1991, 5, 6)
+                    .and_hms(16, 45, 40)
+                    .into()),
+                b"\x17\x11910506164540-0700",
+            ),
+            (
+                Ok(FixedOffset::east(7 * 60 * 60 + 30 * 60)
+                    .ymd(1991, 5, 6)
+                    .and_hms(16, 45, 40)
+                    .into()),
+                b"\x17\x11910506164540+0730",
+            ),
+            (
+                Ok(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)),
+                b"\x17\x0d910506234540Z",
+            ),
+            (
+                Ok(Utc.ymd(1991, 5, 6).and_hms(23, 45, 0)),
+                b"\x17\x0b9105062345Z",
+            ),
+            (
+                Ok(Utc.ymd(1951, 5, 6).and_hms(23, 45, 0)),
+                b"\x17\x0b5105062345Z",
+            ),
+            (Err(ParseError::InvalidValue), b"\x17\x0da10506234540Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d91a506234540Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d9105a6234540Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d910506a34540Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d910506334a40Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d91050633444aZ"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d910506334461Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0e910506334400Za"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d000100000000Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d101302030405Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d100002030405Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d100100030405Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d100132030405Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d100231030405Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d100102240405Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d100102036005Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0d100102030460Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0e-100102030410Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0e10-0102030410Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0e10-0002030410Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0e1001-02030410Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0e100102-030410Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0e10010203-0410Z"),
+            (Err(ParseError::InvalidValue), b"\x17\x0e1001020304-10Z"),
         ]);
     }
 

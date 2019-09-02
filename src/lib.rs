@@ -12,5 +12,5 @@ pub use crate::bit_string::BitString;
 pub use crate::object_identitifer::ObjectIdentifier;
 pub use crate::parser::{
     parse, Choice1, Choice2, Choice3, Explicit, Implicit, ParseError, ParseResult, PrintableString,
-    Sequence,
+    Sequence, UTCTime,
 };
