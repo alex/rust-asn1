@@ -285,28 +285,22 @@ impl SimpleAsn1Element<'_> for UTCTime {
         // UTC".
         let mut result = None;
         for format in [UTCTIME_WITH_SECONDS, UTCTIME].iter() {
-            match chrono::Utc.datetime_from_str(data, format) {
-                Ok(dt) => {
-                    result = Some(dt);
-                    break;
-                }
-                Err(_) => {}
+            if let Ok(dt) = chrono::Utc.datetime_from_str(data, format) {
+                result = Some(dt);
+                break;
             }
         }
         for format in [UTCTIME_WITH_SECONDS_AND_OFFSET, UTCTIME_WITH_OFFSET].iter() {
-            match chrono::DateTime::parse_from_str(data, format) {
-                Ok(dt) => {
-                    result = Some(dt.into());
-                    break;
-                }
-                Err(_) => {}
+            if let Ok(dt) = chrono::DateTime::parse_from_str(data, format) {
+                result = Some(dt.into());
+                break;
             }
         }
         match result {
             Some(mut dt) => {
                 // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes them as
                 // nanoseconds == 1000000.
-                if dt.nanosecond() >= 1000000 {
+                if dt.nanosecond() >= 1_000_000 {
                     return Err(ParseError::InvalidValue);
                 }
                 // UTCTime only encodes times prior to 2050. We use the X.509 mapping of two-digit
@@ -317,9 +311,9 @@ impl SimpleAsn1Element<'_> for UTCTime {
                         .ymd(dt.year() - 100, dt.month(), dt.day())
                         .and_hms(dt.hour(), dt.minute(), dt.second());
                 }
-                return Ok(dt);
+                Ok(dt)
             }
-            None => return Err(ParseError::InvalidValue),
+            None => Err(ParseError::InvalidValue),
         }
     }
 }
