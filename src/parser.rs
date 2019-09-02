@@ -419,6 +419,8 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
     }
 }
 
+/// `Implicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
+/// `IMPLICIT`. This will generally be used with `Option` or `Choice`.
 pub struct Implicit<'a, T: Asn1Element<'a>, const TAG: u8> {
     _inner: PhantomData<T>,
     _lifetime: PhantomData<&'a ()>,
@@ -434,6 +436,8 @@ impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
     }
 }
 
+/// `Explicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
+/// `EXPLICIT`. This will generally be used with `Option` or `Choice`.
 pub struct Explicit<'a, T: Asn1Element<'a>, const TAG: u8> {
     _inner: PhantomData<T>,
     _lifetime: PhantomData<&'a ()>,
