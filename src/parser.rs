@@ -281,14 +281,17 @@ impl<'a> SimpleAsn1Element<'a> for BitString<'a> {
     }
 }
 
-pub enum UTCTime {}
+/// Placeholder type for use with `Parser.read_element` for parsing an ASN.1 `UTCTime`. Parsing a
+/// `UtcTime` will return a `chrono::DateTime<chrono::Utc>`. Handles all four variants described in
+/// ASN.1: with and without explicit seconds, and with either a fixed offset or directly in UTC.
+pub enum UtcTime {}
 
 const UTCTIME_WITH_SECONDS_AND_OFFSET: &str = "%y%m%d%H%M%S%z";
 const UTCTIME_WITH_SECONDS: &str = "%y%m%d%H%M%SZ";
 const UTCTIME_WITH_OFFSET: &str = "%y%m%d%H%M%z";
 const UTCTIME: &str = "%y%m%d%H%MZ";
 
-impl SimpleAsn1Element<'_> for UTCTime {
+impl SimpleAsn1Element<'_> for UtcTime {
     const TAG: u8 = 0x17;
     type Output = chrono::DateTime<chrono::Utc>;
     fn parse_data(data: &[u8]) -> ParseResult<Self::Output> {
@@ -440,7 +443,7 @@ mod tests {
     use super::{Asn1Element, Parser};
     use crate::{
         BitString, Choice1, Choice2, Choice3, Explicit, Implicit, ObjectIdentifier, ParseError,
-        ParseResult, PrintableString, Sequence, UTCTime,
+        ParseResult, PrintableString, Sequence, UtcTime,
     };
     use chrono::{FixedOffset, TimeZone, Utc};
     use core::fmt;
@@ -627,7 +630,7 @@ mod tests {
 
     #[test]
     fn test_parse_utctime() {
-        assert_parses::<UTCTime>(&[
+        assert_parses::<UtcTime>(&[
             (
                 Ok(FixedOffset::west(7 * 60 * 60)
                     .ymd(1991, 5, 6)
