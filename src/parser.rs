@@ -349,6 +349,10 @@ impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for Option<T> {
 
 macro_rules! declare_choice {
     ($count:ident => $(($number:ident $name:ident)),*) => {
+        /// Represents an ASN.1 `CHOICE` with the provided number of potential types.
+        ///
+        /// If you need more variants that are provided, please file an issue or submit a pull
+        /// request!
         #[derive(Debug, PartialEq)]
         pub enum $count<
             'a,
