@@ -1,8 +1,7 @@
 #![no_main]
-#[macro_use]
-extern crate libfuzzer_sys;
+use libfuzzer_sys::fuzz_target;
 
-libfuzzer_sys::fuzz_target!(|data: &[u8]| {
+fuzz_target!(|data: &[u8]| {
     let _ = asn1::parse(data, |d| {
         d.read_element::<()>()?;
         d.read_element::<bool>()?;
