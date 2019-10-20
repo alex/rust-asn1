@@ -11,10 +11,12 @@ notifications:
     email: false
 
 before_script:
-  - rustup component add rustfmt
-  - rustup component add clippy-preview
+  - rustup component add rustfmt clippy-preview
+  - cargo install cargo-fuzz
 
 script:
   - RUSTFLAGS=-Dwarnings cargo test
   - cargo clippy --all-targets -- -D warnings
   - cargo fmt --all -- --check
+
+  - cargo fuzz run fuzz_asn1_parse -- -runs=100000
