@@ -19,4 +19,4 @@ script:
   - cargo clippy --all-targets -- -D warnings
   - cargo fmt --all -- --check
 
-  - cargo fuzz run fuzz_asn1_parse -- -runs=500000
+  - cargo fuzz run fuzz_asn1_parse -- -max_total_time=30
