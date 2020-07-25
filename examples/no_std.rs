@@ -1,8 +1,5 @@
 #![no_std]
 
-use asn1;
-use libc;
-
 fn main() {
     let data = b"\x30\x06\x02\x01\x01\x02\x01\x03";
 
