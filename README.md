@@ -44,6 +44,17 @@ match result {
 }
 ```
 
+And to write that structure, you would do:
+
+```rust
+let result = asn1::write(|w| {
+	w.write_element_with_type::<asn1::Sequence>(&|w: &mut asn1::Writer| {
+		w.write_element(r);
+		w.write_element(s);
+	})
+});
+```
+
 [travis-image]: https://travis-ci.org/alex/rust-asn1.svg?branch=master
 [travis-link]: https://travis-ci.org/alex/rust-asn1
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
