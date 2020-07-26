@@ -13,4 +13,18 @@ fn main() {
         Ok((r, s)) => unsafe { libc::printf(b"r=%ld, s=%ld\n\x00".as_ptr() as *const i8, r, s) },
         Err(_) => unsafe { libc::printf("Error\n\x00".as_ptr() as *const i8) },
     };
+
+    let computed = asn1::write(|w| {
+        w.write_element_with_type::<asn1::Sequence>(&|w: &mut asn1::Writer| {
+            w.write_element(1i64);
+            w.write_element(3i64);
+        });
+    });
+    unsafe {
+        libc::printf(
+            "Original length: %ld\nComputed length: %ld\n\x00".as_ptr() as *const i8,
+            data.len() as i64,
+            computed.len() as i64,
+        );
+    }
 }

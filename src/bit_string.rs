@@ -1,5 +1,5 @@
 /// Represents an ASN.1 `BIT STRING`.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct BitString<'a> {
     data: &'a [u8],
     padding_bits: u8,
