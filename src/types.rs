@@ -13,8 +13,10 @@ const CONSTRUCTED: u8 = 0x20;
 
 pub trait Asn1Element<'a>: Sized {
     type ParsedType;
+    type WriteType;
 
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType>;
+    fn write(writer: &mut Writer, val: Self::WriteType);
 }
 
 pub trait SimpleAsn1Element<'a>: Sized {
@@ -28,6 +30,7 @@ pub trait SimpleAsn1Element<'a>: Sized {
 
 impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for T {
     type ParsedType = T::ParsedType;
+    type WriteType = T::WriteType;
 
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
         let tlv = parser.read_tlv()?;
@@ -35,6 +38,10 @@ impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for T {
             return Err(ParseError::UnexpectedTag { actual: tlv.tag });
         }
         Self::parse_data(tlv.data)
+    }
+
+    fn write(writer: &mut Writer, val: T::WriteType) {
+        writer.write_tlv(Self::TAG, move |dest| T::write_data(dest, val));
     }
 }
 
@@ -314,6 +321,7 @@ impl SimpleAsn1Element<'_> for UtcTime {
 
 impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for Option<T> {
     type ParsedType = Option<T::ParsedType>;
+    type WriteType = Option<T::WriteType>;
 
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
         let tag = parser.peek_u8();
@@ -321,6 +329,12 @@ impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for Option<T> {
             Ok(Some(parser.read_element::<T>()?))
         } else {
             Ok(None)
+        }
+    }
+
+    fn write(writer: &mut Writer, val: Option<T::WriteType>) {
+        if let Some(v) = val {
+            writer.write_element_with_type::<T>(v);
         }
     }
 }
@@ -331,7 +345,7 @@ macro_rules! declare_choice {
         ///
         /// If you need more variants that are provided, please file an issue or submit a pull
         /// request!
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Clone)]
         pub enum $count<
             'a,
             $(
@@ -339,7 +353,7 @@ macro_rules! declare_choice {
             )*
         > {
             $(
-                $name($number::ParsedType),
+                $name($number),
             )*
         }
 
@@ -350,6 +364,7 @@ macro_rules! declare_choice {
             )*
         > Asn1Element<'a> for $count<'a, $($number,)*> {
             type ParsedType = Self;
+            type WriteType = Self;
 
             fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
                 let tag = parser.peek_u8();
@@ -359,6 +374,14 @@ macro_rules! declare_choice {
                     )*
                     Some(tag) => Err(ParseError::UnexpectedTag{actual: tag}),
                     None => Err(ParseError::ShortData),
+                }
+            }
+
+            fn write(writer: &mut Writer, val: Self::WriteType) {
+                match val {
+                    $(
+                        $count::$name(v) => writer.write_element_with_type::<$number>(v),
+                    )*
                 }
             }
         }

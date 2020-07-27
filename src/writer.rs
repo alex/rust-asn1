@@ -53,7 +53,7 @@ impl Writer<'_> {
     #[inline]
     pub fn write_element<'a, T>(&mut self, val: T)
     where
-        T: crate::types::SimpleAsn1Element<'a, WriteType = T>,
+        T: crate::types::Asn1Element<'a, WriteType = T>,
     {
         self.write_element_with_type::<T>(val);
     }
@@ -61,15 +61,21 @@ impl Writer<'_> {
     #[inline]
     pub fn write_element_with_type<'a, T>(&mut self, val: T::WriteType)
     where
-        T: crate::types::SimpleAsn1Element<'a>,
+        T: crate::types::Asn1Element<'a>,
     {
-        self.data.as_mut_ref().push(T::TAG);
+        T::write(self, val);
+    }
+
+    pub(crate) fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: u8, body: F) {
+        self.data.as_mut_ref().push(tag);
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
         self.data.as_mut_ref().push(0);
+
         let start_len = self.data.as_mut_ref().len();
-        T::write_data(self.data.as_mut_ref(), val);
+        body(self.data.as_mut_ref());
         let added_len = self.data.as_mut_ref().len() - start_len;
+
         if added_len >= 128 {
             let n = _length_length(added_len);
             self.data.as_mut_ref()[start_len - 1] = 0x80 | n;
@@ -104,14 +110,15 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::{_insert_at_position, write, Writer};
-    use crate::types::SimpleAsn1Element;
+    use crate::types::Asn1Element;
     use crate::{
-        BitString, Explicit, Implicit, ObjectIdentifier, PrintableString, Sequence, UtcTime,
+        BitString, Choice1, Choice2, Choice3, Explicit, Implicit, ObjectIdentifier,
+        PrintableString, Sequence, UtcTime,
     };
 
     fn assert_writes<'a, T>(data: &[(T::WriteType, &[u8])])
     where
-        T: SimpleAsn1Element<'a>,
+        T: Asn1Element<'a>,
         T::WriteType: Clone,
     {
         for (val, expected) in data {
@@ -263,6 +270,31 @@ mod tests {
         assert_writes::<Explicit<bool, 2>>(&[
             (true, b"\xa2\x03\x01\x01\xff"),
             (false, b"\xa2\x03\x01\x01\x00"),
+        ]);
+    }
+
+    #[test]
+    fn test_write_option() {
+        assert_writes::<Option<bool>>(&[
+            (Some(true), b"\x01\x01\xff"),
+            (Some(false), b"\x01\x01\x00"),
+            (None, b""),
+        ]);
+    }
+
+    #[test]
+    fn test_choice() {
+        assert_writes::<Choice1<bool>>(&[(Choice1::ChoiceA(true), b"\x01\x01\xff")]);
+
+        assert_writes::<Choice2<bool, i64>>(&[
+            (Choice2::ChoiceA(true), b"\x01\x01\xff"),
+            (Choice2::ChoiceB(18), b"\x02\x01\x12"),
+        ]);
+
+        assert_writes::<Choice3<bool, i64, ()>>(&[
+            (Choice3::ChoiceA(true), b"\x01\x01\xff"),
+            (Choice3::ChoiceB(18), b"\x02\x01\x12"),
+            (Choice3::ChoiceC(()), b"\x05\x00"),
         ]);
     }
 }
