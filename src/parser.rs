@@ -108,6 +108,12 @@ impl<'a> Parser<'a> {
         })
     }
 
+    /// Tests whether there is any data remaining in the Parser. Generally
+    /// useful when parsing a `SEQUENCE OF`.
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
     /// Reads a single ASN.1 element from the parser. Which type you are reading is determined by
     /// the type parameter `T`.
     pub fn read_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<T::ParsedType> {
@@ -413,6 +419,28 @@ mod tests {
                     .parse(|p| Ok((p.read_element::<i64>()?, p.read_element::<i64>()?)))
             },
         );
+    }
+
+    #[test]
+    fn test_parse_sequence_of() {
+        assert_parses_cb(
+            &[
+                (
+                    Ok(vec![1, 2, 3]),
+                    b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                ),
+                (Ok(vec![]), b"\x30\x00"),
+            ],
+            |p| {
+                p.read_element::<Sequence>()?.parse(|p| {
+                    let mut result = vec![];
+                    while !p.is_empty() {
+                        result.push(p.read_element::<i64>()?);
+                    }
+                    Ok(result)
+                })
+            },
+        )
     }
 
     #[test]
