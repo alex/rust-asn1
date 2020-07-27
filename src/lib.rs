@@ -46,7 +46,7 @@ mod writer;
 
 pub use crate::bit_string::BitString;
 pub use crate::object_identitifer::ObjectIdentifier;
-pub use crate::parser::{parse, ParseError, ParseResult};
+pub use crate::parser::{parse, ParseError};
 pub use crate::types::{
     Choice1, Choice2, Choice3, Explicit, Implicit, PrintableString, Sequence, UtcTime,
 };

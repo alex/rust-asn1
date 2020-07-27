@@ -4,9 +4,9 @@ use core::mem;
 
 use chrono::{Datelike, TimeZone, Timelike};
 
-use crate::parser::Parser;
+use crate::parser::{err, Parser};
 use crate::writer::Writer;
-use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult};
+use crate::{parse, BitString, ObjectIdentifier, ParseError};
 
 const CONTEXT_SPECIFIC: u8 = 0x80;
 const CONSTRUCTED: u8 = 0x20;
@@ -14,7 +14,7 @@ const CONSTRUCTED: u8 = 0x20;
 pub trait Asn1Element<'a>: Sized {
     type ParsedType;
 
-    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType>;
+    fn parse(parser: &mut Parser<'a>) -> anyhow::Result<Self::ParsedType>;
 }
 
 pub trait SimpleAsn1Element<'a>: Sized {
@@ -22,17 +22,17 @@ pub trait SimpleAsn1Element<'a>: Sized {
     type ParsedType;
     type WriteType;
 
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self::ParsedType>;
+    fn parse_data(data: &'a [u8]) -> anyhow::Result<Self::ParsedType>;
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType);
 }
 
 impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for T {
     type ParsedType = T::ParsedType;
 
-    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
+    fn parse(parser: &mut Parser<'a>) -> anyhow::Result<Self::ParsedType> {
         let tlv = parser.read_tlv()?;
         if tlv.tag != Self::TAG {
-            return Err(ParseError::UnexpectedTag { actual: tlv.tag });
+            return err(ParseError::UnexpectedTag { actual: tlv.tag });
         }
         Self::parse_data(tlv.data)
     }
@@ -42,10 +42,10 @@ impl SimpleAsn1Element<'_> for () {
     const TAG: u8 = 0x05;
     type ParsedType = ();
     type WriteType = ();
-    fn parse_data(data: &[u8]) -> ParseResult<()> {
+    fn parse_data(data: &[u8]) -> anyhow::Result<()> {
         match data {
             b"" => Ok(()),
-            _ => Err(ParseError::InvalidValue),
+            _ => err(ParseError::InvalidValue),
         }
     }
 
@@ -56,11 +56,11 @@ impl SimpleAsn1Element<'_> for bool {
     const TAG: u8 = 0x1;
     type ParsedType = bool;
     type WriteType = bool;
-    fn parse_data(data: &[u8]) -> ParseResult<bool> {
+    fn parse_data(data: &[u8]) -> anyhow::Result<bool> {
         match data {
             b"\x00" => Ok(false),
             b"\xff" => Ok(true),
-            _ => Err(ParseError::InvalidValue),
+            _ => err(ParseError::InvalidValue),
         }
     }
 
@@ -77,7 +77,7 @@ impl<'a> SimpleAsn1Element<'a> for &'a [u8] {
     const TAG: u8 = 0x04;
     type ParsedType = &'a [u8];
     type WriteType = &'a [u8];
-    fn parse_data(data: &'a [u8]) -> ParseResult<&'a [u8]> {
+    fn parse_data(data: &'a [u8]) -> anyhow::Result<&'a [u8]> {
         Ok(data)
     }
 
@@ -130,9 +130,9 @@ impl<'a> SimpleAsn1Element<'a> for PrintableString<'a> {
     const TAG: u8 = 0x13;
     type ParsedType = &'a str;
     type WriteType = PrintableString<'a>;
-    fn parse_data(data: &'a [u8]) -> ParseResult<&'a str> {
+    fn parse_data(data: &'a [u8]) -> anyhow::Result<&'a str> {
         if !PrintableString::verify(data) {
-            return Err(ParseError::InvalidValue);
+            return err(ParseError::InvalidValue);
         }
         // TODO: This value is always valid utf-8 because we just verified the contents, but I
         // don't want to call an unsafe function, so we end up validating it twice. If your profile
@@ -150,20 +150,20 @@ macro_rules! impl_asn1_element_for_int {
             const TAG: u8 = 0x02;
             type ParsedType = Self;
             type WriteType = Self;
-            fn parse_data(mut data: &[u8]) -> ParseResult<Self::ParsedType> {
+            fn parse_data(mut data: &[u8]) -> anyhow::Result<Self::ParsedType> {
                 if data.is_empty() {
-                    return Err(ParseError::InvalidValue);
+                    return err(ParseError::InvalidValue);
                 }
                 if data.len() > 1
                     && ((data[0] == 0 && data[1] & 0x80 == 0)
                         || (data[0] == 0xff && data[1] & 0x80 == 0x80))
                 {
-                    return Err(ParseError::InvalidValue);
+                    return err(ParseError::InvalidValue);
                 }
 
                 // Reject negatives for unsigned types.
                 if !$signed && data[0] & 0x80 == 0x80 {
-                    return Err(ParseError::InvalidValue);
+                    return err(ParseError::InvalidValue);
                 }
 
                 // If we've got something like \x00\xff trim off the first \x00, since it's just
@@ -172,7 +172,7 @@ macro_rules! impl_asn1_element_for_int {
                     data = &data[1..];
                 }
                 if data.len() > mem::size_of::<Self>() {
-                    return Err(ParseError::IntegerOverflow);
+                    return err(ParseError::IntegerOverflow);
                 }
 
                 let mut fixed_data = [0; mem::size_of::<Self>()];
@@ -209,8 +209,8 @@ impl<'a> SimpleAsn1Element<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
     type ParsedType = ObjectIdentifier<'a>;
     type WriteType = ObjectIdentifier<'a>;
-    fn parse_data(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
-        ObjectIdentifier::from_der(data).ok_or(ParseError::InvalidValue)
+    fn parse_data(data: &'a [u8]) -> anyhow::Result<ObjectIdentifier<'a>> {
+        ObjectIdentifier::from_der(data).ok_or_else(|| anyhow::Error::new(ParseError::InvalidValue))
     }
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
         dest.extend_from_slice(&val.der_encoded);
@@ -221,11 +221,12 @@ impl<'a> SimpleAsn1Element<'a> for BitString<'a> {
     const TAG: u8 = 0x03;
     type ParsedType = BitString<'a>;
     type WriteType = BitString<'a>;
-    fn parse_data(data: &'a [u8]) -> ParseResult<BitString<'a>> {
+    fn parse_data(data: &'a [u8]) -> anyhow::Result<BitString<'a>> {
         if data.is_empty() {
-            return Err(ParseError::InvalidValue);
+            return err(ParseError::InvalidValue);
         }
-        BitString::new(&data[1..], data[0]).ok_or(ParseError::InvalidValue)
+        BitString::new(&data[1..], data[0])
+            .ok_or_else(|| anyhow::Error::new(ParseError::InvalidValue))
     }
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
         dest.push(val.padding_bits());
@@ -252,7 +253,7 @@ impl SimpleAsn1Element<'_> for UtcTime {
     const TAG: u8 = 0x17;
     type ParsedType = chrono::DateTime<chrono::Utc>;
     type WriteType = chrono::DateTime<chrono::Utc>;
-    fn parse_data(data: &[u8]) -> ParseResult<Self::ParsedType> {
+    fn parse_data(data: &[u8]) -> anyhow::Result<Self::ParsedType> {
         let data = std::str::from_utf8(data).map_err(|_| ParseError::InvalidValue)?;
 
         // Try parsing with every combination of "including seconds or not" and "fixed offset or
@@ -275,7 +276,7 @@ impl SimpleAsn1Element<'_> for UtcTime {
                 // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes them as
                 // nanoseconds == 1000000.
                 if dt.nanosecond() >= 1_000_000 {
-                    return Err(ParseError::InvalidValue);
+                    return err(ParseError::InvalidValue);
                 }
                 // UTCTime only encodes times prior to 2050. We use the X.509 mapping of two-digit
                 // year ordinals to full year:
@@ -287,7 +288,7 @@ impl SimpleAsn1Element<'_> for UtcTime {
                 }
                 Ok(dt)
             }
-            None => Err(ParseError::InvalidValue),
+            None => err(ParseError::InvalidValue),
         }
     }
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
@@ -313,7 +314,7 @@ impl SimpleAsn1Element<'_> for UtcTime {
 impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for Option<T> {
     type ParsedType = Option<T::ParsedType>;
 
-    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
+    fn parse(parser: &mut Parser<'a>) -> anyhow::Result<Self::ParsedType> {
         let tag = parser.peek_u8();
         if tag == Some(T::TAG) {
             Ok(Some(parser.read_element::<T>()?))
@@ -349,14 +350,14 @@ macro_rules! declare_choice {
         > Asn1Element<'a> for $count<'a, $($number,)*> {
             type ParsedType = Self;
 
-            fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
+            fn parse(parser: &mut Parser<'a>) -> anyhow::Result<Self::ParsedType> {
                 let tag = parser.peek_u8();
                 match tag {
                     $(
                         Some(tag) if tag == $number::TAG => Ok($count::$name(parser.read_element::<$number>()?)),
                     )*
-                    Some(tag) => Err(ParseError::UnexpectedTag{actual: tag}),
-                    None => Err(ParseError::ShortData),
+                    Some(tag) => err(ParseError::UnexpectedTag{actual: tag}),
+                    None => err(ParseError::ShortData),
                 }
             }
         }
@@ -382,7 +383,7 @@ impl<'a> Sequence<'a> {
 
     /// Parses the contents of the `Sequence`. Behaves the same as the module-level `parse`
     /// function.
-    pub fn parse<T, F: Fn(&mut Parser) -> ParseResult<T>>(self, f: F) -> ParseResult<T> {
+    pub fn parse<T, F: Fn(&mut Parser) -> anyhow::Result<T>>(self, f: F) -> anyhow::Result<T> {
         parse(self.data, f)
     }
 }
@@ -391,7 +392,7 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
     type ParsedType = Sequence<'a>;
     type WriteType = &'a dyn Fn(&mut Writer);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
+    fn parse_data(data: &'a [u8]) -> anyhow::Result<Sequence<'a>> {
         Ok(Sequence::new(data))
     }
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
@@ -413,7 +414,7 @@ impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
     const TAG: u8 = CONTEXT_SPECIFIC | TAG | (T::TAG & CONSTRUCTED);
     type ParsedType = T::ParsedType;
     type WriteType = T::WriteType;
-    fn parse_data(data: &'a [u8]) -> ParseResult<T::ParsedType> {
+    fn parse_data(data: &'a [u8]) -> anyhow::Result<T::ParsedType> {
         T::parse_data(data)
     }
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
@@ -434,7 +435,7 @@ impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
     const TAG: u8 = CONTEXT_SPECIFIC | CONSTRUCTED | TAG;
     type ParsedType = T::ParsedType;
     type WriteType = T::WriteType;
-    fn parse_data(data: &'a [u8]) -> ParseResult<T::ParsedType> {
+    fn parse_data(data: &'a [u8]) -> anyhow::Result<T::ParsedType> {
         parse(data, |p| p.read_element::<T>())
     }
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
