@@ -2,7 +2,7 @@
 use libfuzzer_sys::fuzz_target;
 
 fuzz_target!(|data: &[u8]| {
-    let _ = asn1::parse(data, |d| {
+    let _: asn1::ParseResult<()> = asn1::parse(data, |d| {
         d.read_element::<()>()?;
         d.read_element::<bool>()?;
 

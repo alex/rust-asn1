@@ -20,10 +20,10 @@ pub type ParseResult<T> = Result<T, ParseError>;
 
 /// Parse takes a sequence of bytes of DER encoded ASN.1 data, constructs a parser, and invokes a
 /// callback to read elements from the ASN.1 parser.
-pub fn parse<'a, T, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
+pub fn parse<'a, T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>(
     data: &'a [u8],
     f: F,
-) -> ParseResult<T> {
+) -> Result<T, E> {
     let mut p = Parser::new(data);
     let result = f(&mut p)?;
     p.finish()?;
@@ -137,8 +137,13 @@ mod tests {
     use chrono::{FixedOffset, TimeZone, Utc};
     use core::fmt;
 
-    fn assert_parses_cb<'a, T: fmt::Debug + PartialEq, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
-        data: &[(ParseResult<T>, &'a [u8])],
+    fn assert_parses_cb<
+        'a,
+        T: fmt::Debug + PartialEq,
+        E: From<ParseError> + fmt::Debug + PartialEq,
+        F: Fn(&mut Parser<'a>) -> Result<T, E>,
+    >(
+        data: &[(Result<T, E>, &'a [u8])],
         f: F,
     ) {
         for (expected, der_bytes) in data {
@@ -152,13 +157,44 @@ mod tests {
         T: Asn1Element<'a>,
         T::ParsedType: fmt::Debug + PartialEq,
     {
-        assert_parses_cb(data, |p| p.read_element::<T>());
+        assert_parses_cb(data, |p| Ok(p.read_element::<T>()?));
     }
 
     #[test]
     fn test_parse_extra_data() {
         let result = crate::parse(b"\x00", |_| Ok(()));
         assert_eq!(result, Err(ParseError::ExtraData));
+    }
+
+    #[test]
+    fn test_errors() {
+        #[derive(Debug, PartialEq)]
+        enum E {
+            X(u64),
+            P(ParseError),
+        }
+
+        impl From<ParseError> for E {
+            fn from(e: ParseError) -> E {
+                E::P(e)
+            }
+        }
+
+        assert_parses_cb(
+            &[
+                (Ok(8), b"\x02\x01\x08"),
+                (Err(E::P(ParseError::ShortData)), b"\x02\x01"),
+                (Err(E::X(7)), b"\x02\x01\x07"),
+            ],
+            |p| {
+                let val = p.read_element::<u64>()?;
+                if val % 2 == 0 {
+                    Ok(val)
+                } else {
+                    Err(E::X(val))
+                }
+            },
+        );
     }
 
     #[test]
@@ -430,6 +466,7 @@ mod tests {
                     b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
                 ),
                 (Ok(vec![]), b"\x30\x00"),
+                (Err(ParseError::ShortData), b"\x30\x02\x02\x01"),
             ],
             |p| {
                 p.read_element::<Sequence>()?.parse(|p| {
