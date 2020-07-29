@@ -3,7 +3,7 @@
 fn main() {
     let data = b"\x30\x06\x02\x01\x01\x02\x01\x03";
 
-    let result = asn1::parse(data, |d| {
+    let result: asn1::ParseResult<_> = asn1::parse(data, |d| {
         d.read_element::<asn1::Sequence>()?
             .parse(|d| Ok((d.read_element::<i64>()?, d.read_element::<i64>()?)))
     });
