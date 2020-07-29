@@ -2,7 +2,7 @@ use crate::types::Asn1Element;
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq)]
-pub enum ParseError {
+pub enum ParseError<E = !> {
     /// Something about the value was invalid.
     InvalidValue,
     /// An unexpected tag was encountered.
@@ -13,17 +13,32 @@ pub enum ParseError {
     IntegerOverflow,
     /// There was extraneous data in the input.
     ExtraData,
+    /// A user-controlled error.
+    User(E),
+}
+
+impl<E> From<ParseError<!>> for ParseError<E> {
+    fn from(e: ParseError<!>) -> ParseError<E> {
+        match e {
+            ParseError::InvalidValue
+            | ParseError::UnexpectedTag { .. }
+            | ParseError::ShortData
+            | ParseError::IntegerOverflow
+            | ParseError::ExtraData => e,
+            ParseError::User(e) => ParseError::User(e.into()),
+        }
+    }
 }
 
 /// The result of a `parse`. Either a successful value or a `ParseError`.
-pub type ParseResult<T> = Result<T, ParseError>;
+pub type ParseResult<T, E = !> = Result<T, ParseError<E>>;
 
 /// Parse takes a sequence of bytes of DER encoded ASN.1 data, constructs a parser, and invokes a
 /// callback to read elements from the ASN.1 parser.
-pub fn parse<'a, T, F: Fn(&mut Parser<'a>) -> ParseResult<T>>(
+pub fn parse<'a, T, E, F: Fn(&mut Parser<'a>) -> ParseResult<T, E>>(
     data: &'a [u8],
     f: F,
-) -> ParseResult<T> {
+) -> ParseResult<T, E> {
     let mut p = Parser::new(data);
     let result = f(&mut p)?;
     p.finish()?;
@@ -159,6 +174,29 @@ mod tests {
     fn test_parse_extra_data() {
         let result = crate::parse(b"\x00", |_| Ok(()));
         assert_eq!(result, Err(ParseError::ExtraData));
+    }
+
+    #[test]
+    fn test_errors() {
+        enum E {
+            X(u64),
+        }
+
+        assert_parses_cb(
+            &[
+                (Ok(8), b"\x02\x01\x08"),
+                (Err(ParseError::ShortData), b"\x02\x01"),
+                (Err(ParseError::User(E::X(7))), b"\x02\x01\x07"),
+            ],
+            |p| {
+                let val = p.read_element::<u64>()?;
+                if val % 2 == 0 {
+                    Ok(val)
+                } else {
+                    Err(ParseError::User(E::X(val)))
+                }
+            },
+        );
     }
 
     #[test]
