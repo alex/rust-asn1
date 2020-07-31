@@ -151,6 +151,7 @@ macro_rules! impl_asn1_element_for_int {
             const TAG: u8 = 0x02;
             type ParsedType = Self;
             type WriteType = Self;
+            #[inline]
             fn parse_data(mut data: &[u8]) -> ParseResult<Self::ParsedType> {
                 if data.is_empty() {
                     return Err(ParseError::InvalidValue);
@@ -377,6 +378,7 @@ pub struct Sequence<'a> {
 }
 
 impl<'a> Sequence<'a> {
+    #[inline]
     pub(crate) fn new(data: &'a [u8]) -> Sequence<'a> {
         Sequence { data }
     }
@@ -395,6 +397,7 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
     type ParsedType = Sequence<'a>;
     type WriteType = &'a dyn Fn(&mut Writer);
+    #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
         Ok(Sequence::new(data))
     }
