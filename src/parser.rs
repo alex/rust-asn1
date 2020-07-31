@@ -35,12 +35,14 @@ pub struct Parser<'a> {
 }
 
 impl<'a> Parser<'a> {
+    #[inline]
     fn new(data: &'a [u8]) -> Parser<'a> {
         Parser { data }
     }
 
+    #[inline]
     fn finish(self) -> ParseResult<()> {
-        if !self.data.is_empty() {
+        if !self.is_empty() {
             return Err(ParseError::ExtraData);
         }
         Ok(())
@@ -50,6 +52,7 @@ impl<'a> Parser<'a> {
         self.data.get(0).copied()
     }
 
+    #[inline]
     fn read_u8(&mut self) -> ParseResult<u8> {
         if self.data.is_empty() {
             return Err(ParseError::ShortData);
@@ -59,6 +62,7 @@ impl<'a> Parser<'a> {
         Ok(val[0])
     }
 
+    #[inline]
     fn read_bytes(&mut self, length: usize) -> ParseResult<&'a [u8]> {
         if length > self.data.len() {
             return Err(ParseError::ShortData);
@@ -99,6 +103,7 @@ impl<'a> Parser<'a> {
         Ok(length)
     }
 
+    #[inline]
     pub(crate) fn read_tlv(&mut self) -> ParseResult<Tlv<'a>> {
         let tag = self.read_u8()?;
         let length = self.read_length()?;
@@ -110,6 +115,7 @@ impl<'a> Parser<'a> {
 
     /// Tests whether there is any data remaining in the Parser. Generally
     /// useful when parsing a `SEQUENCE OF`.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }

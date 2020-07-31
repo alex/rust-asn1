@@ -42,6 +42,7 @@ impl SimpleAsn1Element<'_> for () {
     const TAG: u8 = 0x05;
     type ParsedType = ();
     type WriteType = ();
+    #[inline]
     fn parse_data(data: &[u8]) -> ParseResult<()> {
         match data {
             b"" => Ok(()),
