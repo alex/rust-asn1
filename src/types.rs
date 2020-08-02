@@ -401,6 +401,7 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
     fn parse_data(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
         Ok(Sequence::new(data))
     }
+    #[inline]
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
         let mut w = Writer::new_with_storage(dest);
         val(&mut w);
