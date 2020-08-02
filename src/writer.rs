@@ -22,6 +22,7 @@ enum Storage<'a> {
 }
 
 impl Storage<'_> {
+    #[inline]
     fn as_mut_ref(&mut self) -> &mut Vec<u8> {
         match self {
             Storage::Owned(ref mut v) => v,
@@ -35,18 +36,21 @@ pub struct Writer<'a> {
 }
 
 impl Writer<'_> {
+    #[inline]
     fn new() -> Writer<'static> {
         Writer {
             data: Storage::Owned(vec![]),
         }
     }
 
+    #[inline]
     pub(crate) fn new_with_storage<'a>(data: &'a mut Vec<u8>) -> Writer<'a> {
         Writer {
             data: Storage::Borrowed(data),
         }
     }
 
+    #[inline]
     pub fn write_element<'a, T>(&mut self, val: T)
     where
         T: crate::types::SimpleAsn1Element<'a, WriteType = T>,
@@ -54,6 +58,7 @@ impl Writer<'_> {
         self.write_element_with_type::<T>(val);
     }
 
+    #[inline]
     pub fn write_element_with_type<'a, T>(&mut self, val: T::WriteType)
     where
         T: crate::types::SimpleAsn1Element<'a>,
@@ -78,6 +83,7 @@ impl Writer<'_> {
         }
     }
 
+    #[inline]
     fn build(self) -> Vec<u8> {
         match self.data {
             Storage::Owned(v) => v,
@@ -86,6 +92,7 @@ impl Writer<'_> {
     }
 }
 
+#[inline]
 pub fn write<F: Fn(&mut Writer)>(f: F) -> Vec<u8> {
     let mut w = Writer::new();
     f(&mut w);
