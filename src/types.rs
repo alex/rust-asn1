@@ -177,12 +177,12 @@ macro_rules! impl_asn1_element_for_int {
                     return Err(ParseError::IntegerOverflow);
                 }
 
-                let mut fixed_data = [0; mem::size_of::<Self>()];
-                fixed_data[mem::size_of::<Self>() - data.len()..].copy_from_slice(data);
-                let mut ret = Self::from_be_bytes(fixed_data);
+                let mut fixed_data = [0; mem::size_of::<$t>()];
+                fixed_data[mem::size_of::<$t>() - data.len()..].copy_from_slice(data);
+                let mut ret = <$t>::from_be_bytes(fixed_data);
                 // // Shift up and down in order to sign extend the result.
-                ret <<= (8 * mem::size_of::<Self>()) - data.len() * 8;
-                ret >>= (8 * mem::size_of::<Self>()) - data.len() * 8;
+                ret <<= (8 * mem::size_of::<$t>()) - data.len() * 8;
+                ret >>= (8 * mem::size_of::<$t>()) - data.len() * 8;
                 Ok(ret)
             }
             fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
