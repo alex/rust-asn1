@@ -39,7 +39,7 @@ let result = asn1::parse(data, |d| {
 });
 
 match result {
-    Ok((r, s)) => println("r={}, s={}", r, s),
+    Ok((r, s)) => println!("r={}, s={}", r, s),
     Err(e) => println!("Error! {:?}", e),
 }
 ```
