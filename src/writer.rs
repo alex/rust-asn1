@@ -44,7 +44,7 @@ impl Writer<'_> {
     }
 
     #[inline]
-    pub(crate) fn new_with_storage<'a>(data: &'a mut Vec<u8>) -> Writer<'a> {
+    pub(crate) fn new_with_storage(data: &mut Vec<u8>) -> Writer {
         Writer {
             data: Storage::Borrowed(data),
         }
