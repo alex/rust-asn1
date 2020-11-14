@@ -140,6 +140,7 @@ mod tests {
         BitString, Choice1, Choice2, Choice3, Explicit, Implicit, ObjectIdentifier, ParseError,
         ParseResult, PrintableString, Sequence, UtcTime,
     };
+    use alloc::vec;
     use chrono::{FixedOffset, TimeZone, Utc};
     use core::fmt;
 
