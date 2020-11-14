@@ -15,17 +15,19 @@
 //!     r INTEGER,
 //!     s INTEGER
 //! }
+//! ```
 //!
 //! Then you'd write the following code:
 //! ```
-//! use asn1;
-//! let result = asn1::parse(data, |d| {
+//! # let data = b"";
+//! let result: asn1::ParseResult<_> = asn1::parse(data, |d| {
 //!     return d.read_element::<asn1::Sequence>()?.parse(|d| {
 //!         let r = d.read_element::<u64>()?;
 //!         let s = d.read_element::<u64>()?;
 //!         return Ok((r, s));
 //!     })
 //! });
+//! ```
 //!
 //! In general everything about parsing is driven by providing different type
 //! parameters to `Parser.read_element`. Some types directly implement the
@@ -35,6 +37,18 @@
 //! and `Explicit` for handling tagged values, `Choice1`, `Choice2`, and
 //! `Choice3` available for choices, and `Option<T>` for handling `OPTIONAL`
 //!  values.
+//!
+//! To serialize DER for the `Sequence` structure, you'd write the following:
+//! ```
+//! # let r = 0u64;
+//! # let s = 0u64;
+//! let result = asn1::write(|w| {
+//!     w.write_element_with_type::<asn1::Sequence>(&|w| {
+//!         w.write_element(r);
+//!         w.write_element(s);
+//!     });
+//! });
+//! ```
 
 extern crate alloc;
 

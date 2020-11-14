@@ -92,6 +92,8 @@ impl Writer<'_> {
     }
 }
 
+/// Constructs a writer and invokes a callback which writes ASN.1 elements into
+/// the writer, then returns the generated DER bytes.
 #[inline]
 pub fn write<F: Fn(&mut Writer)>(f: F) -> Vec<u8> {
     let mut w = Writer::new();
