@@ -1,3 +1,6 @@
+use alloc::vec;
+use alloc::vec::Vec;
+
 fn _length_length(length: usize) -> u8 {
     let mut i = length;
     let mut num_bytes = 1;
@@ -103,6 +106,8 @@ pub fn write<F: Fn(&mut Writer)>(f: F) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
+
     use chrono::{TimeZone, Utc};
 
     use super::{_insert_at_position, write, Writer};

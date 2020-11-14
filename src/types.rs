@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use core::convert::TryInto;
 use core::marker::PhantomData;
 use core::mem;
@@ -256,7 +257,7 @@ impl SimpleAsn1Element<'_> for UtcTime {
     type ParsedType = chrono::DateTime<chrono::Utc>;
     type WriteType = chrono::DateTime<chrono::Utc>;
     fn parse_data(data: &[u8]) -> ParseResult<Self::ParsedType> {
-        let data = std::str::from_utf8(data).map_err(|_| ParseError::InvalidValue)?;
+        let data = core::str::from_utf8(data).map_err(|_| ParseError::InvalidValue)?;
 
         // Try parsing with every combination of "including seconds or not" and "fixed offset or
         // UTC".
