@@ -44,9 +44,10 @@ impl SimpleAsn1Element<'_> for () {
     type WriteType = ();
     #[inline]
     fn parse_data(data: &[u8]) -> ParseResult<()> {
-        match data {
-            b"" => Ok(()),
-            _ => Err(ParseError::InvalidValue),
+        if data.is_empty() {
+            Ok(())
+        } else {
+            Err(ParseError::InvalidValue)
         }
     }
 
