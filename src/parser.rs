@@ -18,8 +18,8 @@ pub enum ParseError {
 /// The result of a `parse`. Either a successful value or a `ParseError`.
 pub type ParseResult<T> = Result<T, ParseError>;
 
-/// Parse takes a sequence of bytes of DER encoded ASN.1 data, constructs a parser, and invokes a
-/// callback to read elements from the ASN.1 parser.
+/// Parse takes a sequence of bytes of DER encoded ASN.1 data, constructs a
+/// parser, and invokes a callback to read elements from the ASN.1 parser.
 pub fn parse<'a, T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>(
     data: &'a [u8],
     f: F,

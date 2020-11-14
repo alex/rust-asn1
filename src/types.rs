@@ -329,7 +329,7 @@ macro_rules! declare_choice {
     ($count:ident => $(($number:ident $name:ident)),*) => {
         /// Represents an ASN.1 `CHOICE` with the provided number of potential types.
         ///
-        /// If you need more variants that are provided, please file an issue or submit a pull
+        /// If you need more variants than are provided, please file an issue or submit a pull
         /// request!
         #[derive(Debug, PartialEq)]
         pub enum $count<
