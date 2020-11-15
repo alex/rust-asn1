@@ -16,6 +16,12 @@ asn1 = "0.3"
 
 A recent Rust nightly is currently required for `const` generics.
 
+`rust-asn1` is compatible with `#![no_std]` environments:
+
+```toml
+asn1 = { version = "0.3", default-features = false }
+```
+
 ## Usage
 
 To parse a structure like:
