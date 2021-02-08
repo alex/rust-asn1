@@ -164,7 +164,7 @@ mod tests {
         T: Asn1Element<'a>,
         T::ParsedType: fmt::Debug + PartialEq,
     {
-        assert_parses_cb(data, |p| Ok(p.read_element::<T>()?));
+        assert_parses_cb(data, |p| p.read_element::<T>());
     }
 
     #[test]
