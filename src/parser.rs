@@ -137,9 +137,11 @@ mod tests {
     use super::Parser;
     use crate::types::Asn1Element;
     use crate::{
-        BitString, Choice1, Choice2, Choice3, Explicit, Implicit, ObjectIdentifier, ParseError,
-        ParseResult, PrintableString, Sequence, UtcTime,
+        BitString, Choice1, Choice2, Choice3, ObjectIdentifier, ParseError, ParseResult,
+        PrintableString, Sequence, UtcTime,
     };
+    #[cfg(feature = "const-generics")]
+    use crate::{Explicit, Implicit};
     use alloc::vec;
     use chrono::{FixedOffset, TimeZone, Utc};
     use core::fmt;
@@ -539,6 +541,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "const-generics")]
     fn test_parse_implicit() {
         assert_parses::<Implicit<bool, 2>>(&[
             (Ok(true), b"\x82\x01\xff"),
@@ -555,6 +558,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "const-generics")]
     fn test_parse_explicit() {
         assert_parses::<Explicit<bool, 2>>(&[
             (Ok(true), b"\xa2\x03\x01\x01\xff"),
