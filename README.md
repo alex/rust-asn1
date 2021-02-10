@@ -1,6 +1,5 @@
 # rust-asn1
 
-[![Build Status][travis-image]][travis-link]
 [![Dependency Status][deps-rs-image]][deps-rs-link]
 
 This is a Rust library for parsing ASN.1 data (DER only).
@@ -14,7 +13,7 @@ Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
 asn1 = "0.3"
 ```
 
-A recent Rust nightly is currently required for `const` generics.
+Builds on Rust 1.41.0 and newer. However `Implicit` and `Explicit` require `const` generics, which require a recent nightly (1.51.0) and specifying the `const-generics` feature.
 
 `rust-asn1` is compatible with `#![no_std]` environments:
 
@@ -61,8 +60,6 @@ let result = asn1::write(|w| {
 });
 ```
 
-[travis-image]: https://travis-ci.org/alex/rust-asn1.svg?branch=master
-[travis-link]: https://travis-ci.org/alex/rust-asn1
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
 [deps-rs-link]: https://deps.rs/repo/github/alex/rust-asn1
 
