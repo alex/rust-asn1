@@ -1,5 +1,6 @@
 use alloc::vec::Vec;
 use core::convert::TryInto;
+#[cfg(feature = "const-generics")]
 use core::marker::PhantomData;
 use core::mem;
 
@@ -9,6 +10,7 @@ use crate::parser::Parser;
 use crate::writer::Writer;
 use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult};
 
+#[cfg(feature = "const-generics")]
 const CONTEXT_SPECIFIC: u8 = 0x80;
 const CONSTRUCTED: u8 = 0x20;
 
@@ -412,11 +414,13 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
 
 /// `Implicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `IMPLICIT`. This will generally be used with `Option` or `Choice`.
+#[cfg(feature = "const-generics")]
 pub struct Implicit<'a, T: Asn1Element<'a>, const TAG: u8> {
     _inner: PhantomData<T>,
     _lifetime: PhantomData<&'a ()>,
 }
 
+#[cfg(feature = "const-generics")]
 impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
     for Implicit<'a, T, { TAG }>
 {
@@ -433,11 +437,13 @@ impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
 
 /// `Explicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `EXPLICIT`. This will generally be used with `Option` or `Choice`.
+#[cfg(feature = "const-generics")]
 pub struct Explicit<'a, T: Asn1Element<'a>, const TAG: u8> {
     _inner: PhantomData<T>,
     _lifetime: PhantomData<&'a ()>,
 }
 
+#[cfg(feature = "const-generics")]
 impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
     for Explicit<'a, T, { TAG }>
 {

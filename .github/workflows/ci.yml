@@ -6,20 +6,19 @@ on:
 name: Continuous integration
 
 jobs:
-  ci:
+  lint:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust:
+        RUST:
           - nightly
-
     steps:
       - uses: actions/checkout@v2.3.4
 
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.rust }}
+          toolchain: ${{ matrix.RUST }}
           override: true
           components: rustfmt, clippy
 
@@ -29,16 +28,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: test
-
-      - uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --no-default-features
+          key: ${{ runner.os }}-${{ matrix.RUST }}-cargo-${{ hashFiles('**/Cargo.toml') }}
 
       - uses: actions-rs/cargo@v1
         with:
@@ -50,11 +40,61 @@ jobs:
           command: clippy
           args: --all-targets -- -D warnings
 
+      - uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          args: --all-targets --all-features -- -D warnings
+
+  ci:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        RUST:
+          # MSRV
+          - VERSION: "1.41.0"
+            FLAGS: ""
+          - VERSION: stable
+            FLAGS: ""
+          - VERSION: beta
+            FLAGS: ""
+          - VERSION: nightly
+            FLAGS: ""
+          - VERSION: nightly
+            FLAGS: "--features const-generics"
+
+    steps:
+      - uses: actions/checkout@v2.3.4
+
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.RUST.VERSION }}
+          override: true
+          components: rustfmt, clippy
+
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ matrix.RUST.VERSION }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: ${{ matrix.RUST.FLAGS }}
+
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: ${{ matrix.RUST.FLAGS }}
+
   fuzz:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust:
+        RUST:
           - nightly
 
     steps:
@@ -63,7 +103,7 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.rust }}
+          toolchain: ${{ matrix.RUST }}
           override: true
 
       - uses: actions/cache@v2
@@ -74,12 +114,12 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
 
-      - uses: actions-rs/cargo@v1
+      - uses: actions-rs/install@v0.1
         with:
-          command: install
-          args: cargo-fuzz
+          crate: cargo-fuzz
+          version: latest
 
       - uses: actions-rs/cargo@v1
         with:
           command: fuzz
-          args: run fuzz_asn1_parse -- -max_total_time=30
+          args: run --all-features fuzz_asn1_parse -- -max_total_time=30

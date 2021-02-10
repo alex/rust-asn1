@@ -112,9 +112,9 @@ mod tests {
 
     use super::{_insert_at_position, write, Writer};
     use crate::types::SimpleAsn1Element;
-    use crate::{
-        BitString, Explicit, Implicit, ObjectIdentifier, PrintableString, Sequence, UtcTime,
-    };
+    use crate::{BitString, ObjectIdentifier, PrintableString, Sequence, UtcTime};
+    #[cfg(feature = "const-generics")]
+    use crate::{Explicit, Implicit};
 
     fn assert_writes<'a, T>(data: &[(T::WriteType, &[u8])])
     where
@@ -261,11 +261,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "const-generics")]
     fn test_write_implicit() {
         assert_writes::<Implicit<bool, 2>>(&[(true, b"\x82\x01\xff"), (false, b"\x82\x01\x00")]);
     }
 
     #[test]
+    #[cfg(feature = "const-generics")]
     fn test_write_explicit() {
         assert_writes::<Explicit<bool, 2>>(&[
             (true, b"\xa2\x03\x01\x01\xff"),
