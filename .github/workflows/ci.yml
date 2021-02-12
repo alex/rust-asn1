@@ -57,6 +57,8 @@ jobs:
             FLAGS: ""
           - VERSION: beta
             FLAGS: ""
+          - VERSION: beta
+            FLAGS: "--features const-generics"
           - VERSION: nightly
             FLAGS: ""
           - VERSION: nightly

@@ -13,7 +13,7 @@ Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
 asn1 = "0.3"
 ```
 
-Builds on Rust 1.41.0 and newer. However `Implicit` and `Explicit` require `const` generics, which require a recent nightly (1.51.0) and specifying the `const-generics` feature.
+Builds on Rust 1.41.0 and newer. However `Implicit` and `Explicit` require `const` generics, which require a recent nightly or beta (1.51.0) and specifying the `const-generics` feature.
 
 `rust-asn1` is compatible with `#![no_std]` environments:
 
