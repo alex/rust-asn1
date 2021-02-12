@@ -1,7 +1,7 @@
 on:
   pull_request: {}
   push:
-    branches: master
+    branches: main
 
 name: Continuous integration
 
@@ -126,9 +126,9 @@ jobs:
           command: fuzz
           args: run --all-features fuzz_asn1_parse -- -max_total_time=30
 
-      # On master we fuzz for 10 minutes, but only 30 seconds on PRs.
+      # On masin we fuzz for 10 minutes, but only 30 seconds on PRs.
       - uses: actions-rs/cargo@v1
         with:
           command: fuzz
           args: run --all-features fuzz_asn1_parse -- -max_total_time=600
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
