@@ -36,7 +36,7 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     #[inline]
-    fn new(data: &'a [u8]) -> Parser<'a> {
+    pub(crate) fn new(data: &'a [u8]) -> Parser<'a> {
         Parser { data }
     }
 
@@ -138,7 +138,7 @@ mod tests {
     use crate::types::Asn1Element;
     use crate::{
         BitString, Choice1, Choice2, Choice3, ObjectIdentifier, ParseError, ParseResult,
-        PrintableString, Sequence, UtcTime,
+        PrintableString, Sequence, SequenceOf, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -467,7 +467,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_sequence_of() {
+    fn test_parse_is_empty() {
         assert_parses_cb(
             &[
                 (
@@ -486,6 +486,21 @@ mod tests {
                     Ok(result)
                 })
             },
+        )
+    }
+
+    #[test]
+    fn test_parse_sequence_of() {
+        assert_parses_cb(
+            &[
+                (
+                    Ok(vec![1, 2, 3]),
+                    b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                ),
+                (Ok(vec![]), b"\x30\x00"),
+                (Err(ParseError::ShortData), b"\x30\x02\x02\x01"),
+            ],
+            |p| p.read_element::<SequenceOf>()?.parse::<i64>().collect(),
         )
     }
 

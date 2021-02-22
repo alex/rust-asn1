@@ -1,6 +1,5 @@
 use alloc::vec::Vec;
 use core::convert::TryInto;
-#[cfg(feature = "const-generics")]
 use core::marker::PhantomData;
 use core::mem;
 
@@ -409,6 +408,60 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
         let mut w = Writer::new_with_storage(dest);
         val(&mut w);
+    }
+}
+
+/// Represents an ASN.1 `SEQUENCE OF`. By itself this merely indicates a
+/// sequence of bytes that are claimed to form an ASN.1 sequence. In almost any
+/// circumstance you'll want to immediately call `SequenceOf.parse` on this
+/// value to decode the contents into an `Iterator` of values.
+#[derive(Debug, PartialEq)]
+pub struct SequenceOf<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> SequenceOf<'a> {
+    const TAG: u8 = 0x10 | CONSTRUCTED;
+
+    #[inline]
+    pub(crate) fn new(data: &'a [u8]) -> SequenceOf {
+        SequenceOf { data }
+    }
+
+    pub fn parse<T: Asn1Element<'a>>(self) -> SequenceOfIterator<'a, T> {
+        SequenceOfIterator {
+            parser: Parser::new(self.data),
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a> Asn1Element<'a> for SequenceOf<'a> {
+    type ParsedType = SequenceOf<'a>;
+
+    #[inline]
+    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
+        let tlv = parser.read_tlv()?;
+        if tlv.tag != Self::TAG {
+            return Err(ParseError::UnexpectedTag { actual: tlv.tag });
+        }
+        Ok(SequenceOf::new(tlv.data))
+    }
+}
+
+pub struct SequenceOfIterator<'a, T> {
+    parser: Parser<'a>,
+    _phantom: PhantomData<T>,
+}
+
+impl<'a, T: Asn1Element<'a>> Iterator for SequenceOfIterator<'a, T> {
+    type Item = ParseResult<T::ParsedType>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.parser.is_empty() {
+            return None;
+        }
+        Some(self.parser.read_element::<T>())
     }
 }
 
