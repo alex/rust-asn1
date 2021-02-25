@@ -2,7 +2,7 @@
 
 [![Dependency Status][deps-rs-image]][deps-rs-link]
 
-This is a Rust library for parsing ASN.1 data (DER only).
+This is a Rust library for parsing and generating ASN.1 data (DER only).
 
 ## Installation
 
