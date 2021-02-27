@@ -183,7 +183,7 @@ macro_rules! impl_asn1_element_for_int {
                 let mut fixed_data = [0; mem::size_of::<$t>()];
                 fixed_data[mem::size_of::<Self>() - data.len()..].copy_from_slice(data);
                 let mut ret = Self::from_be_bytes(fixed_data);
-                // // Shift up and down in order to sign extend the result.
+                // Shift up and down in order to sign extend the result.
                 ret <<= (8 * mem::size_of::<Self>()) - data.len() * 8;
                 ret >>= (8 * mem::size_of::<Self>()) - data.len() * 8;
                 Ok(ret)
