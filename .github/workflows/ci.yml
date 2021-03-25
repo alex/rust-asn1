@@ -55,6 +55,8 @@ jobs:
             FLAGS: ""
           - VERSION: stable
             FLAGS: ""
+          - VERSION: stable
+            FLAGS: "--features const-generics"
           - VERSION: beta
             FLAGS: ""
           - VERSION: beta
