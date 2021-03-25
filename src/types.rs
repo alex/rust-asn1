@@ -415,29 +415,25 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
 /// sequence of bytes that are claimed to form an ASN.1 sequence. In almost any
 /// circumstance you'll want to immediately call `SequenceOf.parse` on this
 /// value to decode the contents into an `Iterator` of values.
-#[derive(Debug, PartialEq)]
-pub struct SequenceOf<'a> {
-    data: &'a [u8],
+pub struct SequenceOf<'a, T: Asn1Element<'a>> {
+    parser: Parser<'a>,
+    _phantom: PhantomData<T>,
 }
 
-impl<'a> SequenceOf<'a> {
+impl<'a, T: Asn1Element<'a>> SequenceOf<'a, T> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
 
     #[inline]
-    pub(crate) fn new(data: &'a [u8]) -> SequenceOf {
-        SequenceOf { data }
-    }
-
-    pub fn parse<T: Asn1Element<'a>>(self) -> SequenceOfIterator<'a, T> {
-        SequenceOfIterator {
-            parser: Parser::new(self.data),
+    pub(crate) fn new(data: &'a [u8]) -> SequenceOf<'a, T> {
+        SequenceOf {
+            parser: Parser::new(data),
             _phantom: PhantomData,
         }
     }
 }
 
-impl<'a> Asn1Element<'a> for SequenceOf<'a> {
-    type ParsedType = SequenceOf<'a>;
+impl<'a, T: Asn1Element<'a>> Asn1Element<'a> for SequenceOf<'a, T> {
+    type ParsedType = SequenceOf<'a, T>;
 
     #[inline]
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
@@ -449,12 +445,7 @@ impl<'a> Asn1Element<'a> for SequenceOf<'a> {
     }
 }
 
-pub struct SequenceOfIterator<'a, T> {
-    parser: Parser<'a>,
-    _phantom: PhantomData<T>,
-}
-
-impl<'a, T: Asn1Element<'a>> Iterator for SequenceOfIterator<'a, T> {
+impl<'a, T: Asn1Element<'a>> Iterator for SequenceOf<'a, T> {
     type Item = ParseResult<T::ParsedType>;
 
     fn next(&mut self) -> Option<Self::Item> {
