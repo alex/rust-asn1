@@ -415,14 +415,12 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
 /// sequence of bytes that are claimed to form an ASN.1 sequence. In almost any
 /// circumstance you'll want to immediately call `SequenceOf.parse` on this
 /// value to decode the contents into an `Iterator` of values.
-pub struct SequenceOf<'a, T: Asn1Element<'a>> {
+pub struct SequenceOf<'a, T: SimpleAsn1Element<'a>> {
     parser: Parser<'a>,
     _phantom: PhantomData<T>,
 }
 
-impl<'a, T: Asn1Element<'a>> SequenceOf<'a, T> {
-    const TAG: u8 = 0x10 | CONSTRUCTED;
-
+impl<'a, T: SimpleAsn1Element<'a>> SequenceOf<'a, T> {
     #[inline]
     pub(crate) fn new(data: &'a [u8]) -> SequenceOf<'a, T> {
         SequenceOf {
@@ -432,20 +430,27 @@ impl<'a, T: Asn1Element<'a>> SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Element<'a>> Asn1Element<'a> for SequenceOf<'a, T> {
+impl<'a, T: SimpleAsn1Element<'a> + 'a> SimpleAsn1Element<'a> for SequenceOf<'a, T>
+where
+    T::WriteType: Copy,
+{
+    const TAG: u8 = 0x10 | CONSTRUCTED;
     type ParsedType = SequenceOf<'a, T>;
+    type WriteType = &'a [T::WriteType];
 
     #[inline]
-    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self::ParsedType> {
-        let tlv = parser.read_tlv()?;
-        if tlv.tag != Self::TAG {
-            return Err(ParseError::UnexpectedTag { actual: tlv.tag });
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self::ParsedType> {
+        Ok(SequenceOf::new(data))
+    }
+    fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
+        let mut w = Writer::new_with_storage(dest);
+        for el in val {
+            w.write_element_with_type::<T>(*el);
         }
-        Ok(SequenceOf::new(tlv.data))
     }
 }
 
-impl<'a, T: Asn1Element<'a>> Iterator for SequenceOf<'a, T> {
+impl<'a, T: SimpleAsn1Element<'a>> Iterator for SequenceOf<'a, T> {
     type Item = ParseResult<T::ParsedType>;
 
     fn next(&mut self) -> Option<Self::Item> {

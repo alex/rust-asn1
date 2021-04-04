@@ -112,7 +112,7 @@ mod tests {
 
     use super::{_insert_at_position, write, Writer};
     use crate::types::SimpleAsn1Element;
-    use crate::{BitString, ObjectIdentifier, PrintableString, Sequence, UtcTime};
+    use crate::{BitString, ObjectIdentifier, PrintableString, Sequence, SequenceOf, UtcTime};
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
 
@@ -258,6 +258,22 @@ mod tests {
             }),
             b"\x30\x03\x01\x01\xff"
         );
+    }
+
+    #[test]
+    fn test_write_sequence_of() {
+        assert_writes::<SequenceOf<u64>>(&[
+            (&[], b"\x30\x00"),
+            (&[1, 2, 3], b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"),
+        ]);
+        assert_writes::<SequenceOf<Sequence>>(&[
+            (&[], b"\x30\x00"),
+            (&[&|_w| ()], b"\x30\x02\x30\x00"),
+            (
+                &[&|w| w.write_element(1u64)],
+                b"\x30\x05\x30\x03\x02\x01\x01",
+            ),
+        ]);
     }
 
     #[test]
