@@ -5,7 +5,7 @@ use core::mem;
 
 use chrono::{Datelike, TimeZone, Timelike};
 
-use crate::parser::Parser;
+use crate::parser::{Parser, Tlv};
 use crate::writer::Writer;
 use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult};
 
@@ -458,6 +458,88 @@ impl<'a, T: SimpleAsn1Element<'a>> Iterator for SequenceOf<'a, T> {
             return None;
         }
         Some(self.parser.read_element::<T>())
+    }
+}
+
+pub struct SetOf<'a, T: SimpleAsn1Element<'a>> {
+    parser: Parser<'a>,
+    last_element: Option<Tlv<'a>>,
+    _phantom: PhantomData<T>,
+}
+
+impl<'a, T: SimpleAsn1Element<'a>> SetOf<'a, T> {
+    #[inline]
+    pub(crate) fn new(data: &'a [u8]) -> SetOf<'a, T> {
+        SetOf {
+            parser: Parser::new(data),
+            last_element: None,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, T: SimpleAsn1Element<'a> + 'a> SimpleAsn1Element<'a> for SetOf<'a, T>
+where
+    T::WriteType: Copy,
+{
+    const TAG: u8 = 0x17 | CONSTRUCTED;
+    type ParsedType = SetOf<'a, T>;
+    type WriteType = &'a [T::WriteType];
+
+    #[inline]
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self::ParsedType> {
+        Ok(SetOf::new(data))
+    }
+    fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
+        if val.is_empty() {
+            return;
+        } else if val.len() == 1 {
+            let mut w = Writer::new_with_storage(dest);
+            w.write_element_with_type::<T>(val[0]);
+            return;
+        }
+
+        // Optimization: use the dest storage as scratch, then truncate.
+        let mut w = Writer::new();
+        // Optimization opportunity: use a SmallVec here.
+        let mut spans = vec![];
+
+        let mut pos = 0;
+        for el in val {
+            w.write_element_with_type::<T>(*el);
+            let l = w.data.as_mut_ref().len();
+            spans.push(pos..l);
+            pos = l;
+        }
+        let data = w.build();
+        spans.sort_by_key(|v| &data[v.clone()]);
+        for span in spans {
+            dest.extend_from_slice(&data[span]);
+        }
+    }
+}
+
+impl<'a, T: SimpleAsn1Element<'a>> Iterator for SetOf<'a, T> {
+    type Item = ParseResult<T::ParsedType>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.parser.is_empty() {
+            return None;
+        }
+        let el = match self.parser.read_tlv() {
+            Ok(tlv) => tlv,
+            Err(e) => return Some(Err(e)),
+        };
+        if let Some(last_el) = self.last_element {
+            if el < last_el {
+                return Some(Err(ParseError::InvalidSetOrdering));
+            }
+        }
+        self.last_element = Some(el);
+        if el.tag != T::TAG {
+            return Some(Err(ParseError::UnexpectedTag { actual: el.tag }));
+        }
+        Some(T::parse_data(el.data))
     }
 }
 

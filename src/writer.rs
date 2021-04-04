@@ -19,14 +19,14 @@ fn _insert_at_position(vec: &mut Vec<u8>, pos: usize, data: &[u8]) {
     vec[pos..pos + data.len()].copy_from_slice(data);
 }
 
-enum Storage<'a> {
+pub(crate) enum Storage<'a> {
     Owned(Vec<u8>),
     Borrowed(&'a mut Vec<u8>),
 }
 
 impl Storage<'_> {
     #[inline]
-    fn as_mut_ref(&mut self) -> &mut Vec<u8> {
+    pub(crate) fn as_mut_ref(&mut self) -> &mut Vec<u8> {
         match self {
             Storage::Owned(ref mut v) => v,
             Storage::Borrowed(v) => v,
@@ -35,12 +35,12 @@ impl Storage<'_> {
 }
 
 pub struct Writer<'a> {
-    data: Storage<'a>,
+    pub(crate) data: Storage<'a>,
 }
 
 impl Writer<'_> {
     #[inline]
-    fn new() -> Writer<'static> {
+    pub(crate) fn new() -> Writer<'static> {
         Writer {
             data: Storage::Owned(vec![]),
         }
@@ -87,7 +87,7 @@ impl Writer<'_> {
     }
 
     #[inline]
-    fn build(self) -> Vec<u8> {
+    pub(crate) fn build(self) -> Vec<u8> {
         match self.data {
             Storage::Owned(v) => v,
             Storage::Borrowed(_) => panic!("Can't call build with borrowed storage"),
@@ -112,7 +112,9 @@ mod tests {
 
     use super::{_insert_at_position, write, Writer};
     use crate::types::SimpleAsn1Element;
-    use crate::{BitString, ObjectIdentifier, PrintableString, Sequence, SequenceOf, UtcTime};
+    use crate::{
+        BitString, ObjectIdentifier, PrintableString, Sequence, SequenceOf, SetOf, UtcTime,
+    };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
 
@@ -273,6 +275,16 @@ mod tests {
                 &[&|w| w.write_element(1u64)],
                 b"\x30\x05\x30\x03\x02\x01\x01",
             ),
+        ]);
+    }
+
+    #[test]
+    fn test_write_set_of() {
+        assert_writes::<SetOf<u64>>(&[
+            (&[], b"\x37\x00"),
+            (&[1], b"\x37\x03\x02\x01\x01"),
+            (&[1, 2, 3], b"\x37\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"),
+            (&[3, 2, 1], b"\x37\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"),
         ]);
     }
 

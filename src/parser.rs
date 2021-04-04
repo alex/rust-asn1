@@ -13,6 +13,8 @@ pub enum ParseError {
     IntegerOverflow,
     /// There was extraneous data in the input.
     ExtraData,
+    /// Elements of a set were not lexicographically sorted
+    InvalidSetOrdering,
 }
 
 /// The result of a `parse`. Either a successful value or a `ParseError`.
@@ -127,6 +129,7 @@ impl<'a> Parser<'a> {
     }
 }
 
+#[derive(PartialEq, PartialOrd, Clone, Copy)]
 pub(crate) struct Tlv<'a> {
     pub(crate) tag: u8,
     pub(crate) data: &'a [u8],
@@ -138,7 +141,7 @@ mod tests {
     use crate::types::Asn1Element;
     use crate::{
         BitString, Choice1, Choice2, Choice3, ObjectIdentifier, ParseError, ParseResult,
-        PrintableString, Sequence, SequenceOf, UtcTime,
+        PrintableString, Sequence, SequenceOf, SetOf, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -501,6 +504,29 @@ mod tests {
                 (Err(ParseError::ShortData), b"\x30\x02\x02\x01"),
             ],
             |p| p.read_element::<SequenceOf<i64>>()?.collect(),
+        )
+    }
+
+    #[test]
+    fn parse_set_of() {
+        assert_parses_cb(
+            &[
+                (
+                    Ok(vec![1, 2, 3]),
+                    b"\x37\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                ),
+                (Ok(vec![]), b"\x37\x00"),
+                (
+                    Err(ParseError::InvalidSetOrdering),
+                    b"\x37\x06\x02\x01\x03\x02\x01\x01",
+                ),
+                (Err(ParseError::ShortData), b"\x37\x01\x02"),
+                (
+                    Err(ParseError::UnexpectedTag { actual: 0x1 }),
+                    b"\x37\x02\x01\x00",
+                ),
+            ],
+            |p| p.read_element::<SetOf<u64>>()?.collect(),
         )
     }
 

@@ -21,6 +21,7 @@ fuzz_target!(|data: &[u8]| {
         d.read_element::<asn1::Choice2<bool, i64>>()?;
 
         d.read_element::<asn1::SequenceOf<i64>>()?.collect::<asn1::ParseResult<Vec<i64>>>()?;
+        d.read_element::<asn1::SetOf<i64>>()?.collect::<asn1::ParseResult<Vec<i64>>>()?;
 
         Ok(())
     });
