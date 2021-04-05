@@ -160,6 +160,7 @@ macro_rules! impl_asn1_element_for_int {
                 if data.is_empty() {
                     return Err(ParseError::InvalidValue);
                 }
+                // Ensure integer is minimally encoded
                 if data.len() > 1
                     && ((data[0] == 0 && data[1] & 0x80 == 0)
                         || (data[0] == 0xff && data[1] & 0x80 == 0x80))
