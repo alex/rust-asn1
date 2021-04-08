@@ -19,38 +19,14 @@ fn _insert_at_position(vec: &mut Vec<u8>, pos: usize, data: &[u8]) {
     vec[pos..pos + data.len()].copy_from_slice(data);
 }
 
-pub(crate) enum Storage<'a> {
-    Owned(Vec<u8>),
-    Borrowed(&'a mut Vec<u8>),
-}
-
-impl Storage<'_> {
-    #[inline]
-    pub(crate) fn as_mut_ref(&mut self) -> &mut Vec<u8> {
-        match self {
-            Storage::Owned(ref mut v) => v,
-            Storage::Borrowed(v) => v,
-        }
-    }
-}
-
 pub struct Writer<'a> {
-    pub(crate) data: Storage<'a>,
+    pub(crate) data: &'a mut Vec<u8>,
 }
 
 impl Writer<'_> {
     #[inline]
-    pub(crate) fn new() -> Writer<'static> {
-        Writer {
-            data: Storage::Owned(vec![]),
-        }
-    }
-
-    #[inline]
-    pub(crate) fn new_with_storage(data: &mut Vec<u8>) -> Writer {
-        Writer {
-            data: Storage::Borrowed(data),
-        }
+    pub(crate) fn new(data: &mut Vec<u8>) -> Writer {
+        Writer { data }
     }
 
     #[inline]
@@ -66,31 +42,23 @@ impl Writer<'_> {
     where
         T: crate::types::SimpleAsn1Element<'a>,
     {
-        self.data.as_mut_ref().push(T::TAG);
+        self.data.push(T::TAG);
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
-        self.data.as_mut_ref().push(0);
-        let start_len = self.data.as_mut_ref().len();
-        T::write_data(self.data.as_mut_ref(), val);
-        let added_len = self.data.as_mut_ref().len() - start_len;
+        self.data.push(0);
+        let start_len = self.data.len();
+        T::write_data(self.data, val);
+        let added_len = self.data.len() - start_len;
         if added_len >= 128 {
             let n = _length_length(added_len);
-            self.data.as_mut_ref()[start_len - 1] = 0x80 | n;
+            self.data[start_len - 1] = 0x80 | n;
             let mut length_buf = [0u8; 8];
             for (pos, i) in (1..n + 1).rev().enumerate() {
                 length_buf[pos] = (added_len >> ((i - 1) * 8)) as u8;
             }
-            _insert_at_position(self.data.as_mut_ref(), start_len, &length_buf[..n as usize]);
+            _insert_at_position(self.data, start_len, &length_buf[..n as usize]);
         } else {
-            self.data.as_mut_ref()[start_len - 1] = added_len as u8;
-        }
-    }
-
-    #[inline]
-    pub(crate) fn build(self) -> Vec<u8> {
-        match self.data {
-            Storage::Owned(v) => v,
-            Storage::Borrowed(_) => panic!("Can't call build with borrowed storage"),
+            self.data[start_len - 1] = added_len as u8;
         }
     }
 }
@@ -99,9 +67,10 @@ impl Writer<'_> {
 /// the writer, then returns the generated DER bytes.
 #[inline]
 pub fn write<F: Fn(&mut Writer)>(f: F) -> Vec<u8> {
-    let mut w = Writer::new();
+    let mut v = vec![];
+    let mut w = Writer::new(&mut v);
     f(&mut w);
-    w.build()
+    v
 }
 
 #[cfg(test)]

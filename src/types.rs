@@ -408,7 +408,7 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
     }
     #[inline]
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
-        let mut w = Writer::new_with_storage(dest);
+        let mut w = Writer::new(dest);
         val(&mut w);
     }
 }
@@ -445,7 +445,7 @@ where
         Ok(SequenceOf::new(data))
     }
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
-        let mut w = Writer::new_with_storage(dest);
+        let mut w = Writer::new(dest);
         for el in val {
             w.write_element_with_type::<T>(*el);
         }
@@ -496,24 +496,24 @@ where
         if val.is_empty() {
             return;
         } else if val.len() == 1 {
-            let mut w = Writer::new_with_storage(dest);
+            let mut w = Writer::new(dest);
             w.write_element_with_type::<T>(val[0]);
             return;
         }
 
         // Optimization: use the dest storage as scratch, then truncate.
-        let mut w = Writer::new();
+        let mut data = vec![];
+        let mut w = Writer::new(&mut data);
         // Optimization opportunity: use a SmallVec here.
         let mut spans = vec![];
 
         let mut pos = 0;
         for el in val {
             w.write_element_with_type::<T>(*el);
-            let l = w.data.as_mut_ref().len();
+            let l = w.data.len();
             spans.push(pos..l);
             pos = l;
         }
-        let data = w.build();
         spans.sort_by_key(|v| &data[v.clone()]);
         for span in spans {
             dest.extend_from_slice(&data[span]);
@@ -587,7 +587,7 @@ impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
         parse(data, |p| p.read_element::<T>())
     }
     fn write_data(dest: &mut Vec<u8>, val: Self::WriteType) {
-        Writer::new_with_storage(dest).write_element_with_type::<T>(val);
+        Writer::new(dest).write_element_with_type::<T>(val);
     }
 }
 
