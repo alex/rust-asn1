@@ -145,12 +145,27 @@ mod tests {
 
     #[test]
     fn test_lifetimes() {
+        // Explicit 'static OCTET_STRING
         let result = crate::parse(b"\x04\x01\x00", |p| p.read_element::<&'static [u8]>()).unwrap();
         assert_eq!(result, b"\x00");
 
+        // Explicit 'static SEQUENCE containing an explicit 'static OCTET_STRING
         let result = crate::parse(b"\x30\x03\x04\x01\x00", |p| {
             p.read_element::<Sequence<'static>>()?
                 .parse(|p| p.read_element::<&'static [u8]>())
+        })
+        .unwrap();
+        assert_eq!(result, b"\x00");
+
+        // Automatic 'static OCTET_STRING
+        let result = crate::parse(b"\x04\x01\x00", |p| p.read_element::<&[u8]>()).unwrap();
+        assert_eq!(result, b"\x00");
+
+        // Automatic 'static SEQUENCE containing an automatic 'static
+        // OCTET_STRING
+        let result = crate::parse(b"\x30\x03\x04\x01\x00", |p| {
+            p.read_element::<Sequence>()?
+                .parse(|p| p.read_element::<&[u8]>())
         })
         .unwrap();
         assert_eq!(result, b"\x00");
