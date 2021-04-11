@@ -6,7 +6,7 @@ use core::mem;
 
 use chrono::{Datelike, TimeZone, Timelike};
 
-use crate::parser::{Parser, Tlv};
+use crate::parser::Parser;
 use crate::writer::Writer;
 use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult};
 
@@ -38,6 +38,31 @@ impl<'a, T: SimpleAsn1Element<'a>> Asn1Element<'a> for T {
             return Err(ParseError::UnexpectedTag { actual: tlv.tag });
         }
         Self::parse_data(tlv.data)
+    }
+}
+
+/// A TLV (type, length, value) represented as the tag and bytes content.
+/// Generally used for parsing ASN.1 `ANY` values.
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+pub struct Tlv<'a> {
+    pub(crate) tag: u8,
+    pub(crate) data: &'a [u8],
+}
+
+impl Tlv<'_> {
+    pub fn tag(&self) -> u8 {
+        self.tag
+    }
+    pub fn data(&self) -> &[u8] {
+        self.data
+    }
+}
+
+impl<'a> Asn1Element<'a> for Tlv<'a> {
+    type ParsedType = Self;
+
+    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
+        parser.read_tlv()
     }
 }
 

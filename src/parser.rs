@@ -1,4 +1,4 @@
-use crate::types::Asn1Element;
+use crate::types::{Asn1Element, Tlv};
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq)]
@@ -129,19 +129,13 @@ impl<'a> Parser<'a> {
     }
 }
 
-#[derive(PartialEq, PartialOrd, Clone, Copy)]
-pub(crate) struct Tlv<'a> {
-    pub(crate) tag: u8,
-    pub(crate) data: &'a [u8],
-}
-
 #[cfg(test)]
 mod tests {
     use super::Parser;
     use crate::types::Asn1Element;
     use crate::{
         BitString, Choice1, Choice2, Choice3, ObjectIdentifier, ParseError, ParseResult,
-        PrintableString, Sequence, SequenceOf, SetOf, UtcTime,
+        PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -207,6 +201,22 @@ mod tests {
                 }
             },
         );
+    }
+
+    #[test]
+    fn test_parse_tlv() {
+        assert_parses::<Tlv>(&[
+            (
+                Ok(Tlv {
+                    tag: 0x4,
+                    data: b"abc",
+                }),
+                b"\x04\x03abc",
+            ),
+            (Err(ParseError::ShortData), b"\x04\x03a"),
+            (Err(ParseError::ShortData), b"\x04"),
+            (Err(ParseError::ShortData), b""),
+        ]);
     }
 
     #[test]
