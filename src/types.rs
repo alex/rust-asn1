@@ -413,10 +413,8 @@ impl<'a> SimpleAsn1Element<'a> for Sequence<'a> {
     }
 }
 
-/// Represents an ASN.1 `SEQUENCE OF`. By itself this merely indicates a
-/// sequence of bytes that are claimed to form an ASN.1 sequence. In almost any
-/// circumstance you'll want to immediately call `SequenceOf.parse` on this
-/// value to decode the contents into an `Iterator` of values.
+/// Represents an ASN.1 `SEQUENCE OF`. This is an `Iterator` over values that
+/// are decoded.
 pub struct SequenceOf<'a, T: SimpleAsn1Element<'a>> {
     parser: Parser<'a>,
     _phantom: PhantomData<T>,
