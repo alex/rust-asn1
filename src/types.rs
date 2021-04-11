@@ -415,7 +415,7 @@ impl<'a> Sequence<'a> {
 
     /// Parses the contents of the `Sequence`. Behaves the same as the module-level `parse`
     /// function.
-    pub fn parse<T, E: From<ParseError>, F: Fn(&mut Parser) -> Result<T, E>>(
+    pub fn parse<T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>(
         self,
         f: F,
     ) -> Result<T, E> {

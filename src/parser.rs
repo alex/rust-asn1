@@ -143,6 +143,41 @@ mod tests {
     use chrono::{FixedOffset, TimeZone, Utc};
     use core::fmt;
 
+    #[test]
+    fn test_lifetimes() {
+        // Explicit 'static OCTET_STRING
+        let result = crate::parse(b"\x04\x01\x00", |p| p.read_element::<&'static [u8]>()).unwrap();
+        assert_eq!(result, b"\x00");
+
+        // Explicit 'static SEQUENCE containing an explicit 'static OCTET_STRING
+        let result = crate::parse(b"\x30\x03\x04\x01\x00", |p| {
+            p.read_element::<Sequence<'static>>()?
+                .parse(|p| p.read_element::<&'static [u8]>())
+        })
+        .unwrap();
+        assert_eq!(result, b"\x00");
+
+        // Automatic 'static OCTET_STRING
+        let result = crate::parse(b"\x04\x01\x00", |p| p.read_element::<&[u8]>()).unwrap();
+        assert_eq!(result, b"\x00");
+
+        // Automatic 'static SEQUENCE containing an automatic 'static
+        // OCTET_STRING
+        let result = crate::parse(b"\x30\x03\x04\x01\x00", |p| {
+            p.read_element::<Sequence>()?
+                .parse(|p| p.read_element::<&[u8]>())
+        })
+        .unwrap();
+        assert_eq!(result, b"\x00");
+
+        // BIT_STRING
+        let result = crate::parse::<_, ParseError, _>(b"\x03\x02\x00\x00", |p| {
+            Ok(p.read_element::<BitString>()?.as_bytes())
+        })
+        .unwrap();
+        assert_eq!(result, b"\x00");
+    }
+
     fn assert_parses_cb<
         'a,
         T: fmt::Debug + PartialEq,
