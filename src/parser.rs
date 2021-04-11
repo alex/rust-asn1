@@ -143,6 +143,16 @@ mod tests {
     use chrono::{FixedOffset, TimeZone, Utc};
     use core::fmt;
 
+    #[test]
+    fn test_lifetimes() {
+        let result = crate::parse(b"\x30\x03\x04\x01\x00", |p| {
+            p.read_element::<Sequence<'static>>()?
+                .parse(|p| p.read_element::<&'static [u8]>())
+        })
+        .unwrap();
+        assert_eq!(result, b"\x00");
+    }
+
     fn assert_parses_cb<
         'a,
         T: fmt::Debug + PartialEq,
