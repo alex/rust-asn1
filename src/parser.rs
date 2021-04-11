@@ -596,6 +596,19 @@ mod tests {
                 b"\x02\x01\xff",
             ),
         ]);
+        assert_parses::<Implicit<Sequence, 2>>(&[
+            (Ok(Sequence::new(b"abc")), b"\xa2\x03abc"),
+            (Ok(Sequence::new(b"")), b"\xa2\x00"),
+            (
+                Err(ParseError::UnexpectedTag { actual: 0x01 }),
+                b"\x01\x01\xff",
+            ),
+            (
+                Err(ParseError::UnexpectedTag { actual: 0x02 }),
+                b"\x02\x01\xff",
+            ),
+            (Err(ParseError::ShortData), b""),
+        ]);
     }
 
     #[test]
