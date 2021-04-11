@@ -169,6 +169,13 @@ mod tests {
         })
         .unwrap();
         assert_eq!(result, b"\x00");
+
+        // BIT_STRING
+        let result = crate::parse::<_, ParseError, _>(b"\x03\x02\x00\x00", |p| {
+            Ok(p.read_element::<BitString>()?.as_bytes())
+        })
+        .unwrap();
+        assert_eq!(result, b"\x00");
     }
 
     fn assert_parses_cb<
