@@ -145,6 +145,9 @@ mod tests {
 
     #[test]
     fn test_lifetimes() {
+        let result = crate::parse(b"\x04\x01\x00", |p| p.read_element::<&'static [u8]>()).unwrap();
+        assert_eq!(result, b"\x00");
+
         let result = crate::parse(b"\x30\x03\x04\x01\x00", |p| {
             p.read_element::<Sequence<'static>>()?
                 .parse(|p| p.read_element::<&'static [u8]>())
