@@ -10,6 +10,7 @@ fuzz_target!(|data: &[u8]| {
         d.read_element::<u8>()?;
         d.read_element::<i64>()?;
         d.read_element::<u64>()?;
+        d.read_element::<asn1::BigUint>()?;
 
         d.read_element::<&[u8]>()?;
         d.read_element::<asn1::PrintableString>()?;
