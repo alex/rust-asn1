@@ -174,6 +174,25 @@ impl<'a> SimpleAsn1Element<'a> for PrintableString<'a> {
     }
 }
 
+fn validate_integer(data: &[u8], signed: bool) -> ParseResult<()> {
+    if data.is_empty() {
+        return Err(ParseError::InvalidValue);
+    }
+    // Ensure integer is minimally encoded
+    if data.len() > 1
+        && ((data[0] == 0 && data[1] & 0x80 == 0) || (data[0] == 0xff && data[1] & 0x80 == 0x80))
+    {
+        return Err(ParseError::InvalidValue);
+    }
+
+    // Reject negatives for unsigned types.
+    if !signed && data[0] & 0x80 == 0x80 {
+        return Err(ParseError::InvalidValue);
+    }
+
+    Ok(())
+}
+
 macro_rules! impl_asn1_element_for_int {
     ($t:ty; $signed:expr) => {
         impl SimpleAsn1Element<'_> for $t {
@@ -182,21 +201,7 @@ macro_rules! impl_asn1_element_for_int {
             type WriteType = Self;
             #[inline]
             fn parse_data(mut data: &[u8]) -> ParseResult<Self::ParsedType> {
-                if data.is_empty() {
-                    return Err(ParseError::InvalidValue);
-                }
-                // Ensure integer is minimally encoded
-                if data.len() > 1
-                    && ((data[0] == 0 && data[1] & 0x80 == 0)
-                        || (data[0] == 0xff && data[1] & 0x80 == 0x80))
-                {
-                    return Err(ParseError::InvalidValue);
-                }
-
-                // Reject negatives for unsigned types.
-                if !$signed && data[0] & 0x80 == 0x80 {
-                    return Err(ParseError::InvalidValue);
-                }
+                validate_integer(data, $signed)?;
 
                 // If we've got something like \x00\xff trim off the first \x00, since it's just
                 // there to not mark the value as a negative.
@@ -236,6 +241,39 @@ impl_asn1_element_for_int!(i8; true);
 impl_asn1_element_for_int!(u8; false);
 impl_asn1_element_for_int!(i64; true);
 impl_asn1_element_for_int!(u64; false);
+
+/// Arbitrary sized unsigned integer. Contents may be accessed as `&[u8]` of
+/// big-endian data. Its contents always match the DER encoding of a value
+/// (i.e. they are minimal)
+#[derive(PartialEq, Clone, Debug)]
+pub struct BigUint<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> BigUint<'a> {
+    pub(crate) fn new(data: &'a [u8]) -> ParseResult<Self> {
+        validate_integer(data, false)?;
+        Ok(BigUint { data })
+    }
+
+    /// Returns the contents of the integer as big-endian bytes.
+    pub fn as_bytes(&self) -> &'a [u8] {
+        self.data
+    }
+}
+
+impl<'a> SimpleAsn1Element<'a> for BigUint<'a> {
+    const TAG: u8 = 0x02;
+    type ParsedType = Self;
+    type WriteType = Self;
+
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        BigUint::new(data)
+    }
+    fn write_data(dest: &mut Vec<u8>, val: Self) {
+        dest.extend_from_slice(val.data);
+    }
+}
 
 impl<'a> SimpleAsn1Element<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;

@@ -82,7 +82,7 @@ mod tests {
     use super::{_insert_at_position, write, Writer};
     use crate::types::SimpleAsn1Element;
     use crate::{
-        BitString, ObjectIdentifier, PrintableString, Sequence, SequenceOf, SetOf, UtcTime,
+        BigUint, BitString, ObjectIdentifier, PrintableString, Sequence, SequenceOf, SetOf, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -166,6 +166,17 @@ mod tests {
             (127, b"\x02\x01\x7f"),
             (-1, b"\x02\x01\xff"),
             (-128, b"\x02\x01\x80"),
+        ]);
+    }
+
+    #[test]
+    fn test_write_biguint() {
+        assert_writes::<BigUint>(&[
+            (BigUint::new(b"\x00\xff").unwrap(), b"\x02\x02\x00\xff"),
+            (
+                BigUint::new(b"\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff").unwrap(),
+                b"\x02\x0d\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
         ]);
     }
 

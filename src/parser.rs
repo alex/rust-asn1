@@ -134,7 +134,7 @@ mod tests {
     use super::Parser;
     use crate::types::Asn1Element;
     use crate::{
-        BitString, Choice1, Choice2, Choice3, ObjectIdentifier, ParseError, ParseResult,
+        BigUint, BitString, Choice1, Choice2, Choice3, ObjectIdentifier, ParseError, ParseResult,
         PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
     };
     #[cfg(feature = "const-generics")]
@@ -361,6 +361,21 @@ mod tests {
             (Err(ParseError::IntegerOverflow), b"\x02\x02\x01\x00"),
             (Err(ParseError::InvalidValue), b"\x02\x01\x80"),
         ])
+    }
+
+    #[test]
+    fn test_parse_biguint() {
+        assert_parses::<BigUint>(&[
+            (Ok(BigUint::new(b"\x00").unwrap()), b"\x02\x01\x00"),
+            (Ok(BigUint::new(b"\x00\xff").unwrap()), b"\x02\x02\x00\xff"),
+            (
+                Ok(BigUint::new(b"\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff").unwrap()),
+                b"\x02\x0d\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
+            (Err(ParseError::InvalidValue), b"\x02\x00"),
+            (Err(ParseError::InvalidValue), b"\x02\x01\x80"),
+            (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
+        ]);
     }
 
     #[test]

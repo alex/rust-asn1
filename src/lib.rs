@@ -61,7 +61,7 @@ pub use crate::bit_string::BitString;
 pub use crate::object_identitifer::ObjectIdentifier;
 pub use crate::parser::{parse, ParseError, ParseResult};
 pub use crate::types::{
-    Choice1, Choice2, Choice3, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
+    BigUint, Choice1, Choice2, Choice3, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};
