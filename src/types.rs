@@ -486,6 +486,8 @@ impl<'a, T: SimpleAsn1Element<'a>> Iterator for SequenceOf<'a, T> {
     }
 }
 
+/// Represents an ASN.1 `SET OF`. This is an `Iterator` over values that
+/// are decoded.
 pub struct SetOf<'a, T: SimpleAsn1Element<'a>> {
     parser: Parser<'a>,
     last_element: Option<Tlv<'a>>,
