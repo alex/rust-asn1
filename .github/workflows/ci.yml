@@ -22,7 +22,7 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - uses: actions/cache@v2.1.4
+      - uses: actions/cache@v2.1.5
         with:
           path: |
             ~/.cargo/registry
@@ -76,7 +76,7 @@ jobs:
           override: true
           components: rustfmt, clippy
 
-      - uses: actions/cache@v2.1.4
+      - uses: actions/cache@v2.1.5
         with:
           path: |
             ~/.cargo/registry
@@ -110,7 +110,7 @@ jobs:
           toolchain: ${{ matrix.RUST }}
           override: true
 
-      - uses: actions/cache@v2.1.4
+      - uses: actions/cache@v2.1.5
         with:
           path: |
             ~/.cargo/registry
