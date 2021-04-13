@@ -245,15 +245,19 @@ impl_asn1_element_for_int!(u64; false);
 /// Arbitrary sized unsigned integer. Contents may be accessed as `&[u8]` of
 /// big-endian data. Its contents always match the DER encoding of a value
 /// (i.e. they are minimal)
-#[derive(PartialEq, Clone, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct BigUint<'a> {
     data: &'a [u8],
 }
 
 impl<'a> BigUint<'a> {
-    pub(crate) fn new(data: &'a [u8]) -> ParseResult<Self> {
-        validate_integer(data, false)?;
-        Ok(BigUint { data })
+    /// Create a new BigUint from already encoded data. `data` must be encoded
+    /// as required by DER: minimally and if the high bit would be set in the
+    /// first octet, a leading \x00 should be prepended (to disambiguate from
+    /// negative values).
+    pub fn new(data: &'a [u8]) -> Option<Self> {
+        validate_integer(data, false).ok()?;
+        Some(BigUint { data })
     }
 
     /// Returns the contents of the integer as big-endian bytes.
@@ -268,7 +272,7 @@ impl<'a> SimpleAsn1Element<'a> for BigUint<'a> {
     type WriteType = Self;
 
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        BigUint::new(data)
+        BigUint::new(data).ok_or(ParseError::InvalidValue)
     }
     fn write_data(dest: &mut Vec<u8>, val: Self) {
         dest.extend_from_slice(val.data);
