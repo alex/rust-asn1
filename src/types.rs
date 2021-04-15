@@ -79,6 +79,7 @@ impl SimpleAsn1Element<'_> for () {
         }
     }
 
+    #[inline]
     fn write_data(_dest: &mut Vec<u8>, _val: ()) {}
 }
 
