@@ -551,7 +551,7 @@ impl<'a, T: SimpleAsn1Element<'a> + 'a> SimpleAsn1Element<'a> for SetOf<'a, T>
 where
     T::WriteType: Copy,
 {
-    const TAG: u8 = 0x17 | CONSTRUCTED;
+    const TAG: u8 = 0x11 | CONSTRUCTED;
     type ParsedType = SetOf<'a, T>;
     type WriteType = &'a [T::WriteType];
 
