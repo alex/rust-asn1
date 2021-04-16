@@ -9,9 +9,8 @@ use chrono::{Datelike, TimeZone, Timelike};
 use crate::writer::Writer;
 use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult, Parser};
 
-#[cfg(feature = "const-generics")]
-const CONTEXT_SPECIFIC: u8 = 0x80;
-const CONSTRUCTED: u8 = 0x20;
+pub(crate) const CONTEXT_SPECIFIC: u8 = 0x80;
+pub(crate) const CONSTRUCTED: u8 = 0x20;
 
 pub trait Asn1Element<'a>: Sized {
     type ParsedType;
@@ -48,11 +47,11 @@ pub struct Tlv<'a> {
     pub(crate) data: &'a [u8],
 }
 
-impl Tlv<'_> {
+impl<'a> Tlv<'a> {
     pub fn tag(&self) -> u8 {
         self.tag
     }
-    pub fn data(&self) -> &[u8] {
+    pub fn data(&self) -> &'a [u8] {
         self.data
     }
 }
@@ -614,6 +613,10 @@ impl<'a, T: SimpleAsn1Element<'a>> Iterator for SetOf<'a, T> {
 
 /// `Implicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `IMPLICIT`. This will generally be used with `Option` or `Choice`.
+///
+/// Requires the `const-generics` feature and Rust 1.51 or greater. For users
+/// on older Rust versions, `Parser::read_optional_implicit_element` may be
+/// used.
 #[cfg(feature = "const-generics")]
 pub struct Implicit<'a, T: Asn1Element<'a>, const TAG: u8> {
     _inner: PhantomData<T>,
@@ -637,6 +640,10 @@ impl<'a, T: SimpleAsn1Element<'a>, const TAG: u8> SimpleAsn1Element<'a>
 
 /// `Explicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `EXPLICIT`. This will generally be used with `Option` or `Choice`.
+///
+/// Requires the `const-generics` feature and Rust 1.51 or greater. For users
+/// on older Rust versions, `Parser::read_optional_explicit_element` may be
+/// used.
 #[cfg(feature = "const-generics")]
 pub struct Explicit<'a, T: Asn1Element<'a>, const TAG: u8> {
     _inner: PhantomData<T>,
