@@ -6,9 +6,8 @@ use core::mem;
 
 use chrono::{Datelike, TimeZone, Timelike};
 
-use crate::parser::Parser;
 use crate::writer::Writer;
-use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult};
+use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult, Parser};
 
 #[cfg(feature = "const-generics")]
 const CONTEXT_SPECIFIC: u8 = 0x80;
