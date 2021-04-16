@@ -573,17 +573,17 @@ mod tests {
             &[
                 (
                     Ok(vec![1, 2, 3]),
-                    b"\x37\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                    b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
                 ),
-                (Ok(vec![]), b"\x37\x00"),
+                (Ok(vec![]), b"\x31\x00"),
                 (
                     Err(ParseError::InvalidSetOrdering),
-                    b"\x37\x06\x02\x01\x03\x02\x01\x01",
+                    b"\x31\x06\x02\x01\x03\x02\x01\x01",
                 ),
-                (Err(ParseError::ShortData), b"\x37\x01\x02"),
+                (Err(ParseError::ShortData), b"\x31\x01\x02"),
                 (
                     Err(ParseError::UnexpectedTag { actual: 0x1 }),
-                    b"\x37\x02\x01\x00",
+                    b"\x31\x02\x01\x00",
                 ),
             ],
             |p| p.read_element::<SetOf<u64>>()?.collect(),
