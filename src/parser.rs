@@ -1,4 +1,4 @@
-use crate::types::{Asn1Element, Tlv};
+use crate::types::{Asn1Element, SimpleAsn1Element, Tlv, CONSTRUCTED, CONTEXT_SPECIFIC};
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq)]
@@ -126,6 +126,34 @@ impl<'a> Parser<'a> {
     /// the type parameter `T`.
     pub fn read_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<T::ParsedType> {
         T::parse(self)
+    }
+
+    /// This is an alias for `read_element::<Option<Explicit<T, tag>>>` for use
+    /// when MSRV is <1.51.
+    pub fn read_optional_explicit_element<T: SimpleAsn1Element<'a>>(
+        &mut self,
+        tag: u8,
+    ) -> ParseResult<Option<T::ParsedType>> {
+        let expected_tag = CONTEXT_SPECIFIC | CONSTRUCTED | tag;
+        if self.peek_u8() != Some(expected_tag) {
+            return Ok(None);
+        }
+        let tlv = self.read_tlv()?;
+        Ok(Some(parse(tlv.data(), |p| p.read_element::<T>())?))
+    }
+
+    /// This is an alias for `read_element::<Option<Implicit<T, tag>>>` for use
+    /// when MSRV is <1.51.
+    pub fn read_optional_implicit_element<T: SimpleAsn1Element<'a>>(
+        &mut self,
+        tag: u8,
+    ) -> ParseResult<Option<T::ParsedType>> {
+        let expected_tag = CONTEXT_SPECIFIC | tag | (T::TAG & CONSTRUCTED);
+        if self.peek_u8() != Some(expected_tag) {
+            return Ok(None);
+        }
+        let tlv = self.read_tlv()?;
+        Ok(Some(T::parse_data(tlv.data())?))
     }
 }
 
@@ -642,8 +670,8 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "const-generics")]
     fn test_parse_implicit() {
+        #[cfg(feature = "const-generics")]
         assert_parses::<Implicit<bool, 2>>(&[
             (Ok(true), b"\x82\x01\xff"),
             (Ok(false), b"\x82\x01\x00"),
@@ -656,6 +684,7 @@ mod tests {
                 b"\x02\x01\xff",
             ),
         ]);
+        #[cfg(feature = "const-generics")]
         assert_parses::<Implicit<Sequence, 2>>(&[
             (Ok(Sequence::new(b"abc")), b"\xa2\x03abc"),
             (Ok(Sequence::new(b"")), b"\xa2\x00"),
@@ -669,11 +698,32 @@ mod tests {
             ),
             (Err(ParseError::ShortData), b""),
         ]);
+
+        assert_parses_cb(
+            &[
+                (Ok(Some(true)), b"\x82\x01\xff"),
+                (Ok(Some(false)), b"\x82\x01\x00"),
+                (Ok(None), b""),
+                (Err(ParseError::ExtraData), b"\x01\x01\xff"),
+                (Err(ParseError::ExtraData), b"\x02\x01\xff"),
+            ],
+            |p| p.read_optional_implicit_element::<bool>(2),
+        );
+        assert_parses_cb(
+            &[
+                (Ok(Some(Sequence::new(b"abc"))), b"\xa2\x03abc"),
+                (Ok(Some(Sequence::new(b""))), b"\xa2\x00"),
+                (Ok(None), b""),
+                (Err(ParseError::ExtraData), b"\x01\x01\xff"),
+                (Err(ParseError::ExtraData), b"\x02\x01\xff"),
+            ],
+            |p| p.read_optional_implicit_element::<Sequence>(2),
+        );
     }
 
     #[test]
-    #[cfg(feature = "const-generics")]
     fn test_parse_explicit() {
+        #[cfg(feature = "const-generics")]
         assert_parses::<Explicit<bool, 2>>(&[
             (Ok(true), b"\xa2\x03\x01\x01\xff"),
             (Ok(false), b"\xa2\x03\x01\x01\x00"),
@@ -690,5 +740,19 @@ mod tests {
                 b"\xa2\x03\x03\x01\xff",
             ),
         ]);
+
+        assert_parses_cb(
+            &[
+                (Ok(Some(true)), b"\xa2\x03\x01\x01\xff"),
+                (Ok(Some(false)), b"\xa2\x03\x01\x01\x00"),
+                (Ok(None), b""),
+                (Err(ParseError::ExtraData), b"\x01\x01\xff"),
+                (
+                    Err(ParseError::UnexpectedTag { actual: 0x03 }),
+                    b"\xa2\x03\x03\x01\xff",
+                ),
+            ],
+            |p| p.read_optional_explicit_element::<bool>(2),
+        );
     }
 }
