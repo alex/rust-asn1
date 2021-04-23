@@ -70,7 +70,9 @@ impl<'a> ObjectIdentifier<'a> {
         })
     }
 
-    pub(crate) fn from_der(data: &'a [u8]) -> Option<ObjectIdentifier<'a>> {
+    /// Creates an `ObjectIdentifier` from its DER representation. This does
+    /// not perform any allocations or copies.
+    pub fn from_der(data: &'a [u8]) -> Option<ObjectIdentifier<'a>> {
         if data.is_empty() {
             return None;
         }
