@@ -1,4 +1,5 @@
 use alloc::borrow::Cow;
+use alloc::fmt;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -87,6 +88,28 @@ impl<'a> ObjectIdentifier<'a> {
     }
 }
 
+impl fmt::Display for ObjectIdentifier<'_> {
+    /// Converts an `ObjectIdentifier` to a dotted string, e.g.
+    /// "1.2.840.113549".
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut cursor = self.der_encoded.iter().copied();
+
+        let first = _read_base128_int(&mut cursor).unwrap();
+        if first < 80 {
+            write!(f, "{}.{}", first / 40, first % 40)?;
+        } else {
+            write!(f, "2.{}", first - 80)?;
+        }
+
+        while cursor.len() > 0 {
+            let digit = _read_base128_int(&mut cursor).unwrap();
+            write!(f, ".{}", digit)?;
+        }
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::ObjectIdentifier;
@@ -117,6 +140,24 @@ mod tests {
             "2.100.3",
         ] {
             assert!(ObjectIdentifier::from_string(val).is_some());
+        }
+    }
+
+    #[test]
+    fn test_to_string() {
+        for val in &[
+            "0.4",
+            "2.5",
+            "2.5.2",
+            "1.2.840.113549",
+            "1.2.3.4",
+            "1.2.840.133549.1.1.5",
+            "2.100.3",
+        ] {
+            assert_eq!(
+                &ObjectIdentifier::from_string(val).unwrap().to_string(),
+                val
+            );
         }
     }
 }
