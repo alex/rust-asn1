@@ -26,7 +26,8 @@ pub struct Writer<'a> {
 
 impl Writer<'_> {
     #[inline]
-    pub(crate) fn new(data: &mut Vec<u8>) -> Writer {
+    #[doc(hidden)]
+    pub fn new(data: &mut Vec<u8>) -> Writer {
         Writer { data }
     }
 
