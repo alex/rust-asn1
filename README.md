@@ -53,10 +53,10 @@ And to write that structure, you would do:
 
 ```rust
 let result = asn1::write(|w| {
-    w.write_element_with_type::<asn1::Sequence>(&|w: &mut asn1::Writer| {
+    w.write_element(&asn1::SequenceWriter::new(&|w: &mut asn1::Writer| {
         w.write_element(r);
         w.write_element(s);
-    })
+    }))
 });
 ```
 

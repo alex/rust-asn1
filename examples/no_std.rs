@@ -15,10 +15,10 @@ fn main() {
     };
 
     let computed = asn1::write(|w| {
-        w.write_element_with_type::<asn1::Sequence>(&|w: &mut asn1::Writer| {
-            w.write_element(1i64);
-            w.write_element(3i64);
-        });
+        w.write_element(&asn1::SequenceWriter::new(&|w: &mut asn1::Writer| {
+            w.write_element(&1i64);
+            w.write_element(&3i64);
+        }));
     });
     unsafe {
         libc::printf(
