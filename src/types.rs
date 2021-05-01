@@ -531,6 +531,7 @@ pub struct SequenceWriter<'a> {
 }
 
 impl<'a> SequenceWriter<'a> {
+    #[inline]
     pub fn new(f: &'a dyn Fn(&mut Writer)) -> Self {
         SequenceWriter { f }
     }
@@ -538,6 +539,7 @@ impl<'a> SequenceWriter<'a> {
 
 impl<'a> SimpleAsn1Writable<'a> for SequenceWriter<'a> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
+    #[inline]
     fn write_data(&self, dest: &mut Vec<u8>) {
         (self.f)(&mut Writer::new(dest))
     }
