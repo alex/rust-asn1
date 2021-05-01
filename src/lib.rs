@@ -42,10 +42,10 @@
 //! # let r = 0u64;
 //! # let s = 0u64;
 //! let result = asn1::write(|w| {
-//!     w.write_element_with_type::<asn1::Sequence>(&|w| {
-//!         w.write_element(r);
-//!         w.write_element(s);
-//!     });
+//!     w.write_element(&asn1::SequenceWriter::new(&|w| {
+//!         w.write_element(&r);
+//!         w.write_element(&s);
+//!     }));
 //! });
 //! ```
 
@@ -61,7 +61,8 @@ pub use crate::bit_string::BitString;
 pub use crate::object_identitifer::ObjectIdentifier;
 pub use crate::parser::{parse, ParseError, ParseResult, Parser};
 pub use crate::types::{
-    BigUint, Choice1, Choice2, Choice3, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
+    BigUint, Choice1, Choice2, Choice3, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
+    SequenceWriter, SetOf, SetOfWriter, Tlv, UtcTime,
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};

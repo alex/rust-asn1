@@ -1,4 +1,4 @@
-use crate::types::{Asn1Element, SimpleAsn1Element, Tlv, CONSTRUCTED, CONTEXT_SPECIFIC};
+use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv, CONSTRUCTED, CONTEXT_SPECIFIC};
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq)]
@@ -124,16 +124,16 @@ impl<'a> Parser<'a> {
 
     /// Reads a single ASN.1 element from the parser. Which type you are reading is determined by
     /// the type parameter `T`.
-    pub fn read_element<T: Asn1Element<'a>>(&mut self) -> ParseResult<T::ParsedType> {
+    pub fn read_element<T: Asn1Readable<'a>>(&mut self) -> ParseResult<T> {
         T::parse(self)
     }
 
     /// This is an alias for `read_element::<Option<Explicit<T, tag>>>` for use
     /// when MSRV is <1.51.
-    pub fn read_optional_explicit_element<T: SimpleAsn1Element<'a>>(
+    pub fn read_optional_explicit_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u8,
-    ) -> ParseResult<Option<T::ParsedType>> {
+    ) -> ParseResult<Option<T>> {
         let expected_tag = CONTEXT_SPECIFIC | CONSTRUCTED | tag;
         if self.peek_u8() != Some(expected_tag) {
             return Ok(None);
@@ -144,10 +144,10 @@ impl<'a> Parser<'a> {
 
     /// This is an alias for `read_element::<Option<Implicit<T, tag>>>` for use
     /// when MSRV is <1.51.
-    pub fn read_optional_implicit_element<T: SimpleAsn1Element<'a>>(
+    pub fn read_optional_implicit_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u8,
-    ) -> ParseResult<Option<T::ParsedType>> {
+    ) -> ParseResult<Option<T>> {
         let expected_tag = CONTEXT_SPECIFIC | tag | (T::TAG & CONSTRUCTED);
         if self.peek_u8() != Some(expected_tag) {
             return Ok(None);
@@ -160,7 +160,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::Parser;
-    use crate::types::Asn1Element;
+    use crate::types::Asn1Readable;
     use crate::{
         BigUint, BitString, Choice1, Choice2, Choice3, ObjectIdentifier, ParseError, ParseResult,
         PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
@@ -221,10 +221,9 @@ mod tests {
         }
     }
 
-    fn assert_parses<'a, T>(data: &[(ParseResult<T::ParsedType>, &'a [u8])])
+    fn assert_parses<'a, T>(data: &[(ParseResult<T>, &'a [u8])])
     where
-        T: Asn1Element<'a>,
-        T::ParsedType: fmt::Debug + PartialEq,
+        T: Asn1Readable<'a> + fmt::Debug + PartialEq,
     {
         assert_parses_cb(data, |p| p.read_element::<T>());
     }
@@ -462,8 +461,8 @@ mod tests {
     #[test]
     fn test_parse_printable_string() {
         assert_parses::<PrintableString>(&[
-            (Ok("abc"), b"\x13\x03abc"),
-            (Ok(")"), b"\x13\x01)"),
+            (Ok(PrintableString::new("abc").unwrap()), b"\x13\x03abc"),
+            (Ok(PrintableString::new(")").unwrap()), b"\x13\x01)"),
             (Err(ParseError::InvalidValue), b"\x13\x03ab\x00"),
         ]);
     }
@@ -472,29 +471,35 @@ mod tests {
     fn test_parse_utctime() {
         assert_parses::<UtcTime>(&[
             (
-                Ok(FixedOffset::west(7 * 60 * 60)
-                    .ymd(1991, 5, 6)
-                    .and_hms(16, 45, 40)
-                    .into()),
+                Ok(UtcTime::new(
+                    FixedOffset::west(7 * 60 * 60)
+                        .ymd(1991, 5, 6)
+                        .and_hms(16, 45, 40)
+                        .into(),
+                )
+                .unwrap()),
                 b"\x17\x11910506164540-0700",
             ),
             (
-                Ok(FixedOffset::east(7 * 60 * 60 + 30 * 60)
-                    .ymd(1991, 5, 6)
-                    .and_hms(16, 45, 40)
-                    .into()),
+                Ok(UtcTime::new(
+                    FixedOffset::east(7 * 60 * 60 + 30 * 60)
+                        .ymd(1991, 5, 6)
+                        .and_hms(16, 45, 40)
+                        .into(),
+                )
+                .unwrap()),
                 b"\x17\x11910506164540+0730",
             ),
             (
-                Ok(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)),
+                Ok(UtcTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)).unwrap()),
                 b"\x17\x0d910506234540Z",
             ),
             (
-                Ok(Utc.ymd(1991, 5, 6).and_hms(23, 45, 0)),
+                Ok(UtcTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 0)).unwrap()),
                 b"\x17\x0b9105062345Z",
             ),
             (
-                Ok(Utc.ymd(1951, 5, 6).and_hms(23, 45, 0)),
+                Ok(UtcTime::new(Utc.ymd(1951, 5, 6).and_hms(23, 45, 0)).unwrap()),
                 b"\x17\x0b5105062345Z",
             ),
             (Err(ParseError::InvalidValue), b"\x17\x0da10506234540Z"),
@@ -673,8 +678,8 @@ mod tests {
     fn test_parse_implicit() {
         #[cfg(feature = "const-generics")]
         assert_parses::<Implicit<bool, 2>>(&[
-            (Ok(true), b"\x82\x01\xff"),
-            (Ok(false), b"\x82\x01\x00"),
+            (Ok(Implicit::new(true)), b"\x82\x01\xff"),
+            (Ok(Implicit::new(false)), b"\x82\x01\x00"),
             (
                 Err(ParseError::UnexpectedTag { actual: 0x01 }),
                 b"\x01\x01\xff",
@@ -686,8 +691,8 @@ mod tests {
         ]);
         #[cfg(feature = "const-generics")]
         assert_parses::<Implicit<Sequence, 2>>(&[
-            (Ok(Sequence::new(b"abc")), b"\xa2\x03abc"),
-            (Ok(Sequence::new(b"")), b"\xa2\x00"),
+            (Ok(Implicit::new(Sequence::new(b"abc"))), b"\xa2\x03abc"),
+            (Ok(Implicit::new(Sequence::new(b""))), b"\xa2\x00"),
             (
                 Err(ParseError::UnexpectedTag { actual: 0x01 }),
                 b"\x01\x01\xff",
@@ -725,8 +730,8 @@ mod tests {
     fn test_parse_explicit() {
         #[cfg(feature = "const-generics")]
         assert_parses::<Explicit<bool, 2>>(&[
-            (Ok(true), b"\xa2\x03\x01\x01\xff"),
-            (Ok(false), b"\xa2\x03\x01\x01\x00"),
+            (Ok(Explicit::new(true)), b"\xa2\x03\x01\x01\xff"),
+            (Ok(Explicit::new(false)), b"\xa2\x03\x01\x01\x00"),
             (
                 Err(ParseError::UnexpectedTag { actual: 0x01 }),
                 b"\x01\x01\xff",

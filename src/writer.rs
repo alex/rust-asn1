@@ -1,3 +1,4 @@
+use crate::types::Asn1Writable;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -29,25 +30,18 @@ impl Writer<'_> {
         Writer { data }
     }
 
-    #[inline]
-    pub fn write_element<'a, T>(&mut self, val: T)
-    where
-        T: crate::types::SimpleAsn1Element<'a, WriteType = T>,
-    {
-        self.write_element_with_type::<T>(val);
+    pub fn write_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T) {
+        val.write(self);
     }
 
     #[inline]
-    pub fn write_element_with_type<'a, T>(&mut self, val: T::WriteType)
-    where
-        T: crate::types::SimpleAsn1Element<'a>,
-    {
-        self.data.push(T::TAG);
+    pub(crate) fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: u8, body: F) {
+        self.data.push(tag);
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
         self.data.push(0);
         let start_len = self.data.len();
-        T::write_data(self.data, val);
+        body(self.data);
         let added_len = self.data.len() - start_len;
         if added_len >= 128 {
             let n = _length_length(added_len);
@@ -80,21 +74,21 @@ mod tests {
     use chrono::{TimeZone, Utc};
 
     use super::{_insert_at_position, write, Writer};
-    use crate::types::SimpleAsn1Element;
+    use crate::types::Asn1Writable;
     use crate::{
-        BigUint, BitString, ObjectIdentifier, PrintableString, Sequence, SequenceOf, SetOf, UtcTime,
+        BigUint, BitString, Choice1, Choice2, Choice3, ObjectIdentifier, PrintableString,
+        SequenceOfWriter, SequenceWriter, SetOfWriter, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
 
-    fn assert_writes<'a, T>(data: &[(T::WriteType, &[u8])])
+    fn assert_writes<'a, T>(data: &[(T, &[u8])])
     where
-        T: SimpleAsn1Element<'a>,
-        T::WriteType: Clone,
+        T: Asn1Writable<'a>,
     {
         for (val, expected) in data {
             let result = write(|w| {
-                w.write_element_with_type::<T>(val.clone());
+                w.write_element(val);
             });
             assert_eq!(&result, expected);
         }
@@ -109,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_write_element() {
-        assert_eq!(write(|w| w.write_element(())), b"\x05\x00");
+        assert_eq!(write(|w| w.write_element(&())), b"\x05\x00");
     }
 
     #[test]
@@ -218,11 +212,17 @@ mod tests {
     fn test_write_utctime() {
         assert_writes::<UtcTime>(&[
             (
-                Utc.ymd(1991, 5, 6).and_hms(23, 45, 40),
+                UtcTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)).unwrap(),
                 b"\x17\x0d910506234540Z",
             ),
-            (Utc.timestamp(0, 0), b"\x17\x0d700101000000Z"),
-            (Utc.timestamp(1258325776, 0), b"\x17\x0d091115225616Z"),
+            (
+                UtcTime::new(Utc.timestamp(0, 0)).unwrap(),
+                b"\x17\x0d700101000000Z",
+            ),
+            (
+                UtcTime::new(Utc.timestamp(1258325776, 0)).unwrap(),
+                b"\x17\x0d091115225616Z",
+            ),
         ]);
     }
 
@@ -230,13 +230,15 @@ mod tests {
     fn test_write_sequence() {
         assert_eq!(
             write(|w| {
-                w.write_element_with_type::<Sequence>(&|w: &mut Writer| w.write_element(()))
+                w.write_element(&SequenceWriter::new(&|w: &mut Writer| w.write_element(&())))
             }),
             b"\x30\x02\x05\x00"
         );
         assert_eq!(
             write(|w| {
-                w.write_element_with_type::<Sequence>(&|w: &mut Writer| w.write_element(true))
+                w.write_element(&SequenceWriter::new(&|w: &mut Writer| {
+                    w.write_element(&true)
+                }))
             }),
             b"\x30\x03\x01\x01\xff"
         );
@@ -244,15 +246,23 @@ mod tests {
 
     #[test]
     fn test_write_sequence_of() {
-        assert_writes::<SequenceOf<u64>>(&[
-            (&[], b"\x30\x00"),
-            (&[1, 2, 3], b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"),
-        ]);
-        assert_writes::<SequenceOf<Sequence>>(&[
-            (&[], b"\x30\x00"),
-            (&[&|_w| ()], b"\x30\x02\x30\x00"),
+        assert_writes(&[
+            (SequenceOfWriter::new(&[]), b"\x30\x00"),
             (
-                &[&|w| w.write_element(1u64)],
+                SequenceOfWriter::new(&[1u8, 2, 3]),
+                b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+            ),
+        ]);
+        assert_writes(&[
+            (SequenceOfWriter::new(&[]), b"\x30\x00"),
+            (
+                SequenceOfWriter::new(&[SequenceWriter::new(&|_w| ())]),
+                b"\x30\x02\x30\x00",
+            ),
+            (
+                SequenceOfWriter::new(&[SequenceWriter::new(&|w: &mut Writer| {
+                    w.write_element(&1u64)
+                })]),
                 b"\x30\x05\x30\x03\x02\x01\x01",
             ),
         ]);
@@ -260,26 +270,60 @@ mod tests {
 
     #[test]
     fn test_write_set_of() {
-        assert_writes::<SetOf<u64>>(&[
-            (&[], b"\x31\x00"),
-            (&[1], b"\x31\x03\x02\x01\x01"),
-            (&[1, 2, 3], b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"),
-            (&[3, 2, 1], b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03"),
+        assert_writes(&[
+            (SetOfWriter::new(&[]), b"\x31\x00"),
+            (SetOfWriter::new(&[1u8]), b"\x31\x03\x02\x01\x01"),
+            (
+                SetOfWriter::new(&[1, 2, 3]),
+                b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+            ),
+            (
+                SetOfWriter::new(&[3, 2, 1]),
+                b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+            ),
         ]);
     }
 
     #[test]
     #[cfg(feature = "const-generics")]
     fn test_write_implicit() {
-        assert_writes::<Implicit<bool, 2>>(&[(true, b"\x82\x01\xff"), (false, b"\x82\x01\x00")]);
+        assert_writes::<Implicit<bool, 2>>(&[
+            (Implicit::new(true), b"\x82\x01\xff"),
+            (Implicit::new(false), b"\x82\x01\x00"),
+        ]);
     }
 
     #[test]
     #[cfg(feature = "const-generics")]
     fn test_write_explicit() {
         assert_writes::<Explicit<bool, 2>>(&[
-            (true, b"\xa2\x03\x01\x01\xff"),
-            (false, b"\xa2\x03\x01\x01\x00"),
+            (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
+            (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
+        ]);
+    }
+
+    #[test]
+    fn test_write_option() {
+        assert_writes::<Option<bool>>(&[
+            (Some(true), b"\x01\x01\xff"),
+            (Some(false), b"\x01\x01\x00"),
+            (None, b""),
+        ]);
+    }
+
+    #[test]
+    fn test_choice() {
+        assert_writes::<Choice1<bool>>(&[(Choice1::ChoiceA(true), b"\x01\x01\xff")]);
+
+        assert_writes::<Choice2<bool, i64>>(&[
+            (Choice2::ChoiceA(true), b"\x01\x01\xff"),
+            (Choice2::ChoiceB(18), b"\x02\x01\x12"),
+        ]);
+
+        assert_writes::<Choice3<bool, i64, ()>>(&[
+            (Choice3::ChoiceA(true), b"\x01\x01\xff"),
+            (Choice3::ChoiceB(18), b"\x02\x01\x12"),
+            (Choice3::ChoiceC(()), b"\x05\x00"),
         ]);
     }
 }
