@@ -73,3 +73,81 @@ fn test_optional() {
         (Err(asn1::ParseError::ExtraData), b"\x30\x03\x04\x00\x00"),
     ]);
 }
+
+#[test]
+fn test_explicit() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    struct EmptySequence;
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    struct ExplicitFields {
+        #[explicit(5)]
+        a: Option<u8>,
+        #[explicit(7)]
+        b: Option<EmptySequence>,
+    }
+
+    assert_roundtrips(&[
+        (
+            Ok(ExplicitFields {
+                a: Some(3),
+                b: Some(EmptySequence),
+            }),
+            b"\x30\x09\xa5\x03\x02\x01\x03\xa7\x02\x30\x00",
+        ),
+        (
+            Ok(ExplicitFields {
+                a: None,
+                b: Some(EmptySequence),
+            }),
+            b"\x30\x04\xa7\x02\x30\x00",
+        ),
+        (
+            Ok(ExplicitFields {
+                a: Some(3),
+                b: None,
+            }),
+            b"\x30\x05\xa5\x03\x02\x01\x03",
+        ),
+        (Ok(ExplicitFields { a: None, b: None }), b"\x30\x00"),
+    ]);
+}
+
+#[test]
+fn test_implicit() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    struct EmptySequence;
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    struct ImplicitFields {
+        #[implicit(5)]
+        a: Option<u8>,
+        #[implicit(7)]
+        b: Option<EmptySequence>,
+    }
+
+    assert_roundtrips(&[
+        (
+            Ok(ImplicitFields {
+                a: Some(3),
+                b: Some(EmptySequence),
+            }),
+            b"\x30\x05\x85\x01\x03\xa7\x00",
+        ),
+        (
+            Ok(ImplicitFields {
+                a: None,
+                b: Some(EmptySequence),
+            }),
+            b"\x30\x02\xa7\x00",
+        ),
+        (
+            Ok(ImplicitFields {
+                a: Some(3),
+                b: None,
+            }),
+            b"\x30\x03\x85\x01\x03",
+        ),
+        (Ok(ImplicitFields { a: None, b: None }), b"\x30\x00"),
+    ]);
+}
