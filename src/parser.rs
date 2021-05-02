@@ -32,6 +32,13 @@ pub fn parse<'a, T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>
     Ok(result)
 }
 
+/// Parses a single top-level ASN.1 element from `data` (does not allow
+/// trailing data). Most often this will be used where `T` is a type with
+/// `#[derive(asn1::Asn1Read)]`.
+pub fn parse_single<'a, T: Asn1Readable<'a>>(data: &'a [u8]) -> ParseResult<T> {
+    parse(data, |p| p.read_element::<T>())
+}
+
 pub struct Parser<'a> {
     data: &'a [u8],
 }
@@ -139,7 +146,7 @@ impl<'a> Parser<'a> {
             return Ok(None);
         }
         let tlv = self.read_tlv()?;
-        Ok(Some(parse(tlv.data(), |p| p.read_element::<T>())?))
+        Ok(Some(parse_single::<T>(tlv.data())?))
     }
 
     /// This is an alias for `read_element::<Option<Implicit<T, tag>>>` for use

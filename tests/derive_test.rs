@@ -9,12 +9,10 @@ fn assert_roundtrips<
     data: &[(asn1::ParseResult<T>, &'a [u8])],
 ) {
     for (value, der_bytes) in data {
-        let parsed = asn1::parse(der_bytes, |p| p.read_element::<T>());
+        let parsed = asn1::parse_single::<T>(der_bytes);
         assert_eq!(value, &parsed);
         if let Ok(v) = value {
-            let result = asn1::write(|w| {
-                w.write_element(v);
-            });
+            let result = asn1::write_single(v);
             assert_eq!(&result, der_bytes);
         }
     }

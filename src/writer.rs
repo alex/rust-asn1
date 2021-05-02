@@ -68,13 +68,22 @@ pub fn write<F: Fn(&mut Writer)>(f: F) -> Vec<u8> {
     v
 }
 
+/// Writes a single top-level ASN.1 element, returning the generated DER bytes.
+/// Most often this will be used where `T` is a type with
+/// `#[derive(asn1::Asn1Write)]`.
+pub fn write_single<'a, T: Asn1Writable<'a>>(v: &T) -> Vec<u8> {
+    write(|w| {
+        w.write_element(v);
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use alloc::vec;
 
     use chrono::{TimeZone, Utc};
 
-    use super::{_insert_at_position, write, Writer};
+    use super::{_insert_at_position, write, write_single, Writer};
     use crate::types::Asn1Writable;
     use crate::{
         BigUint, BitString, Choice1, Choice2, Choice3, ObjectIdentifier, PrintableString,
@@ -88,9 +97,7 @@ mod tests {
         T: Asn1Writable<'a>,
     {
         for (val, expected) in data {
-            let result = write(|w| {
-                w.write_element(val);
-            });
+            let result = write_single(val);
             assert_eq!(&result, expected);
         }
     }
