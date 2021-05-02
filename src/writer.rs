@@ -1,4 +1,4 @@
-use crate::types::Asn1Writable;
+use crate::types::{Asn1Writable, SimpleAsn1Writable, CONSTRUCTED, CONTEXT_SPECIFIC};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -33,6 +33,28 @@ impl Writer<'_> {
 
     pub fn write_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T) {
         val.write(self);
+    }
+
+    pub fn write_optional_explicit_element<'a, T: SimpleAsn1Writable<'a>>(
+        &mut self,
+        val: &Option<T>,
+        tag: u8,
+    ) {
+        if let Some(v) = val {
+            let tag = CONTEXT_SPECIFIC | CONSTRUCTED | tag;
+            self.write_tlv(tag, |dest| Writer::new(dest).write_element(v));
+        }
+    }
+
+    pub fn write_optional_implicit_element<'a, T: SimpleAsn1Writable<'a>>(
+        &mut self,
+        val: &Option<T>,
+        tag: u8,
+    ) {
+        if let Some(v) = val {
+            let tag = CONTEXT_SPECIFIC | tag | (T::TAG & CONSTRUCTED);
+            self.write_tlv(tag, |dest| v.write_data(dest));
+        }
     }
 
     #[inline]
@@ -293,21 +315,50 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "const-generics")]
     fn test_write_implicit() {
+        #[cfg(feature = "const-generics")]
         assert_writes::<Implicit<bool, 2>>(&[
             (Implicit::new(true), b"\x82\x01\xff"),
             (Implicit::new(false), b"\x82\x01\x00"),
         ]);
+
+        assert_eq!(
+            write(|w| { w.write_optional_implicit_element(&Some(true), 2) }),
+            b"\x82\x01\xff"
+        );
+        assert_eq!(
+            write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }),
+            b""
+        );
+
+        assert_eq!(
+            write(|w| {
+                w.write_optional_implicit_element(&Some(SequenceWriter::new(&|_w| {})), 2)
+            }),
+            b"\xa2\x00"
+        );
+        assert_eq!(
+            write(|w| { w.write_optional_explicit_element::<SequenceWriter>(&None, 2) }),
+            b""
+        );
     }
 
     #[test]
-    #[cfg(feature = "const-generics")]
     fn test_write_explicit() {
+        #[cfg(feature = "const-generics")]
         assert_writes::<Explicit<bool, 2>>(&[
             (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
             (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
         ]);
+
+        assert_eq!(
+            write(|w| { w.write_optional_explicit_element(&Some(true), 2) }),
+            b"\xa2\x03\x01\x01\xff"
+        );
+        assert_eq!(
+            write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }),
+            b""
+        );
     }
 
     #[test]

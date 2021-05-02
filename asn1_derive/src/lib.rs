@@ -4,7 +4,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 
-#[proc_macro_derive(Asn1Read)]
+#[proc_macro_derive(Asn1Read, attributes(explicit, implicit))]
 pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -25,7 +25,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     proc_macro::TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(Asn1Write)]
+#[proc_macro_derive(Asn1Write, attributes(explicit, implicit))]
 pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -72,15 +72,52 @@ fn add_lifetime_if_none(
     (impl_lifetimes, ty_lifetimes, lifetime)
 }
 
+enum OpType {
+    Regular,
+    Explicit(proc_macro2::Literal),
+    Implicit(proc_macro2::Literal),
+}
+
+fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
+    let mut read_type = OpType::Regular;
+    for attr in &f.attrs {
+        if attr.path.is_ident("explicit") {
+            if let OpType::Regular = read_type {
+                read_type = OpType::Explicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
+            } else {
+                panic!("Can't specify #[explicit] or #[implicit] more than once")
+            }
+        } else if attr.path.is_ident("implicit") {
+            if let OpType::Regular = read_type {
+                read_type = OpType::Implicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
+            } else {
+                panic!("Can't specify #[explicit] or #[implicit] more than once")
+            }
+        }
+    }
+
+    match read_type {
+        OpType::Explicit(arg) => quote::quote! {
+            p.read_optional_explicit_element(#arg)?
+        },
+        OpType::Implicit(arg) => quote::quote! {
+            p.read_optional_implicit_element(#arg)?
+        },
+        OpType::Regular => quote::quote! {
+            p.read_element()?
+        },
+    }
+}
+
 fn generate_read_block(data: &syn::Data) -> proc_macro2::TokenStream {
     match data {
         syn::Data::Struct(data) => match data.fields {
             syn::Fields::Named(ref fields) => {
                 let recurse = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    let ty = &f.ty;
+                    let read_op = generate_read_element(f);
                     quote::quote_spanned! {f.span() =>
-                        #name: p.read_element::<#ty>()?,
+                        #name: #read_op,
                     }
                 });
 
@@ -92,9 +129,9 @@ fn generate_read_block(data: &syn::Data) -> proc_macro2::TokenStream {
             }
             syn::Fields::Unnamed(ref fields) => {
                 let recurse = fields.unnamed.iter().map(|f| {
-                    let ty = &f.ty;
+                    let read_op = generate_read_element(f);
                     quote::quote_spanned! {f.span() =>
-                        p.read_element::<#ty>()?,
+                        #read_op,
                     }
                 });
 
@@ -112,15 +149,47 @@ fn generate_read_block(data: &syn::Data) -> proc_macro2::TokenStream {
     }
 }
 
+fn generate_write_element(
+    f: &syn::Field,
+    field_read: proc_macro2::TokenStream,
+) -> proc_macro2::TokenStream {
+    let mut write_type = OpType::Regular;
+    for attr in &f.attrs {
+        if attr.path.is_ident("explicit") {
+            if let OpType::Regular = write_type {
+                write_type = OpType::Explicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
+            } else {
+                panic!("Can't specify #[explicit] or #[implicit] more than once")
+            }
+        } else if attr.path.is_ident("implicit") {
+            if let OpType::Regular = write_type {
+                write_type = OpType::Implicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
+            } else {
+                panic!("Can't specify #[explicit] or #[implicit] more than once")
+            }
+        }
+    }
+
+    match write_type {
+        OpType::Explicit(arg) => quote::quote_spanned! {f.span() =>
+            w.write_optional_explicit_element(#field_read, #arg);
+        },
+        OpType::Implicit(arg) => quote::quote_spanned! {f.span() =>
+            w.write_optional_implicit_element(#field_read, #arg);
+        },
+        OpType::Regular => quote::quote! {
+            w.write_element(#field_read);
+        },
+    }
+}
+
 fn generate_write_block(data: &syn::Data) -> proc_macro2::TokenStream {
     match data {
         syn::Data::Struct(data) => match data.fields {
             syn::Fields::Named(ref fields) => {
                 let recurse = fields.named.iter().map(|f| {
                     let name = &f.ident;
-                    quote::quote_spanned! {f.span() =>
-                        w.write_element(&self.#name);
-                    }
+                    generate_write_element(f, quote::quote! { &self.#name })
                 });
 
                 quote::quote! {
@@ -131,9 +200,7 @@ fn generate_write_block(data: &syn::Data) -> proc_macro2::TokenStream {
             syn::Fields::Unnamed(ref fields) => {
                 let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
                     let index = syn::Index::from(i);
-                    quote::quote_spanned! {f.span() =>
-                        w.write_element(&self.#index);
-                    }
+                    generate_write_element(f, quote::quote! { &self.#index })
                 });
 
                 quote::quote! {
