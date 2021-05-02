@@ -61,9 +61,13 @@ pub use crate::bit_string::BitString;
 pub use crate::object_identitifer::ObjectIdentifier;
 pub use crate::parser::{parse, ParseError, ParseResult, Parser};
 pub use crate::types::{
-    BigUint, Choice1, Choice2, Choice3, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
-    SequenceWriter, SetOf, SetOfWriter, Tlv, UtcTime,
+    Asn1Readable, Asn1Writable, BigUint, Choice1, Choice2, Choice3, PrintableString, Sequence,
+    SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, SimpleAsn1Readable,
+    SimpleAsn1Writable, Tlv, UtcTime,
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};
 pub use crate::writer::{write, Writer};
+
+#[cfg(feature = "derive")]
+pub use asn1_derive::{Asn1Read, Asn1Write};
