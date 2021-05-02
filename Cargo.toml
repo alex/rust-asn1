@@ -9,7 +9,7 @@ description = "ASN.1 (DER) parser and writer for Rust."
 edition = "2018"
 
 [features]
-default = ["std", "derive"]
+default = ["std", "derive", "const-generics"]
 std = []
 const-generics = []
 derive = ["asn1_derive"]
