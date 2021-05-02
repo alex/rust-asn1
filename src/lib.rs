@@ -59,7 +59,7 @@ mod writer;
 
 pub use crate::bit_string::BitString;
 pub use crate::object_identitifer::ObjectIdentifier;
-pub use crate::parser::{parse, ParseError, ParseResult, Parser};
+pub use crate::parser::{parse, parse_single, ParseError, ParseResult, Parser};
 pub use crate::types::{
     Asn1Readable, Asn1Writable, BigUint, Choice1, Choice2, Choice3, PrintableString, Sequence,
     SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, SimpleAsn1Readable,
@@ -67,7 +67,7 @@ pub use crate::types::{
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};
-pub use crate::writer::{write, Writer};
+pub use crate::writer::{write, write_single, Writer};
 
 #[cfg(feature = "derive")]
 pub use asn1_derive::{Asn1Read, Asn1Write};
