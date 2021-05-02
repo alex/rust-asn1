@@ -440,6 +440,16 @@ impl<'a, T: Asn1Writable<'a>> Asn1Writable<'a> for Option<T> {
     }
 }
 
+impl<'a> Asn1Readable<'a> for Option<Tlv<'a>> {
+    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
+        if parser.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(parser.read_element::<Tlv>()?))
+        }
+    }
+}
+
 macro_rules! declare_choice {
     ($count:ident => $(($number:ident $name:ident)),*) => {
         /// Represents an ASN.1 `CHOICE` with the provided number of potential types.

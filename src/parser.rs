@@ -641,7 +641,19 @@ mod tests {
                     p.read_element::<Option<i64>>()?,
                 ))
             },
-        )
+        );
+
+        assert_parses::<Option<Tlv>>(&[
+            (
+                Ok(Some(Tlv {
+                    tag: 0x4,
+                    data: b"abc",
+                })),
+                b"\x04\x03abc",
+            ),
+            (Ok(None), b""),
+            (Err(ParseError::ShortData), b"\x04"),
+        ]);
     }
 
     #[test]
