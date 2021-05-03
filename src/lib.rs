@@ -29,13 +29,13 @@
 //! ```
 //!
 //! In general everything about parsing is driven by providing different type
-//! parameters to `Parser.read_element`. Some types directly implement the
-//! `Asn1Element` trait, as seen with `u64` or `&[u8]` (`OCTET STRING`), while
-//! others use placeholder types which differ from the return type
-//! (`PrintableString` or `UtcTime`). There are also types such as `Implicit`
-//! and `Explicit` for handling tagged values, `Choice1`, `Choice2`, and
-//! `Choice3` available for choices, and `Option<T>` for handling `OPTIONAL`
-//!  values.
+//! parameters to `Parser.read_element`. Some types implement the
+//! `Asn1Readable` trait directly on a basic type, as seen with `u64` or
+//! `&[u8]` (`OCTET STRING`), while others use wrapper types which simply
+//! provide ASN.1 encoding and decoding for some other type (`PrintableString`
+//! or `UtcTime`). There are also types such as `Implicit` and `Explicit` for
+//! handling tagged values, `Choice1`, `Choice2`, and `Choice3` available for
+//! choices, and `Option<T>` for handling `OPTIONAL` values.
 //!
 //! To serialize DER for the `Sequence` structure, you'd write the following:
 //! ```
