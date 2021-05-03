@@ -48,6 +48,38 @@
 //!     }));
 //! });
 //! ```
+//!
+//! # Derive
+//!
+//! When built with the `derive` feature (enabled by default), these can also
+//! be expressed as Rust structs:
+//! ```text
+//! #[derive(asn1::Asn1Read, asn1::Asn1Write)]
+//! struct Signature {
+//!     r: u64,
+//!     s: u64,
+//! }
+//!
+//! # let data = b"";
+//! # let r = 0u64;
+//! # let s = 0u64;
+//! let sig = asn1::parse_single::<Signature>(data);
+//! let result = asn1::write_single(&Signature{r, s});
+//! ```
+//!
+//! On Rust >= 1.51.0, [`Explicit`] and [`Implicit`] tagging may be specified
+//! with struct members of those types. However on Rust < 1.51.0, this is not
+//! possible, since they require const generics. Instead, the `#[implicit]`
+//! and `#[explicit]` attributes may be used:
+//! ```text
+//! #[derive(asn1::Asn1Read, asn1::Asn1Write)]
+//! struct SomeSequence<'a> {
+//!     #[implicit(0)]
+//!     a: Option<&'a [u8]>,
+//!     #[explicit(1)]
+//!     b: Option<u64>,
+//! }
+//! ```
 
 extern crate alloc;
 

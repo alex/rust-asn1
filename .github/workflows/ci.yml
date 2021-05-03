@@ -60,19 +60,19 @@ jobs:
         RUST:
           # MSRV
           - VERSION: "1.41.0"
-            FLAGS: ""
+            FLAGS: "--no-default-features --features std,derive"
           - VERSION: stable
             FLAGS: ""
           - VERSION: stable
-            FLAGS: "--features const-generics"
+            FLAGS: "--no-default-features --features std"
           - VERSION: beta
             FLAGS: ""
           - VERSION: beta
-            FLAGS: "--features const-generics"
+            FLAGS: "--no-default-features --features std"
           - VERSION: nightly
             FLAGS: ""
           - VERSION: nightly
-            FLAGS: "--features const-generics"
+            FLAGS: "--no-default-features --features std"
 
     steps:
       - uses: actions/checkout@v2.3.4

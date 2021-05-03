@@ -12,10 +12,12 @@ use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult, Parser}
 pub(crate) const CONTEXT_SPECIFIC: u8 = 0x80;
 pub(crate) const CONSTRUCTED: u8 = 0x20;
 
+/// Any type that can be parsed as DER ASN.1.
 pub trait Asn1Readable<'a>: Sized {
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self>;
 }
 
+/// Types with a fixed-tag that can be parsed as DER ASN.1
 pub trait SimpleAsn1Readable<'a>: Sized {
     const TAG: u8;
 
@@ -32,10 +34,12 @@ impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
     }
 }
 
+/// Any type that can be written as DER ASN.1.
 pub trait Asn1Writable<'a>: Sized {
     fn write(&self, dest: &mut Writer);
 }
 
+// Types with a fixed-tag that can be written as DER ASN.1.
 pub trait SimpleAsn1Writable<'a>: Sized {
     const TAG: u8;
 
@@ -331,6 +335,8 @@ impl<'a> SimpleAsn1Writable<'a> for BitString<'a> {
     }
 }
 
+/// Used for parsing and writing ASN.1 `UTC TIME` values. Wraps a
+/// `chrono::DateTime<Utc>`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct UtcTime(chrono::DateTime<chrono::Utc>);
 
@@ -536,6 +542,8 @@ impl<'a> SimpleAsn1Readable<'a> for Sequence<'a> {
     }
 }
 
+/// Writes an ASN.1 `SEQUENCE` using a callback that writes the inner
+/// elements.
 pub struct SequenceWriter<'a> {
     f: &'a dyn Fn(&mut Writer),
 }
@@ -591,6 +599,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SequenceOf<'a, T> {
     }
 }
 
+/// Writes a `SEQUENCE OF` ASN.1 structure from a slice of `T`.
 pub struct SequenceOfWriter<'a, T: Asn1Writable<'a>> {
     vals: &'a [T],
 }
@@ -663,6 +672,8 @@ impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SetOf<'a, T> {
     }
 }
 
+/// Writes an ASN.1 `SET OF` whose contents is a slice of `T`. This type is
+/// responsible for ensure the values are properly ordered when written as DER.
 pub struct SetOfWriter<'a, T: Asn1Writable<'a>> {
     vals: &'a [T],
 }

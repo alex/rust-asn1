@@ -20,6 +20,8 @@ fn _insert_at_position(vec: &mut Vec<u8>, pos: usize, data: &[u8]) {
     vec[pos..pos + data.len()].copy_from_slice(data);
 }
 
+/// Encapsulates an ongoing write. For almost all use-cases the correct
+/// entrypoint is [`write()`] or [`write_single()`].
 pub struct Writer<'a> {
     pub(crate) data: &'a mut Vec<u8>,
 }
@@ -31,10 +33,13 @@ impl Writer<'_> {
         Writer { data }
     }
 
+    /// Writes a single element to the output.
     pub fn write_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T) {
         val.write(self);
     }
 
+    /// This is an alias for `write_element::<Option<Explicit<T, tag>>>` for
+    /// use when MSRV is <1.51.
     pub fn write_optional_explicit_element<'a, T: SimpleAsn1Writable<'a>>(
         &mut self,
         val: &Option<T>,
@@ -46,6 +51,8 @@ impl Writer<'_> {
         }
     }
 
+    /// This is an alias for `write_element::<Option<Implicit<T, tag>>>` for
+    /// use when MSRV is <1.51.
     pub fn write_optional_implicit_element<'a, T: SimpleAsn1Writable<'a>>(
         &mut self,
         val: &Option<T>,
