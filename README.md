@@ -25,4 +25,4 @@ asn1 = { version = "0.3", default-features = false }
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
 [deps-rs-link]: https://deps.rs/repo/github/alex/rust-asn1
 [docs-rs-image]: https://docs.rs/asn1/badge.svg
-[ocs-rs-link]: https://docs.rs/asn1/
+[docs-rs-link]: https://docs.rs/asn1/
