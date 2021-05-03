@@ -19,7 +19,7 @@ Builds on Rust 1.41.0 and newer, but versions older than 1.51.0 require disablin
 `rust-asn1` is compatible with `#![no_std]` environments:
 
 ```toml
-asn1 = { version = "0.3", default-features = false }
+asn1 = { version = "0.4", default-features = false }
 ```
 
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
