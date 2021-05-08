@@ -327,7 +327,7 @@ mod tests {
                 b"\x04\x89\x01\x01\x01\x01\x01\x01\x01\x01\x01"
             ),
             (Err(ParseError::ShortData), b"\x04\x03\x01\x02"),
-            (Err(ParseError::ShortData), b"\x04\x86\xff\xff\xff\xff\xff\xff"),
+            (Err(ParseError::ShortData), b"\x04\x83\xff\xff\xff\xff\xff\xff"),
         ]);
     }
 
