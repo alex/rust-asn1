@@ -116,11 +116,17 @@ impl<'a> Parser<'a> {
 
     #[inline]
     pub(crate) fn read_tlv(&mut self) -> ParseResult<Tlv<'a>> {
+        let initial_data = self.data;
+
         let tag = self.read_u8()?;
         let length = self.read_length()?;
+        let data = self.read_bytes(length)?;
+
+        let full_data = &initial_data[..initial_data.len() - self.data.len()];
         Ok(Tlv {
             tag,
-            data: self.read_bytes(length)?,
+            data,
+            full_data,
         })
     }
 
@@ -281,6 +287,7 @@ mod tests {
                 Ok(Tlv {
                     tag: 0x4,
                     data: b"abc",
+                    full_data: b"\x04\x03abc",
                 }),
                 b"\x04\x03abc",
             ),
@@ -657,6 +664,7 @@ mod tests {
                 Ok(Some(Tlv {
                     tag: 0x4,
                     data: b"abc",
+                    full_data: b"\x04\x03abc",
                 })),
                 b"\x04\x03abc",
             ),

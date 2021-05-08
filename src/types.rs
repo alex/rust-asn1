@@ -57,15 +57,25 @@ impl<'a, T: SimpleAsn1Writable<'a>> Asn1Writable<'a> for T {
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub struct Tlv<'a> {
     pub(crate) tag: u8,
+    // `data` is the value of a TLV
     pub(crate) data: &'a [u8],
+    // `full_data` contains the encoded type and length, in addition to the
+    // value
+    pub(crate) full_data: &'a [u8],
 }
 
 impl<'a> Tlv<'a> {
+    /// The tag portion of a TLV.
     pub fn tag(&self) -> u8 {
         self.tag
     }
+    /// The value portion of the TLV.
     pub fn data(&self) -> &'a [u8] {
         self.data
+    }
+    /// The full DER encoded TLV.
+    pub fn full_data(&self) -> &'a [u8] {
+        self.full_data
     }
 }
 
@@ -660,7 +670,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SetOf<'a, T> {
             Err(e) => return Some(Err(e)),
         };
         if let Some(last_el) = self.last_element {
-            if el < last_el {
+            if el.full_data < last_el.full_data {
                 return Some(Err(ParseError::InvalidSetOrdering));
             }
         }
