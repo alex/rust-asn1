@@ -11,7 +11,7 @@ Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
 
 ```toml
 [dependencies]
-asn1 = "0.3"
+asn1 = "0.4"
 ```
 
 Builds on Rust 1.41.0 and newer, but versions older than 1.51.0 require disabling the `const-generics` feature, which allows using the `Implicit` and `Explicit` types.
