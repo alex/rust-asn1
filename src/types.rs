@@ -130,8 +130,8 @@ impl<'a> SimpleAsn1Writable<'a> for &'a [u8] {
 }
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
-/// handling ASN.1 `PrintableString`.  Parsing a `PrintableString` will return
-/// an `&str` containing only valid characers.
+/// handling ASN.1 `PrintableString`.  A `PrintableString` contains an `&str`
+/// with only valid characers.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrintableString<'a>(&'a str);
 
@@ -194,6 +194,55 @@ impl<'a> SimpleAsn1Readable<'a> for PrintableString<'a> {
 
 impl<'a> SimpleAsn1Writable<'a> for PrintableString<'a> {
     const TAG: u8 = 0x13;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        dest.extend_from_slice(self.0.as_bytes());
+    }
+}
+
+/// Type for use with `Parser.read_element` and `Writer.write_element` for
+/// handling ASN.1 `IA5String`.  An `IA5String` contains an `&str`
+/// with only valid characers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct IA5String<'a>(&'a str);
+
+impl<'a> IA5String<'a> {
+    pub fn new(s: &'a str) -> Option<IA5String<'a>> {
+        if IA5String::verify(s.as_bytes()) {
+            Some(IA5String(s))
+        } else {
+            None
+        }
+    }
+
+    fn new_from_bytes(s: &'a [u8]) -> Option<IA5String> {
+        if IA5String::verify(s) {
+            // TODO: This value is always valid utf-8 because we just verified
+            // the contents, but I don't want to call an unsafe function, so we
+            // end up validating it twice. If your profile says this is slow,
+            // now you know why.
+            Some(IA5String(core::str::from_utf8(s).unwrap()))
+        } else {
+            None
+        }
+    }
+
+    fn verify(s: &[u8]) -> bool {
+        s.is_ascii()
+    }
+
+    pub fn as_str(&self) -> &'a str {
+        self.0
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for IA5String<'a> {
+    const TAG: u8 = 0x16;
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        IA5String::new_from_bytes(data).ok_or(ParseError::InvalidValue)
+    }
+}
+impl<'a> SimpleAsn1Writable<'a> for IA5String<'a> {
+    const TAG: u8 = 0x16;
     fn write_data(&self, dest: &mut Vec<u8>) {
         dest.extend_from_slice(self.0.as_bytes());
     }
@@ -812,7 +861,7 @@ impl<'a, T: SimpleAsn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a>
 
 #[cfg(test)]
 mod tests {
-    use crate::PrintableString;
+    use crate::{IA5String, PrintableString};
 
     #[test]
     fn test_printable_string_new() {
@@ -821,5 +870,14 @@ mod tests {
         assert!(PrintableString::new(" ").is_some());
         assert!(PrintableString::new("%").is_none());
         assert!(PrintableString::new("\x00").is_none());
+    }
+
+    #[test]
+    fn test_ia5string_new() {
+        assert!(IA5String::new("abc").is_some());
+        assert!(IA5String::new("").is_some());
+        assert!(IA5String::new(" ").is_some());
+        assert!(IA5String::new("%").is_some());
+        assert!(IA5String::new("😄").is_none());
     }
 }

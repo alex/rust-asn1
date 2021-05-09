@@ -115,8 +115,8 @@ mod tests {
     use super::{_insert_at_position, write, write_single, Writer};
     use crate::types::Asn1Writable;
     use crate::{
-        BigUint, BitString, Choice1, Choice2, Choice3, ObjectIdentifier, PrintableString,
-        SequenceOfWriter, SequenceWriter, SetOfWriter, UtcTime,
+        BigUint, BitString, Choice1, Choice2, Choice3, IA5String, ObjectIdentifier,
+        PrintableString, SequenceOfWriter, SequenceWriter, SetOfWriter, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -172,6 +172,20 @@ mod tests {
             (
                 PrintableString::new("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx").unwrap(),
                 b"\x13\x81\x80xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_write_ia5string() {
+        assert_writes::<IA5String>(&[
+            (
+                IA5String::new("Test User 1").unwrap(),
+                b"\x16\x0bTest User 1",
+            ),
+            (
+                IA5String::new("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx").unwrap(),
+                b"\x16\x81\x80xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
             ),
         ]);
     }
