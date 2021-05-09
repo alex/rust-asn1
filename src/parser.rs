@@ -171,8 +171,8 @@ mod tests {
     use super::Parser;
     use crate::types::Asn1Readable;
     use crate::{
-        BigUint, BitString, Choice1, Choice2, Choice3, ObjectIdentifier, ParseError, ParseResult,
-        PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
+        BigUint, BitString, Choice1, Choice2, Choice3, IA5String, ObjectIdentifier, ParseError,
+        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -474,6 +474,15 @@ mod tests {
             (Ok(PrintableString::new(")").unwrap()), b"\x13\x01)"),
             (Err(ParseError::InvalidValue), b"\x13\x03ab\x00"),
         ]);
+    }
+
+    #[test]
+    fn test_parse_ia5string() {
+        assert_parses::<IA5String>(&[
+            (Ok(IA5String::new("abc").unwrap()), b"\x16\x03abc"),
+            (Ok(IA5String::new(")").unwrap()), b"\x16\x01)"),
+            (Err(ParseError::InvalidValue), b"\x16\x03ab\xff"),
+        ])
     }
 
     #[test]
