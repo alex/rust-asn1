@@ -7,7 +7,7 @@ use core::mem;
 use chrono::{Datelike, TimeZone, Timelike};
 
 use crate::writer::Writer;
-use crate::{parse, BitString, ObjectIdentifier, ParseError, ParseResult, Parser};
+use crate::{parse, parse_single, BitString, ObjectIdentifier, ParseError, ParseResult, Parser};
 
 pub(crate) const CONTEXT_SPECIFIC: u8 = 0x80;
 pub(crate) const CONSTRUCTED: u8 = 0x20;
@@ -76,6 +76,10 @@ impl<'a> Tlv<'a> {
     /// The full DER encoded TLV.
     pub fn full_data(&self) -> &'a [u8] {
         self.full_data
+    }
+    /// Parse this TLV as a given type.
+    pub fn parse<T: Asn1Readable<'a>>(&self) -> ParseResult<T> {
+        parse_single::<T>(self.full_data)
     }
 }
 
@@ -871,7 +875,7 @@ impl<'a, T: SimpleAsn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a>
 
 #[cfg(test)]
 mod tests {
-    use crate::{IA5String, PrintableString};
+    use crate::{IA5String, ParseError, PrintableString, Tlv};
 
     #[test]
     fn test_printable_string_new() {
@@ -889,5 +893,19 @@ mod tests {
         assert!(IA5String::new(" ").is_some());
         assert!(IA5String::new("%").is_some());
         assert!(IA5String::new("😄").is_none());
+    }
+
+    #[test]
+    fn test_tlv_parse() {
+        let tlv = Tlv {
+            tag: 0x2,
+            data: b"\x03",
+            full_data: b"\x02\x01\x03",
+        };
+        assert_eq!(tlv.parse::<u64>(), Ok(3));
+        assert_eq!(
+            tlv.parse::<&[u8]>(),
+            Err(ParseError::UnexpectedTag { actual: 0x2 })
+        );
     }
 }
