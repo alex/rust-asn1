@@ -126,7 +126,7 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
 
-      - uses: actions-rs/install@v0.1
+      - uses: actions-rs/install@v0.1.2
         with:
           crate: cargo-fuzz
           version: latest
