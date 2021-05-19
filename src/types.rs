@@ -854,9 +854,7 @@ impl<'a, T, const TAG: u8> Explicit<'a, T, { TAG }> {
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a>
-    for Explicit<'a, T, { TAG }>
-{
+impl<'a, T: Asn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
     const TAG: u8 = CONTEXT_SPECIFIC | CONSTRUCTED | TAG;
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Explicit::new(parse(data, |p| p.read_element::<T>())?))
@@ -864,9 +862,7 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a>
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T: SimpleAsn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a>
-    for Explicit<'a, T, { TAG }>
-{
+impl<'a, T: Asn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a> for Explicit<'a, T, { TAG }> {
     const TAG: u8 = CONTEXT_SPECIFIC | CONSTRUCTED | TAG;
     fn write_data(&self, dest: &mut Vec<u8>) {
         Writer::new(dest).write_element(&self.inner);
