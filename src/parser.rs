@@ -684,6 +684,12 @@ mod tests {
             (Ok(None), b""),
             (Err(ParseError::ShortData), b"\x04"),
         ]);
+
+        assert_parses::<Option<Choice2<u64, bool>>>(&[
+            (Ok(None), b""),
+            (Ok(Some(Choice2::ChoiceA(17))), b"\x02\x01\x11"),
+            (Ok(Some(Choice2::ChoiceB(true))), b"\x01\x01\xff"),
+        ]);
     }
 
     #[test]

@@ -15,6 +15,7 @@ pub(crate) const CONSTRUCTED: u8 = 0x20;
 /// Any type that can be parsed as DER ASN.1.
 pub trait Asn1Readable<'a>: Sized {
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self>;
+    fn can_parse(tag: u8) -> bool;
 }
 
 /// Types with a fixed-tag that can be parsed as DER ASN.1
@@ -25,12 +26,18 @@ pub trait SimpleAsn1Readable<'a>: Sized {
 }
 
 impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
+    #[inline]
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
         let tlv = parser.read_tlv()?;
-        if tlv.tag != Self::TAG {
+        if !Self::can_parse(tlv.tag) {
             return Err(ParseError::UnexpectedTag { actual: tlv.tag });
         }
         Self::parse_data(tlv.data)
+    }
+
+    #[inline]
+    fn can_parse(tag: u8) -> bool {
+        tag == Self::TAG
     }
 }
 
@@ -86,6 +93,10 @@ impl<'a> Tlv<'a> {
 impl<'a> Asn1Readable<'a> for Tlv<'a> {
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
         parser.read_tlv()
+    }
+
+    fn can_parse(_tag: u8) -> bool {
+        true
     }
 }
 
@@ -490,14 +501,16 @@ impl SimpleAsn1Writable<'_> for UtcTime {
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for Option<T> {
+impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for Option<T> {
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
-        let tag = parser.peek_u8();
-        if tag == Some(T::TAG) {
-            Ok(Some(parser.read_element::<T>()?))
-        } else {
-            Ok(None)
+        match parser.peek_u8() {
+            Some(tag) if T::can_parse(tag) => Ok(Some(parser.read_element::<T>()?)),
+            Some(_) | None => Ok(None),
         }
+    }
+
+    fn can_parse(tag: u8) -> bool {
+        T::can_parse(tag)
     }
 }
 
@@ -505,16 +518,6 @@ impl<'a, T: Asn1Writable<'a>> Asn1Writable<'a> for Option<T> {
     fn write(&self, w: &mut Writer) {
         if let Some(v) = self {
             w.write_element(v);
-        }
-    }
-}
-
-impl<'a> Asn1Readable<'a> for Option<Tlv<'a>> {
-    fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
-        if parser.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(parser.read_element::<Tlv>()?))
         }
     }
 }
@@ -537,18 +540,27 @@ macro_rules! declare_choice {
         impl<
             'a,
             $(
-                $number: SimpleAsn1Readable<'a>,
+                $number: Asn1Readable<'a>,
             )*
         > Asn1Readable<'a> for $count<$($number,)*> {
             fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
                 let tag = parser.peek_u8();
                 match tag {
                     $(
-                        Some(tag) if tag == $number::TAG => Ok($count::$name(parser.read_element::<$number>()?)),
+                        Some(tag) if $number::can_parse(tag) => Ok($count::$name(parser.read_element::<$number>()?)),
                     )*
                     Some(tag) => Err(ParseError::UnexpectedTag{actual: tag}),
                     None => Err(ParseError::ShortData),
                 }
+            }
+
+            fn can_parse(tag: u8) -> bool {
+                $(
+                    if $number::can_parse(tag) {
+                        return true;
+                    }
+                )*
+                false
             }
         }
 
@@ -737,7 +749,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SetOf<'a, T> {
             }
         }
         self.last_element = Some(el);
-        if el.tag != T::TAG {
+        if !T::can_parse(el.tag) {
             return Some(Err(ParseError::UnexpectedTag { actual: el.tag }));
         }
         Some(T::parse_data(el.data))
