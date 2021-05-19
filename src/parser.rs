@@ -145,7 +145,7 @@ impl<'a> Parser<'a> {
 
     /// This is an alias for `read_element::<Option<Explicit<T, tag>>>` for use
     /// when MSRV is <1.51.
-    pub fn read_optional_explicit_element<T: SimpleAsn1Readable<'a>>(
+    pub fn read_optional_explicit_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u8,
     ) -> ParseResult<Option<T>> {
