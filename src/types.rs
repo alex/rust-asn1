@@ -643,6 +643,15 @@ impl<'a, T: SimpleAsn1Readable<'a>> SequenceOf<'a, T> {
     }
 }
 
+impl<'a, T: SimpleAsn1Readable<'a>> Clone for SequenceOf<'a, T> {
+    fn clone(&self) -> SequenceOf<'a, T> {
+        SequenceOf {
+            parser: self.parser.clone_internal(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
 impl<'a, T: SimpleAsn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
     #[inline]
@@ -871,7 +880,9 @@ impl<'a, T: Asn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a> for Explicit
 
 #[cfg(test)]
 mod tests {
-    use crate::{IA5String, ParseError, PrintableString, Tlv};
+    use crate::{
+        parse_single, IA5String, ParseError, ParseResult, PrintableString, SequenceOf, Tlv,
+    };
 
     #[test]
     fn test_printable_string_new() {
@@ -903,5 +914,16 @@ mod tests {
             tlv.parse::<&[u8]>(),
             Err(ParseError::UnexpectedTag { actual: 0x2 })
         );
+    }
+
+    #[test]
+    fn test_sequence_of_clone() {
+        let mut seq1 =
+            parse_single::<SequenceOf<u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
+                .unwrap();
+        assert_eq!(seq1.next(), Some(Ok(1)));
+        let seq2 = seq1.clone();
+        assert_eq!(seq1.collect::<ParseResult<Vec<_>>>(), Ok(vec![2, 3]));
+        assert_eq!(seq2.collect::<ParseResult<Vec<_>>>(), Ok(vec![2, 3]));
     }
 }

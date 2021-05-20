@@ -59,6 +59,10 @@ impl<'a> Parser<'a> {
         Ok(())
     }
 
+    pub(crate) fn clone_internal(&self) -> Parser<'a> {
+        Parser::new(self.data)
+    }
+
     pub(crate) fn peek_u8(&mut self) -> Option<u8> {
         self.data.get(0).copied()
     }
