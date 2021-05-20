@@ -668,18 +668,28 @@ impl<'a, T: SimpleAsn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'
     const TAG: u8 = 0x10 | CONSTRUCTED;
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        parse(data, |p| {
+            while !p.is_empty() {
+                p.read_element::<T>()?;
+            }
+            Ok(())
+        })?;
         Ok(SequenceOf::new(data))
     }
 }
 
 impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SequenceOf<'a, T> {
-    type Item = ParseResult<T>;
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.parser.is_empty() {
             return None;
         }
-        Some(self.parser.read_element::<T>())
+        Some(
+            self.parser
+                .read_element::<T>()
+                .expect("Should always succeed"),
+        )
     }
 }
 
@@ -708,7 +718,6 @@ impl<'a, T: Asn1Writable<'a>> SimpleAsn1Writable<'a> for SequenceOfWriter<'a, T>
 /// are decoded.
 pub struct SetOf<'a, T: SimpleAsn1Readable<'a>> {
     parser: Parser<'a>,
-    last_element: Option<Tlv<'a>>,
     _phantom: PhantomData<T>,
 }
 
@@ -717,7 +726,6 @@ impl<'a, T: SimpleAsn1Readable<'a>> SetOf<'a, T> {
     pub(crate) fn new(data: &'a [u8]) -> SetOf<'a, T> {
         SetOf {
             parser: Parser::new(data),
-            last_element: None,
             _phantom: PhantomData,
         }
     }
@@ -728,31 +736,36 @@ impl<'a, T: SimpleAsn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T>
 
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        parse(data, |p| {
+            let mut last_element: Option<Tlv> = None;
+            while !p.is_empty() {
+                let el = p.read_tlv()?;
+                if let Some(last_el) = last_element {
+                    if el.full_data < last_el.full_data {
+                        return Err(ParseError::InvalidSetOrdering);
+                    }
+                }
+                last_element = Some(el);
+                el.parse::<T>()?;
+            }
+            Ok(())
+        })?;
         Ok(SetOf::new(data))
     }
 }
 
 impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SetOf<'a, T> {
-    type Item = ParseResult<T>;
+    type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.parser.is_empty() {
             return None;
         }
-        let el = match self.parser.read_tlv() {
-            Ok(tlv) => tlv,
-            Err(e) => return Some(Err(e)),
-        };
-        if let Some(last_el) = self.last_element {
-            if el.full_data < last_el.full_data {
-                return Some(Err(ParseError::InvalidSetOrdering));
-            }
-        }
-        self.last_element = Some(el);
-        if !T::can_parse(el.tag) {
-            return Some(Err(ParseError::UnexpectedTag { actual: el.tag }));
-        }
-        Some(T::parse_data(el.data))
+        Some(
+            self.parser
+                .read_element::<T>()
+                .expect("Should always succeed"),
+        )
     }
 }
 
@@ -892,9 +905,7 @@ impl<'a, T: Asn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a> for Explicit
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        parse_single, IA5String, ParseError, ParseResult, PrintableString, SequenceOf, Tlv,
-    };
+    use crate::{parse_single, IA5String, ParseError, PrintableString, SequenceOf, Tlv};
 
     #[test]
     fn test_printable_string_new() {
@@ -933,9 +944,9 @@ mod tests {
         let mut seq1 =
             parse_single::<SequenceOf<u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
                 .unwrap();
-        assert_eq!(seq1.next(), Some(Ok(1)));
+        assert_eq!(seq1.next(), Some(1));
         let seq2 = seq1.clone();
-        assert_eq!(seq1.collect::<ParseResult<Vec<_>>>(), Ok(vec![2, 3]));
-        assert_eq!(seq2.collect::<ParseResult<Vec<_>>>(), Ok(vec![2, 3]));
+        assert_eq!(seq1.collect::<Vec<_>>(), vec![2, 3]);
+        assert_eq!(seq2.collect::<Vec<_>>(), vec![2, 3]);
     }
 }
