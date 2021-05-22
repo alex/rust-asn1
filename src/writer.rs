@@ -115,8 +115,8 @@ mod tests {
     use super::{_insert_at_position, write, write_single, Writer};
     use crate::types::Asn1Writable;
     use crate::{
-        BigUint, BitString, Choice1, Choice2, Choice3, IA5String, ObjectIdentifier,
-        PrintableString, SequenceOfWriter, SequenceWriter, SetOfWriter, UtcTime,
+        parse_single, BigUint, BitString, Choice1, Choice2, Choice3, IA5String, ObjectIdentifier,
+        PrintableString, SequenceOf, SequenceOfWriter, SequenceWriter, SetOfWriter, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -317,6 +317,11 @@ mod tests {
                 b"\x30\x05\x30\x03\x02\x01\x01",
             ),
         ]);
+
+        assert_writes(&[(
+            parse_single::<SequenceOf<u64>>(b"\x30\x06\x02\x01\x05\x02\x01\x07").unwrap(),
+            b"\x30\x06\x02\x01\x05\x02\x01\x07",
+        )]);
     }
 
     #[test]
