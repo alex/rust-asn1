@@ -116,7 +116,8 @@ mod tests {
     use crate::types::Asn1Writable;
     use crate::{
         parse_single, BigUint, BitString, Choice1, Choice2, Choice3, IA5String, ObjectIdentifier,
-        PrintableString, SequenceOf, SequenceOfWriter, SequenceWriter, SetOfWriter, UtcTime,
+        PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, SetOfWriter, Tlv,
+        UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -293,6 +294,11 @@ mod tests {
             }),
             b"\x30\x03\x01\x01\xff"
         );
+
+        assert_writes(&[(
+            parse_single::<Sequence>(b"\x30\x06\x01\x01\xff\x02\x01\x06").unwrap(),
+            b"\x30\x06\x01\x01\xff\x02\x01\x06",
+        )]);
     }
 
     #[test]
@@ -397,7 +403,7 @@ mod tests {
     }
 
     #[test]
-    fn test_choice() {
+    fn test_write_choice() {
         assert_writes::<Choice1<bool>>(&[(Choice1::ChoiceA(true), b"\x01\x01\xff")]);
 
         assert_writes::<Choice2<bool, i64>>(&[
@@ -410,5 +416,13 @@ mod tests {
             (Choice3::ChoiceB(18), b"\x02\x01\x12"),
             (Choice3::ChoiceC(()), b"\x05\x00"),
         ]);
+    }
+
+    #[test]
+    fn test_write_tlv() {
+        assert_writes(&[(
+            parse_single::<Tlv>(b"\x01\x01\x00").unwrap(),
+            b"\x01\x01\x00",
+        )]);
     }
 }

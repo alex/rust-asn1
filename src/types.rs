@@ -99,6 +99,11 @@ impl<'a> Asn1Readable<'a> for Tlv<'a> {
         true
     }
 }
+impl<'a> Asn1Writable<'a> for Tlv<'a> {
+    fn write(&self, w: &mut Writer) {
+        w.write_tlv(self.tag, move |dest| dest.extend_from_slice(self.data))
+    }
+}
 
 impl SimpleAsn1Readable<'_> for () {
     const TAG: u8 = 0x05;
@@ -614,6 +619,13 @@ impl<'a> SimpleAsn1Readable<'a> for Sequence<'a> {
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
         Ok(Sequence::new(data))
+    }
+}
+impl<'a> SimpleAsn1Writable<'a> for Sequence<'a> {
+    const TAG: u8 = 0x10 | CONSTRUCTED;
+    #[inline]
+    fn write_data(&self, data: &mut Vec<u8>) {
+        data.extend_from_slice(self.data);
     }
 }
 
