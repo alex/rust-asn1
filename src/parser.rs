@@ -625,7 +625,7 @@ mod tests {
                 (Ok(vec![]), b"\x30\x00"),
                 (Err(ParseError::ShortData), b"\x30\x02\x02\x01"),
             ],
-            |p| p.read_element::<SequenceOf<i64>>()?.collect(),
+            |p| Ok(p.read_element::<SequenceOf<i64>>()?.collect()),
         )
     }
 
@@ -648,7 +648,7 @@ mod tests {
                     b"\x31\x02\x01\x00",
                 ),
             ],
-            |p| p.read_element::<SetOf<u64>>()?.collect(),
+            |p| Ok(p.read_element::<SetOf<u64>>()?.collect()),
         )
     }
 
