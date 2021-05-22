@@ -40,7 +40,7 @@ impl Writer<'_> {
 
     /// This is an alias for `write_element::<Option<Explicit<T, tag>>>` for
     /// use when MSRV is <1.51.
-    pub fn write_optional_explicit_element<'a, T: SimpleAsn1Writable<'a>>(
+    pub fn write_optional_explicit_element<'a, T: Asn1Writable<'a>>(
         &mut self,
         val: &Option<T>,
         tag: u8,
