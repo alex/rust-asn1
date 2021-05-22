@@ -693,6 +693,18 @@ impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SequenceOf<'a, T> {
     }
 }
 
+impl<'a, T: SimpleAsn1Readable<'a> + SimpleAsn1Writable<'a>> SimpleAsn1Writable<'a>
+    for SequenceOf<'a, T>
+{
+    const TAG: u8 = 0x10 | CONSTRUCTED;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        let mut w = Writer::new(dest);
+        for el in self.clone() {
+            w.write_element(&el);
+        }
+    }
+}
+
 /// Writes a `SEQUENCE OF` ASN.1 structure from a slice of `T`.
 pub struct SequenceOfWriter<'a, T: Asn1Writable<'a>> {
     vals: &'a [T],
