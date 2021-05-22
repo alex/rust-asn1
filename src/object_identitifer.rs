@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 /// recommended practice for handling them is to create some `ObjectIdentifier` constants with
 /// `ObjectIdentifier::from_string` and then compare ObjectIdentifiers you get from parsing to
 /// those.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct ObjectIdentifier<'a> {
     // Store the OID as DER encoded. This means we can 0-copy on parse.
     pub(crate) der_encoded: Cow<'a, [u8]>,
