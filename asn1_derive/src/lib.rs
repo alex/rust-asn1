@@ -4,7 +4,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 
-#[proc_macro_derive(Asn1Read, attributes(explicit, implicit))]
+#[proc_macro_derive(Asn1Read, attributes(explicit, implicit, default))]
 pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -25,7 +25,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     proc_macro::TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(Asn1Write, attributes(explicit, implicit))]
+#[proc_macro_derive(Asn1Write, attributes(explicit, implicit, default))]
 pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -80,6 +80,7 @@ enum OpType {
 
 fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
     let mut read_type = OpType::Regular;
+    let mut default = None;
     for attr in &f.attrs {
         if attr.path.is_ident("explicit") {
             if let OpType::Regular = read_type {
@@ -93,10 +94,15 @@ fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
+        } else if attr.path.is_ident("default") {
+            if default.is_some() {
+                panic!("Can't specify #[default] more than once");
+            }
+            default = Some(attr.parse_args::<syn::Lit>().unwrap());
         }
     }
 
-    match read_type {
+    let mut read_op = match read_type {
         OpType::Explicit(arg) => quote::quote! {
             p.read_optional_explicit_element(#arg)?
         },
@@ -106,7 +112,13 @@ fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
         OpType::Regular => quote::quote! {
             p.read_element()?
         },
+    };
+    if let Some(default) = default {
+        read_op = quote::quote! {{
+            asn1::from_optional_default(#read_op, #default.into())?
+        }};
     }
+    read_op
 }
 
 fn generate_read_block(data: &syn::Data) -> proc_macro2::TokenStream {
@@ -151,9 +163,10 @@ fn generate_read_block(data: &syn::Data) -> proc_macro2::TokenStream {
 
 fn generate_write_element(
     f: &syn::Field,
-    field_read: proc_macro2::TokenStream,
+    mut field_read: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
     let mut write_type = OpType::Regular;
+    let mut default = None;
     for attr in &f.attrs {
         if attr.path.is_ident("explicit") {
             if let OpType::Regular = write_type {
@@ -167,7 +180,18 @@ fn generate_write_element(
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
+        } else if attr.path.is_ident("default") {
+            if default.is_some() {
+                panic!("Can't specify #[default] more than once");
+            }
+            default = Some(attr.parse_args::<syn::Lit>().unwrap());
         }
+    }
+
+    if let Some(default) = default {
+        field_read = quote::quote! {&{
+            asn1::to_optional_default(#field_read, &(#default).into())
+        }}
     }
 
     match write_type {

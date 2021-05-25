@@ -13,8 +13,10 @@ pub enum ParseError {
     IntegerOverflow,
     /// There was extraneous data in the input.
     ExtraData,
-    /// Elements of a set were not lexicographically sorted
+    /// Elements of a set were not lexicographically sorted.
     InvalidSetOrdering,
+    /// An OPTIONAL DEFAULT was written with a default value.
+    EncodedDefault,
 }
 
 /// The result of a `parse`. Either a successful value or a `ParseError`.
