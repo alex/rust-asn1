@@ -344,6 +344,8 @@ macro_rules! impl_asn1_element_for_int {
 
 impl_asn1_element_for_int!(i8; true);
 impl_asn1_element_for_int!(u8; false);
+impl_asn1_element_for_int!(i32; false);
+impl_asn1_element_for_int!(u32; false);
 impl_asn1_element_for_int!(i64; true);
 impl_asn1_element_for_int!(u64; false);
 
@@ -503,6 +505,36 @@ impl SimpleAsn1Writable<'_> for UtcTime {
         push_two_digits(dest, self.0.second().try_into().unwrap());
 
         dest.push(b'Z');
+    }
+}
+
+/// An ASN.1 `ENUMERATED` value.
+#[derive(Debug, PartialEq)]
+pub struct Enumerated(u32);
+
+impl Enumerated {
+    pub fn new(v: u32) -> Enumerated {
+        Enumerated(v)
+    }
+
+    pub fn value(&self) -> u32 {
+        self.0
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for Enumerated {
+    const TAG: u8 = 0xa;
+
+    fn parse_data(data: &'a [u8]) -> ParseResult<Enumerated> {
+        Ok(Enumerated::new(u32::parse_data(data)?))
+    }
+}
+
+impl<'a> SimpleAsn1Writable<'a> for Enumerated {
+    const TAG: u8 = 0xa;
+
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        u32::write_data(&self.0, dest)
     }
 }
 
