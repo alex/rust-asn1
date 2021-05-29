@@ -137,7 +137,7 @@ jobs:
         with:
           crate: cargo-fuzz
           version: latest
-        if: steps.cargo-cache.outputs.cache-it != "true"
+        if: steps.cargo-cache.outputs.cache-hit != "true"
 
       - uses: actions-rs/cargo@v1.0.3
         with:
