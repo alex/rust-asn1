@@ -80,6 +80,10 @@
 //!     b: Option<u64>,
 //! }
 //! ```
+//!
+//! Fields can also be annotated with `#[default(VALUE)]` to indicate ASN.1
+//! `OPTIONAL DEFAULT` values. In this case, the field's type should be `T`,
+//! and not `Option<T>`.
 
 extern crate alloc;
 
@@ -103,3 +107,23 @@ pub use crate::writer::{write, write_single, Writer};
 
 #[cfg(feature = "derive")]
 pub use asn1_derive::{Asn1Read, Asn1Write};
+
+/// Decodes an `OPTIONAL` ASN.1 value which has a `DEFAULT`. Generaly called
+/// immediately after [`Parser::read_element`].
+pub fn from_optional_default<T: PartialEq>(v: Option<T>, default: T) -> ParseResult<T> {
+    match v {
+        Some(v) if v == default => Err(ParseError::EncodedDefault),
+        Some(v) => Ok(v),
+        None => Ok(default),
+    }
+}
+
+/// Prepares an `OPTIONAL` ASN.1 value which has a `DEFAULT` for writing.
+/// Generally called immediately before [`Writer::write_element`].
+pub fn to_optional_default<'a, T: PartialEq>(v: &'a T, default: &'a T) -> Option<&'a T> {
+    if v == default {
+        None
+    } else {
+        Some(v)
+    }
+}

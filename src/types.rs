@@ -59,6 +59,13 @@ impl<'a, T: SimpleAsn1Writable<'a>> Asn1Writable<'a> for T {
     }
 }
 
+impl<'a, T: SimpleAsn1Writable<'a>> SimpleAsn1Writable<'a> for &T {
+    const TAG: u8 = T::TAG;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        T::write_data(self, dest)
+    }
+}
+
 /// A TLV (type, length, value) represented as the tag and bytes content.
 /// Generally used for parsing ASN.1 `ANY` values.
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
@@ -896,6 +903,13 @@ impl<'a, T, const TAG: u8> Implicit<'a, T, { TAG }> {
 }
 
 #[cfg(feature = "const-generics")]
+impl<'a, T, const TAG: u8> From<T> for Implicit<'a, T, { TAG }> {
+    fn from(v: T) -> Self {
+        Implicit::new(v)
+    }
+}
+
+#[cfg(feature = "const-generics")]
 impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a>
     for Implicit<'a, T, { TAG }>
 {
@@ -940,6 +954,13 @@ impl<'a, T, const TAG: u8> Explicit<'a, T, { TAG }> {
 
     pub fn as_inner(&self) -> &T {
         &self.inner
+    }
+}
+
+#[cfg(feature = "const-generics")]
+impl<'a, T, const TAG: u8> From<T> for Explicit<'a, T, { TAG }> {
+    fn from(v: T) -> Self {
+        Explicit::new(v)
     }
 }
 

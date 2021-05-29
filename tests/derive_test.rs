@@ -151,3 +151,126 @@ fn test_implicit() {
         (Ok(ImplicitFields { a: None, b: None }), b"\x30\x00"),
     ]);
 }
+
+#[test]
+fn test_default() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct DefaultFields {
+        #[default(13)]
+        a: u8,
+        #[default(15)]
+        #[explicit(1)]
+        b: u8,
+        #[default(17)]
+        #[implicit(5)]
+        c: u8,
+    }
+
+    assert_roundtrips(&[
+        (
+            Ok(DefaultFields {
+                a: 13,
+                b: 15,
+                c: 17,
+            }),
+            b"\x30\x00",
+        ),
+        (
+            Ok(DefaultFields { a: 3, b: 15, c: 17 }),
+            b"\x30\x03\x02\x01\x03",
+        ),
+        (
+            Ok(DefaultFields { a: 13, b: 5, c: 17 }),
+            b"\x30\x05\xa1\x03\x02\x01\x05",
+        ),
+        (
+            Ok(DefaultFields { a: 13, b: 15, c: 7 }),
+            b"\x30\x03\x85\x01\x07",
+        ),
+        (
+            Ok(DefaultFields { a: 3, b: 5, c: 7 }),
+            b"\x30\x0b\x02\x01\x03\xa1\x03\x02\x01\x05\x85\x01\x07",
+        ),
+        (
+            Err(asn1::ParseError::EncodedDefault),
+            b"\x30\x03\x02\x01\x0d",
+        ),
+        (
+            Err(asn1::ParseError::EncodedDefault),
+            b"\x30\x05\xa1\x03\x02\x01\x0f",
+        ),
+        (
+            Err(asn1::ParseError::EncodedDefault),
+            b"\x30\x03\x85\x01\x11",
+        ),
+    ]);
+}
+
+#[test]
+#[cfg(feature = "const-generics")]
+fn test_default_const_generics() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct DefaultFields<'a> {
+        #[default(15)]
+        a: asn1::Explicit<'a, u8, 1>,
+        #[default(17)]
+        b: asn1::Implicit<'a, u8, 5>,
+    }
+
+    assert_roundtrips(&[
+        (
+            Ok(DefaultFields {
+                a: asn1::Explicit::new(15),
+                b: asn1::Implicit::new(17),
+            }),
+            b"\x30\x00",
+        ),
+        (
+            Ok(DefaultFields {
+                a: asn1::Explicit::new(5),
+                b: asn1::Implicit::new(17),
+            }),
+            b"\x30\x05\xa1\x03\x02\x01\x05",
+        ),
+        (
+            Ok(DefaultFields {
+                a: asn1::Explicit::new(15),
+                b: asn1::Implicit::new(7),
+            }),
+            b"\x30\x03\x85\x01\x07",
+        ),
+        (
+            Ok(DefaultFields {
+                a: asn1::Explicit::new(5),
+                b: asn1::Implicit::new(7),
+            }),
+            b"\x30\x08\xa1\x03\x02\x01\x05\x85\x01\x07",
+        ),
+        (
+            Err(asn1::ParseError::EncodedDefault),
+            b"\x30\x05\xa1\x03\x02\x01\x0f",
+        ),
+        (
+            Err(asn1::ParseError::EncodedDefault),
+            b"\x30\x03\x85\x01\x11",
+        ),
+    ]);
+}
+
+#[test]
+fn test_default_bool() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct DefaultField {
+        #[default(false)]
+        a: bool,
+    }
+
+    assert_roundtrips(&[
+        (Ok(DefaultField { a: true }), b"\x30\x03\x01\x01\xff"),
+        (Ok(DefaultField { a: false }), b"\x30\x00"),
+        (
+            Err(asn1::ParseError::EncodedDefault),
+            b"\x30\x03\x01\x01\x00",
+        ),
+    ])
+}
