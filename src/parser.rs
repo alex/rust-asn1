@@ -181,8 +181,8 @@ mod tests {
     use super::Parser;
     use crate::types::Asn1Readable;
     use crate::{
-        BigUint, BitString, Choice1, Choice2, Choice3, IA5String, ObjectIdentifier, ParseError,
-        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
+        BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, IA5String, ObjectIdentifier,
+        ParseError, ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -555,6 +555,17 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x17\x0e100102-030410Z"),
             (Err(ParseError::InvalidValue), b"\x17\x0e10010203-0410Z"),
             (Err(ParseError::InvalidValue), b"\x17\x0e1001020304-10Z"),
+        ]);
+    }
+
+    #[test]
+    fn test_enumerated() {
+        assert_parses::<Enumerated>(&[
+            (Ok(Enumerated::new(12)), b"\x0a\x01\x0c"),
+            (
+                Err(ParseError::InvalidValue),
+                b"\x0a\x09\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
         ]);
     }
 
