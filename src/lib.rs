@@ -88,13 +88,13 @@
 extern crate alloc;
 
 mod bit_string;
-mod object_identitifer;
+mod object_identifier;
 mod parser;
 mod types;
 mod writer;
 
 pub use crate::bit_string::BitString;
-pub use crate::object_identitifer::ObjectIdentifier;
+pub use crate::object_identifier::ObjectIdentifier;
 pub use crate::parser::{parse, parse_single, ParseError, ParseResult, Parser};
 pub use crate::types::{
     Asn1Readable, Asn1Writable, BigUint, Choice1, Choice2, Choice3, Enumerated, IA5String,

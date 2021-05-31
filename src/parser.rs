@@ -428,7 +428,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_object_identitifer() {
+    fn test_parse_object_identifier() {
         assert_parses::<ObjectIdentifier<'_>>(&[
             (
                 Ok(ObjectIdentifier::from_string("2.5").unwrap()),
