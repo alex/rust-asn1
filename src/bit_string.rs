@@ -27,6 +27,18 @@ impl<'a> BitString<'a> {
     pub fn padding_bits(&self) -> u8 {
         self.padding_bits
     }
+
+    /// Returns whether the requested bit is set. Padding bits will always return false and
+    /// asking for bits that exceed the length of the bit string will also return false.
+    pub fn has_bit_set(&self, n: usize) -> bool {
+        let idx = n / 8;
+        let v = 1 << (7 - (n & 0x07));
+        if self.data.len() < (idx + 1) {
+            false
+        } else {
+            self.data[idx] & v != 0
+        }
+    }
 }
 
 #[cfg(test)]
@@ -55,5 +67,25 @@ mod tests {
         assert_eq!(bs.padding_bits(), 1);
         let bs = BitString::new(b"\xe0", 5).unwrap();
         assert_eq!(bs.padding_bits(), 5);
+    }
+
+    #[test]
+    fn test_bitstring_has_bit_set() {
+        let bs = BitString::new(b"\x80", 0).unwrap();
+        assert_eq!(bs.has_bit_set(0), true);
+        assert_eq!(bs.has_bit_set(1), false);
+        assert_eq!(bs.has_bit_set(7), false);
+        // An arbitrary bit much bigger than the underlying size of the bitfield
+        assert_eq!(bs.has_bit_set(50), false);
+        let bs = BitString::new(b"\xc0", 4).unwrap();
+        // padding bits should always return false when asking if the bit is set
+        assert_eq!(bs.has_bit_set(0), true);
+        assert_eq!(bs.has_bit_set(1), true);
+        assert_eq!(bs.has_bit_set(2), false);
+        assert_eq!(bs.has_bit_set(3), false);
+        assert_eq!(bs.has_bit_set(4), false);
+        assert_eq!(bs.has_bit_set(5), false);
+        assert_eq!(bs.has_bit_set(6), false);
+        assert_eq!(bs.has_bit_set(7), false);
     }
 }
