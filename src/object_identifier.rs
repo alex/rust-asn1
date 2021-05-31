@@ -115,7 +115,7 @@ mod tests {
     use crate::ObjectIdentifier;
 
     #[test]
-    fn test_object_identitifier_from_string() {
+    fn test_object_identifier_from_string() {
         for val in &[
             "",
             "1",
