@@ -72,20 +72,20 @@ mod tests {
     #[test]
     fn test_bitstring_has_bit_set() {
         let bs = BitString::new(b"\x80", 0).unwrap();
-        assert_eq!(bs.has_bit_set(0), true);
-        assert_eq!(bs.has_bit_set(1), false);
-        assert_eq!(bs.has_bit_set(7), false);
+        assert!(bs.has_bit_set(0));
+        assert!(!bs.has_bit_set(1));
+        assert!(!bs.has_bit_set(7));
         // An arbitrary bit much bigger than the underlying size of the bitfield
-        assert_eq!(bs.has_bit_set(50), false);
+        assert!(!bs.has_bit_set(50));
         let bs = BitString::new(b"\xc0", 4).unwrap();
         // padding bits should always return false when asking if the bit is set
-        assert_eq!(bs.has_bit_set(0), true);
-        assert_eq!(bs.has_bit_set(1), true);
-        assert_eq!(bs.has_bit_set(2), false);
-        assert_eq!(bs.has_bit_set(3), false);
-        assert_eq!(bs.has_bit_set(4), false);
-        assert_eq!(bs.has_bit_set(5), false);
-        assert_eq!(bs.has_bit_set(6), false);
-        assert_eq!(bs.has_bit_set(7), false);
+        assert!(bs.has_bit_set(0));
+        assert!(bs.has_bit_set(1));
+        assert!(!bs.has_bit_set(2));
+        assert!(!bs.has_bit_set(3));
+        assert!(!bs.has_bit_set(4));
+        assert!(!bs.has_bit_set(5));
+        assert!(!bs.has_bit_set(6));
+        assert!(!bs.has_bit_set(7));
     }
 }
