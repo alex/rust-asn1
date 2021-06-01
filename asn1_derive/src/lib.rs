@@ -11,15 +11,19 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let name = input.ident;
     let (impl_lifetimes, ty_lifetimes, lifetime_name) = add_lifetime_if_none(input.generics);
 
-    let read_block = generate_read_block(&input.data);
-
-    let expanded = quote::quote! {
-        impl<#impl_lifetimes> asn1::SimpleAsn1Readable<#lifetime_name> for #name<#ty_lifetimes> {
-            const TAG: u8 = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
-            fn parse_data(data: &#lifetime_name [u8]) -> asn1::ParseResult<Self> {
-                asn1::parse(data, |p| #read_block)
+    let expanded = match input.data {
+        syn::Data::Struct(data) => {
+            let read_block = generate_struct_read_block(&data);
+            quote::quote! {
+                impl<#impl_lifetimes> asn1::SimpleAsn1Readable<#lifetime_name> for #name<#ty_lifetimes> {
+                    const TAG: u8 = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
+                    fn parse_data(data: &#lifetime_name [u8]) -> asn1::ParseResult<Self> {
+                        asn1::parse(data, |p| #read_block)
+                    }
+                }
             }
         }
+        _ => unimplemented!("Not supported for unions/enums"),
     };
 
     proc_macro::TokenStream::from(expanded)
@@ -32,15 +36,19 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let name = input.ident;
     let (impl_lifetimes, ty_lifetimes, lifetime_name) = add_lifetime_if_none(input.generics);
 
-    let write_block = generate_write_block(&input.data);
-
-    let expanded = quote::quote! {
-        impl<#impl_lifetimes> asn1::SimpleAsn1Writable<#lifetime_name> for #name<#ty_lifetimes> {
-            const TAG: u8 = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
-            fn write_data(&self, dest: &mut Vec<u8>) {
-                #write_block
+    let expanded = match input.data {
+        syn::Data::Struct(data) => {
+            let write_block = generate_struct_write_block(&data);
+            quote::quote! {
+                impl<#impl_lifetimes> asn1::SimpleAsn1Writable<#lifetime_name> for #name<#ty_lifetimes> {
+                    const TAG: u8 = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
+                    fn write_data(&self, dest: &mut Vec<u8>) {
+                        #write_block
+                    }
+                }
             }
         }
+        _ => unimplemented!("Not supported for unions/enums"),
     };
 
     proc_macro::TokenStream::from(expanded)
@@ -121,43 +129,40 @@ fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
     read_op
 }
 
-fn generate_read_block(data: &syn::Data) -> proc_macro2::TokenStream {
-    match data {
-        syn::Data::Struct(data) => match data.fields {
-            syn::Fields::Named(ref fields) => {
-                let recurse = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    let read_op = generate_read_element(f);
-                    quote::quote_spanned! {f.span() =>
-                        #name: #read_op,
-                    }
-                });
-
-                quote::quote! {
-                    Ok(Self {
-                        #(#recurse)*
-                    })
+fn generate_struct_read_block(data: &syn::DataStruct) -> proc_macro2::TokenStream {
+    match data.fields {
+        syn::Fields::Named(ref fields) => {
+            let recurse = fields.named.iter().map(|f| {
+                let name = &f.ident;
+                let read_op = generate_read_element(f);
+                quote::quote_spanned! {f.span() =>
+                    #name: #read_op,
                 }
-            }
-            syn::Fields::Unnamed(ref fields) => {
-                let recurse = fields.unnamed.iter().map(|f| {
-                    let read_op = generate_read_element(f);
-                    quote::quote_spanned! {f.span() =>
-                        #read_op,
-                    }
-                });
+            });
 
-                quote::quote! {
-                    Ok(Self(
-                        #(#recurse)*
-                    ))
+            quote::quote! {
+                Ok(Self {
+                    #(#recurse)*
+                })
+            }
+        }
+        syn::Fields::Unnamed(ref fields) => {
+            let recurse = fields.unnamed.iter().map(|f| {
+                let read_op = generate_read_element(f);
+                quote::quote_spanned! {f.span() =>
+                    #read_op,
                 }
+            });
+
+            quote::quote! {
+                Ok(Self(
+                    #(#recurse)*
+                ))
             }
-            syn::Fields::Unit => {
-                quote::quote! { Ok(Self) }
-            }
-        },
-        _ => unimplemented!("Not supported for unions/enums"),
+        }
+        syn::Fields::Unit => {
+            quote::quote! { Ok(Self) }
+        }
     }
 }
 
@@ -207,35 +212,32 @@ fn generate_write_element(
     }
 }
 
-fn generate_write_block(data: &syn::Data) -> proc_macro2::TokenStream {
-    match data {
-        syn::Data::Struct(data) => match data.fields {
-            syn::Fields::Named(ref fields) => {
-                let recurse = fields.named.iter().map(|f| {
-                    let name = &f.ident;
-                    generate_write_element(f, quote::quote! { &self.#name })
-                });
+fn generate_struct_write_block(data: &syn::DataStruct) -> proc_macro2::TokenStream {
+    match data.fields {
+        syn::Fields::Named(ref fields) => {
+            let recurse = fields.named.iter().map(|f| {
+                let name = &f.ident;
+                generate_write_element(f, quote::quote! { &self.#name })
+            });
 
-                quote::quote! {
-                    let mut w = asn1::Writer::new(dest);
-                    #(#recurse)*
-                }
+            quote::quote! {
+                let mut w = asn1::Writer::new(dest);
+                #(#recurse)*
             }
-            syn::Fields::Unnamed(ref fields) => {
-                let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                    let index = syn::Index::from(i);
-                    generate_write_element(f, quote::quote! { &self.#index })
-                });
+        }
+        syn::Fields::Unnamed(ref fields) => {
+            let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                let index = syn::Index::from(i);
+                generate_write_element(f, quote::quote! { &self.#index })
+            });
 
-                quote::quote! {
-                    let mut w = asn1::Writer::new(dest);
-                    #(#recurse)*
-                }
+            quote::quote! {
+                let mut w = asn1::Writer::new(dest);
+                #(#recurse)*
             }
-            syn::Fields::Unit => {
-                quote::quote! {}
-            }
-        },
-        _ => unimplemented!("Not supported for unions/enums"),
+        }
+        syn::Fields::Unit => {
+            quote::quote! {}
+        }
     }
 }
