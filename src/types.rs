@@ -588,14 +588,13 @@ macro_rules! declare_choice {
             )*
         > Asn1Readable<'a> for $count<$($number,)*> {
             fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
-                let tag = parser.peek_u8();
-                match tag {
-                    $(
-                        Some(tag) if $number::can_parse(tag) => Ok($count::$name(parser.read_element::<$number>()?)),
-                    )*
-                    Some(tag) => Err(ParseError::UnexpectedTag{actual: tag}),
-                    None => Err(ParseError::ShortData),
-                }
+                let tlv = parser.read_tlv()?;
+                $(
+                    if $number::can_parse(tlv.tag()) {
+                        return Ok($count::$name(tlv.parse::<$number>()?));
+                    }
+                )*
+                Err(ParseError::UnexpectedTag{actual: tlv.tag()})
             }
 
             fn can_parse(tag: u8) -> bool {

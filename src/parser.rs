@@ -709,7 +709,7 @@ mod tests {
     fn test_choice1() {
         assert_parses::<Choice1<bool>>(&[
             (Ok(Choice1::ChoiceA(true)), b"\x01\x01\xff"),
-            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03"),
+            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03\x00"),
             (Err(ParseError::ShortData), b""),
         ]);
     }
@@ -719,7 +719,7 @@ mod tests {
         assert_parses::<Choice2<bool, i64>>(&[
             (Ok(Choice2::ChoiceA(true)), b"\x01\x01\xff"),
             (Ok(Choice2::ChoiceB(18)), b"\x02\x01\x12"),
-            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03"),
+            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03\x00"),
             (Err(ParseError::ShortData), b""),
         ]);
     }
@@ -730,7 +730,7 @@ mod tests {
             (Ok(Choice3::ChoiceA(true)), b"\x01\x01\xff"),
             (Ok(Choice3::ChoiceB(18)), b"\x02\x01\x12"),
             (Ok(Choice3::ChoiceC(())), b"\x05\x00"),
-            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03"),
+            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03\x00"),
             (Err(ParseError::ShortData), b""),
         ]);
     }
