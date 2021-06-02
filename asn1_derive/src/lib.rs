@@ -23,7 +23,24 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                 }
             }
         }
-        _ => unimplemented!("Not supported for unions/enums"),
+        syn::Data::Enum(data) => {
+            let (read_block, can_parse_block) = generate_enum_read_block(&name, &data);
+            quote::quote! {
+                impl<#impl_lifetimes> asn1::Asn1Readable<#lifetime_name> for #name<#ty_lifetimes> {
+                    fn parse(parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
+                        let tlv = parser.read_element::<asn1::Tlv>()?;
+                        #read_block
+                        Err(asn1::ParseError::UnexpectedTag{actual: tlv.tag()})
+                    }
+
+                    fn can_parse(tag: u8) -> bool {
+                        #can_parse_block
+                        false
+                    }
+                }
+            }
+        }
+        _ => unimplemented!("Not supported for unions"),
     };
 
     proc_macro::TokenStream::from(expanded)
@@ -48,7 +65,17 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
                 }
             }
         }
-        _ => unimplemented!("Not supported for unions/enums"),
+        syn::Data::Enum(data) => {
+            let write_block = generate_enum_write_block(&name, &data);
+            quote::quote! {
+                impl<#impl_lifetimes> asn1::Asn1Writable<#lifetime_name> for #name<#ty_lifetimes> {
+                    fn write(&self, w: &mut asn1::Writer) {
+                        #write_block
+                    }
+                }
+            }
+        }
+        _ => unimplemented!("Not supported for unions"),
     };
 
     proc_macro::TokenStream::from(expanded)
@@ -166,6 +193,44 @@ fn generate_struct_read_block(data: &syn::DataStruct) -> proc_macro2::TokenStrea
     }
 }
 
+fn generate_enum_read_block(
+    name: &syn::Ident,
+    data: &syn::DataEnum,
+) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+    let mut read_blocks = vec![];
+    let mut can_parse_blocks = vec![];
+
+    for variant in &data.variants {
+        let field = match &variant.fields {
+            syn::Fields::Unnamed(fields) => {
+                assert_eq!(fields.unnamed.len(), 1);
+                &fields.unnamed[0]
+            }
+            _ => panic!("enum elements must have a single field"),
+        };
+        let ty = &field.ty;
+        let ident = &variant.ident;
+        read_blocks.push(quote::quote! {
+            if <#ty>::can_parse(tlv.tag()) {
+                return Ok(#name::#ident(tlv.parse()?));
+            }
+        });
+        can_parse_blocks.push(quote::quote! {
+            if <#ty>::can_parse(tag) {
+                return true;
+            }
+        });
+    }
+
+    let read_block = quote::quote! {
+        #(#read_blocks)*
+    };
+    let can_parse_block = quote::quote! {
+        #(#can_parse_blocks)*
+    };
+    (read_block, can_parse_block)
+}
+
 fn generate_write_element(
     f: &syn::Field,
     mut field_read: proc_macro2::TokenStream,
@@ -238,6 +303,27 @@ fn generate_struct_write_block(data: &syn::DataStruct) -> proc_macro2::TokenStre
         }
         syn::Fields::Unit => {
             quote::quote! {}
+        }
+    }
+}
+
+fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_macro2::TokenStream {
+    let write_arms = data.variants.iter().map(|v| {
+        match &v.fields {
+            syn::Fields::Unnamed(fields) => {
+                assert_eq!(fields.unnamed.len(), 1);
+            }
+            _ => panic!("enum elements must have a single field"),
+        };
+        let ident = &v.ident;
+
+        quote::quote! {
+            #name::#ident(value) => w.write_element(value),
+        }
+    });
+    quote::quote! {
+        match self {
+            #(#write_arms)*
         }
     }
 }

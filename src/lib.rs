@@ -84,6 +84,18 @@
 //! Fields can also be annotated with `#[default(VALUE)]` to indicate ASN.1
 //! `OPTIONAL DEFAULT` values. In this case, the field's type should be `T`,
 //! and not `Option<T>`.
+//!
+//! These derives may also be used with `enum`s to generate `CHOICE`
+//! implementations.
+//! ```text
+//! #[derive(asn1::Asn1Read, asn1::Asn1Write)]
+//! enum Time {
+//!     UTCTime(asn1::UtcTime),
+//!     GeneralizedTime(asn1::GeneralizedTime)
+//! }
+//! ```
+//!
+//! All variants must have a single un-named field.
 
 extern crate alloc;
 

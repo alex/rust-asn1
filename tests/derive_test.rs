@@ -274,3 +274,39 @@ fn test_default_bool() {
         ),
     ])
 }
+
+#[test]
+fn test_enum() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    enum BasicChoice {
+        A(u64),
+        B(()),
+    }
+
+    assert_roundtrips(&[
+        (Ok(BasicChoice::A(17)), b"\x02\x01\x11"),
+        (Ok(BasicChoice::B(())), b"\x05\x00"),
+        (
+            Err(asn1::ParseError::UnexpectedTag { actual: 4 }),
+            b"\x04\x00",
+        ),
+    ]);
+}
+
+#[test]
+fn test_enum_lifetimes() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    enum LifetimesChoice<'a> {
+        A(u64),
+        B(&'a [u8]),
+    }
+
+    assert_roundtrips(&[
+        (Ok(LifetimesChoice::A(17)), b"\x02\x01\x11"),
+        (Ok(LifetimesChoice::B(b"lol")), b"\x04\x03lol"),
+        (
+            Err(asn1::ParseError::UnexpectedTag { actual: 5 }),
+            b"\x05\x00",
+        ),
+    ]);
+}
