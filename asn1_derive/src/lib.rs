@@ -113,19 +113,19 @@ enum OpType {
     Implicit(proc_macro2::Literal),
 }
 
-fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
-    let mut read_type = OpType::Regular;
+fn extract_field_properties(f: &syn::Field) -> (OpType, Option<syn::Lit>) {
+    let mut op_type = OpType::Regular;
     let mut default = None;
     for attr in &f.attrs {
         if attr.path.is_ident("explicit") {
-            if let OpType::Regular = read_type {
-                read_type = OpType::Explicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
+            if let OpType::Regular = op_type {
+                op_type = OpType::Explicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
         } else if attr.path.is_ident("implicit") {
-            if let OpType::Regular = read_type {
-                read_type = OpType::Implicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
+            if let OpType::Regular = op_type {
+                op_type = OpType::Implicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
@@ -136,6 +136,12 @@ fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
             default = Some(attr.parse_args::<syn::Lit>().unwrap());
         }
     }
+
+    (op_type, default)
+}
+
+fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
+    let (read_type, default) = extract_field_properties(f);
 
     let mut read_op = match read_type {
         OpType::Explicit(arg) => quote::quote! {
@@ -235,28 +241,7 @@ fn generate_write_element(
     f: &syn::Field,
     mut field_read: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
-    let mut write_type = OpType::Regular;
-    let mut default = None;
-    for attr in &f.attrs {
-        if attr.path.is_ident("explicit") {
-            if let OpType::Regular = write_type {
-                write_type = OpType::Explicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
-            } else {
-                panic!("Can't specify #[explicit] or #[implicit] more than once")
-            }
-        } else if attr.path.is_ident("implicit") {
-            if let OpType::Regular = write_type {
-                write_type = OpType::Implicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
-            } else {
-                panic!("Can't specify #[explicit] or #[implicit] more than once")
-            }
-        } else if attr.path.is_ident("default") {
-            if default.is_some() {
-                panic!("Can't specify #[default] more than once");
-            }
-            default = Some(attr.parse_args::<syn::Lit>().unwrap());
-        }
-    }
+    let (write_type, default) = extract_field_properties(f);
 
     if let Some(default) = default {
         field_read = quote::quote! {&{
