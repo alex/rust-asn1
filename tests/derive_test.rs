@@ -291,6 +291,12 @@ fn test_enum() {
             b"\x04\x00",
         ),
     ]);
+
+    assert_roundtrips(&[
+        (Ok(Some(BasicChoice::A(17))), b"\x02\x01\x11"),
+        (Ok(Some(BasicChoice::B(()))), b"\x05\x00"),
+        (Ok(None), b""),
+    ]);
 }
 
 #[test]
@@ -308,5 +314,68 @@ fn test_enum_lifetimes() {
             Err(asn1::ParseError::UnexpectedTag { actual: 5 }),
             b"\x05\x00",
         ),
+    ]);
+
+    assert_roundtrips(&[
+        (Ok(Some(LifetimesChoice::A(17))), b"\x02\x01\x11"),
+        (Ok(Some(LifetimesChoice::B(b"lol"))), b"\x04\x03lol"),
+        (Ok(None), b""),
+    ]);
+}
+
+#[test]
+fn test_enum_explicit() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    enum ExplicitChoice<'a> {
+        #[explicit(5)]
+        A(u64),
+        B(&'a [u8]),
+    }
+
+    assert_roundtrips(&[
+        (Ok(ExplicitChoice::A(17)), b"\xa5\x03\x02\x01\x11"),
+        (Ok(ExplicitChoice::B(b"lol")), b"\x04\x03lol"),
+        (
+            Err(asn1::ParseError::UnexpectedTag { actual: 5 }),
+            b"\x05\x00",
+        ),
+    ]);
+
+    assert_roundtrips(&[
+        (Ok(Some(ExplicitChoice::A(17))), b"\xa5\x03\x02\x01\x11"),
+        (Ok(Some(ExplicitChoice::B(b"lol"))), b"\x04\x03lol"),
+        (Ok(None), b""),
+    ]);
+}
+
+#[test]
+fn test_enum_implicit() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct EmptySequence;
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    enum ImplicitChoice<'a> {
+        #[implicit(5)]
+        A(u64),
+        #[implicit(7)]
+        B(EmptySequence),
+        C(&'a [u8]),
+    }
+
+    assert_roundtrips(&[
+        (Ok(ImplicitChoice::A(17)), b"\x85\x01\x11"),
+        (Ok(ImplicitChoice::B(EmptySequence)), b"\xa7\x00"),
+        (Ok(ImplicitChoice::C(b"lol")), b"\x04\x03lol"),
+        (
+            Err(asn1::ParseError::UnexpectedTag { actual: 5 }),
+            b"\x05\x00",
+        ),
+    ]);
+
+    assert_roundtrips(&[
+        (Ok(Some(ImplicitChoice::A(17))), b"\x85\x01\x11"),
+        (Ok(Some(ImplicitChoice::B(EmptySequence))), b"\xa7\x00"),
+        (Ok(Some(ImplicitChoice::C(b"lol"))), b"\x04\x03lol"),
+        (Ok(None), b""),
     ]);
 }
