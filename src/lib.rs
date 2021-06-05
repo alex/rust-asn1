@@ -139,3 +139,17 @@ pub fn to_optional_default<'a, T: PartialEq>(v: &'a T, default: &'a T) -> Option
         Some(v)
     }
 }
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+#[doc(hidden)]
+pub const fn implicit_tag(tag: u8, inner_tag: u8) -> u8 {
+    types::CONTEXT_SPECIFIC | tag | (inner_tag & types::CONSTRUCTED)
+}
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+#[doc(hidden)]
+pub const fn explicit_tag(tag: u8) -> u8 {
+    types::CONTEXT_SPECIFIC | types::CONSTRUCTED | tag
+}
