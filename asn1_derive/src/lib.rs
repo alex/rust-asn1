@@ -113,10 +113,10 @@ enum OpType {
     Implicit(proc_macro2::Literal),
 }
 
-fn extract_field_properties(f: &syn::Field) -> (OpType, Option<syn::Lit>) {
+fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Lit>) {
     let mut op_type = OpType::Regular;
     let mut default = None;
-    for attr in &f.attrs {
+    for attr in attrs {
         if attr.path.is_ident("explicit") {
             if let OpType::Regular = op_type {
                 op_type = OpType::Explicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
@@ -141,7 +141,7 @@ fn extract_field_properties(f: &syn::Field) -> (OpType, Option<syn::Lit>) {
 }
 
 fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
-    let (read_type, default) = extract_field_properties(f);
+    let (read_type, default) = extract_field_properties(&f.attrs);
 
     let mut read_op = match read_type {
         OpType::Explicit(arg) => quote::quote! {
@@ -214,18 +214,56 @@ fn generate_enum_read_block(
             }
             _ => panic!("enum elements must have a single field"),
         };
+        let (op_type, default) = extract_field_properties(&variant.attrs);
+        assert!(default.is_none());
+
         let ty = &field.ty;
         let ident = &variant.ident;
-        read_blocks.push(quote::quote! {
-            if <#ty>::can_parse(tlv.tag()) {
-                return Ok(#name::#ident(tlv.parse()?));
+
+        match op_type {
+            OpType::Regular => {
+                read_blocks.push(quote::quote! {
+                    if <#ty>::can_parse(tlv.tag()) {
+                        return Ok(#name::#ident(tlv.parse()?));
+                    }
+                });
+                can_parse_blocks.push(quote::quote! {
+                    if <#ty>::can_parse(tag) {
+                        return true;
+                    }
+                });
             }
-        });
-        can_parse_blocks.push(quote::quote! {
-            if <#ty>::can_parse(tag) {
-                return true;
+            OpType::Explicit(tag) => {
+                read_blocks.push(quote::quote! {
+                    if tlv.tag() == asn1::explicit_tag(#tag) {
+                        return Ok(#name::#ident(asn1::parse(
+                            tlv.full_data(),
+                            |p| Ok(p.read_optional_explicit_element(#tag)?.unwrap()))?
+                        ))
+                    }
+                });
+                can_parse_blocks.push(quote::quote! {
+                    if tag == asn1::explicit_tag(#tag) {
+                        return true;
+                    }
+                });
             }
-        });
+            OpType::Implicit(tag) => {
+                read_blocks.push(quote::quote! {
+                    if tlv.tag() == asn1::implicit_tag(#tag, <#ty as asn1::SimpleAsn1Readable>::TAG) {
+                        return Ok(#name::#ident(asn1::parse(
+                            tlv.full_data(),
+                            |p| Ok(p.read_optional_implicit_element(#tag)?.unwrap()))?
+                        ))
+                    }
+                });
+                can_parse_blocks.push(quote::quote! {
+                    if tag == asn1::implicit_tag(#tag, <#ty as asn1::SimpleAsn1Readable>::TAG) {
+                        return true;
+                    }
+                });
+            }
+        };
     }
 
     let read_block = quote::quote! {
@@ -241,7 +279,7 @@ fn generate_write_element(
     f: &syn::Field,
     mut field_read: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
-    let (write_type, default) = extract_field_properties(f);
+    let (write_type, default) = extract_field_properties(&f.attrs);
 
     if let Some(default) = default {
         field_read = quote::quote! {&{
@@ -300,10 +338,26 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
             }
             _ => panic!("enum elements must have a single field"),
         };
+        let (op_type, default) = extract_field_properties(&v.attrs);
+        assert!(default.is_none());
         let ident = &v.ident;
 
-        quote::quote! {
-            #name::#ident(value) => w.write_element(value),
+        match op_type {
+            OpType::Regular => {
+                quote::quote! {
+                    #name::#ident(value) => w.write_element(value),
+                }
+            }
+            OpType::Explicit(tag) => {
+                quote::quote! {
+                    #name::#ident(value) => w.write_optional_explicit_element(&Some(value), #tag),
+                }
+            }
+            OpType::Implicit(tag) => {
+                quote::quote! {
+                    #name::#ident(value) => w.write_optional_implicit_element(&Some(value), #tag),
+                }
+            }
         }
     });
     quote::quote! {
