@@ -912,7 +912,7 @@ impl<'a, T, const TAG: u8> From<T> for Implicit<'a, T, { TAG }> {
 impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a>
     for Implicit<'a, T, { TAG }>
 {
-    const TAG: u8 = CONTEXT_SPECIFIC | TAG | (T::TAG & CONSTRUCTED);
+    const TAG: u8 = crate::implicit_tag(TAG, T::TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Implicit::new(T::parse_data(data)?))
     }
@@ -922,7 +922,7 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a>
 impl<'a, T: SimpleAsn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a>
     for Implicit<'a, T, { TAG }>
 {
-    const TAG: u8 = CONTEXT_SPECIFIC | TAG | (T::TAG & CONSTRUCTED);
+    const TAG: u8 = crate::implicit_tag(TAG, T::TAG);
 
     fn write_data(&self, dest: &mut Vec<u8>) {
         self.inner.write_data(dest);
@@ -965,7 +965,7 @@ impl<'a, T, const TAG: u8> From<T> for Explicit<'a, T, { TAG }> {
 
 #[cfg(feature = "const-generics")]
 impl<'a, T: Asn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
-    const TAG: u8 = CONTEXT_SPECIFIC | CONSTRUCTED | TAG;
+    const TAG: u8 = crate::explicit_tag(TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Explicit::new(parse(data, |p| p.read_element::<T>())?))
     }
@@ -973,7 +973,7 @@ impl<'a, T: Asn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a> for Explicit
 
 #[cfg(feature = "const-generics")]
 impl<'a, T: Asn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a> for Explicit<'a, T, { TAG }> {
-    const TAG: u8 = CONTEXT_SPECIFIC | CONSTRUCTED | TAG;
+    const TAG: u8 = crate::explicit_tag(TAG);
     fn write_data(&self, dest: &mut Vec<u8>) {
         Writer::new(dest).write_element(&self.inner);
     }

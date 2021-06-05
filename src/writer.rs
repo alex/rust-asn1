@@ -1,4 +1,4 @@
-use crate::types::{Asn1Writable, SimpleAsn1Writable, CONSTRUCTED, CONTEXT_SPECIFIC};
+use crate::types::{Asn1Writable, SimpleAsn1Writable};
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -46,7 +46,7 @@ impl Writer<'_> {
         tag: u8,
     ) {
         if let Some(v) = val {
-            let tag = CONTEXT_SPECIFIC | CONSTRUCTED | tag;
+            let tag = crate::explicit_tag(tag);
             self.write_tlv(tag, |dest| Writer::new(dest).write_element(v));
         }
     }
@@ -59,7 +59,7 @@ impl Writer<'_> {
         tag: u8,
     ) {
         if let Some(v) = val {
-            let tag = CONTEXT_SPECIFIC | tag | (T::TAG & CONSTRUCTED);
+            let tag = crate::implicit_tag(tag, T::TAG);
             self.write_tlv(tag, |dest| v.write_data(dest));
         }
     }

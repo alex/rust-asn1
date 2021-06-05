@@ -1,4 +1,4 @@
-use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv, CONSTRUCTED, CONTEXT_SPECIFIC};
+use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq)]
@@ -155,7 +155,7 @@ impl<'a> Parser<'a> {
         &mut self,
         tag: u8,
     ) -> ParseResult<Option<T>> {
-        let expected_tag = CONTEXT_SPECIFIC | CONSTRUCTED | tag;
+        let expected_tag = crate::explicit_tag(tag);
         if self.peek_u8() != Some(expected_tag) {
             return Ok(None);
         }
@@ -169,7 +169,7 @@ impl<'a> Parser<'a> {
         &mut self,
         tag: u8,
     ) -> ParseResult<Option<T>> {
-        let expected_tag = CONTEXT_SPECIFIC | tag | (T::TAG & CONSTRUCTED);
+        let expected_tag = crate::implicit_tag(tag, T::TAG);
         if self.peek_u8() != Some(expected_tag) {
             return Ok(None);
         }
