@@ -662,7 +662,7 @@ macro_rules! declare_choice {
         impl<
             'a,
             $(
-                $number: SimpleAsn1Writable<'a>,
+                $number: Asn1Writable<'a>,
             )*
         > Asn1Writable<'a> for $count<$($number,)*> {
             fn write(&self, w: &mut Writer) {
