@@ -183,8 +183,9 @@ mod tests {
     use super::Parser;
     use crate::types::Asn1Readable;
     use crate::{
-        BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, IA5String, ObjectIdentifier,
-        ParseError, ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime,
+        BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime, IA5String,
+        ObjectIdentifier, ParseError, ParseResult, PrintableString, Sequence, SequenceOf, SetOf,
+        Tlv, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -557,6 +558,62 @@ mod tests {
             (Err(ParseError::InvalidValue), b"\x17\x0e100102-030410Z"),
             (Err(ParseError::InvalidValue), b"\x17\x0e10010203-0410Z"),
             (Err(ParseError::InvalidValue), b"\x17\x0e1001020304-10Z"),
+        ]);
+    }
+
+    #[test]
+    fn test_generalizedtime() {
+        assert_parses::<GeneralizedTime>(&[
+            (
+                Ok(GeneralizedTime::new(Utc.ymd(2010, 1, 2).and_hms(3, 4, 5))),
+                b"\x18\x0f20100102030405Z",
+            ),
+            (
+                Ok(GeneralizedTime::new(
+                    FixedOffset::east(6 * 60 * 60 + 7 * 60)
+                        .ymd(2010, 1, 2)
+                        .and_hms(3, 4, 5)
+                        .into(),
+                )),
+                b"\x18\x1320100102030405+0607",
+            ),
+            (
+                Ok(GeneralizedTime::new(
+                    FixedOffset::west(6 * 60 * 60 + 7 * 60)
+                        .ymd(2010, 1, 2)
+                        .and_hms(3, 4, 5)
+                        .into(),
+                )),
+                b"\x18\x1320100102030405-0607",
+            ),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20100102030405"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e00000100000000Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20101302030405Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20100002030405Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20100100030405Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20100132030405Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20100231030405Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20100102240405Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20100102036005Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0e20100102030460Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0f-20100102030410Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0f2010-0102030410Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0f2010-0002030410Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0f201001-02030410Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0f20100102-030410Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0f2010010203-0410Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0f201001020304-10Z"),
+            // Tests for fractional seconds, which we currently don't support
+            (
+                Err(ParseError::InvalidValue),
+                b"\x18\x1620100102030405.123456Z",
+            ),
+            (
+                Err(ParseError::InvalidValue),
+                b"\x18\x1520100102030405.123456",
+            ),
+            (Err(ParseError::InvalidValue), b"\x18\x1020100102030405.Z"),
+            (Err(ParseError::InvalidValue), b"\x18\x0f20100102030405."),
         ]);
     }
 

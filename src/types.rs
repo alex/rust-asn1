@@ -515,6 +515,36 @@ impl SimpleAsn1Writable<'_> for UtcTime {
     }
 }
 
+/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
+/// `chrono::DateTime<Utc>`.
+#[derive(Debug, PartialEq)]
+pub struct GeneralizedTime(chrono::DateTime<chrono::Utc>);
+
+impl GeneralizedTime {
+    pub fn new(v: chrono::DateTime<chrono::Utc>) -> GeneralizedTime {
+        GeneralizedTime(v)
+    }
+
+    pub fn as_chrono(&self) -> &chrono::DateTime<chrono::Utc> {
+        &self.0
+    }
+}
+
+impl SimpleAsn1Readable<'_> for GeneralizedTime {
+    const TAG: u8 = 0x18;
+    fn parse_data(data: &[u8]) -> ParseResult<GeneralizedTime> {
+        let data = core::str::from_utf8(data).map_err(|_| ParseError::InvalidValue)?;
+        if let Ok(v) = chrono::Utc.datetime_from_str(data, "%Y%m%d%H%M%SZ") {
+            return Ok(GeneralizedTime::new(v));
+        }
+        if let Ok(v) = chrono::DateTime::parse_from_str(data, "%Y%m%d%H%M%S%z") {
+            return Ok(GeneralizedTime::new(v.into()));
+        }
+
+        Err(ParseError::InvalidValue)
+    }
+}
+
 /// An ASN.1 `ENUMERATED` value.
 #[derive(Debug, PartialEq)]
 pub struct Enumerated(u32);
