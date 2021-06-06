@@ -828,12 +828,12 @@ impl<'a, T: Asn1Writable<'a>> SimpleAsn1Writable<'a> for SequenceOfWriter<'a, T>
 
 /// Represents an ASN.1 `SET OF`. This is an `Iterator` over values that
 /// are decoded.
-pub struct SetOf<'a, T: SimpleAsn1Readable<'a>> {
+pub struct SetOf<'a, T: Asn1Readable<'a>> {
     parser: Parser<'a>,
     _phantom: PhantomData<T>,
 }
 
-impl<'a, T: SimpleAsn1Readable<'a>> SetOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>> SetOf<'a, T> {
     #[inline]
     pub(crate) fn new(data: &'a [u8]) -> SetOf<'a, T> {
         SetOf {
@@ -843,7 +843,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> SetOf<'a, T> {
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
+impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
     const TAG: u8 = 0x11 | CONSTRUCTED;
 
     #[inline]
@@ -866,7 +866,7 @@ impl<'a, T: SimpleAsn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T>
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SetOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>> Iterator for SetOf<'a, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
