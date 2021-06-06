@@ -115,9 +115,9 @@ mod tests {
     use super::{_insert_at_position, write, write_single, Writer};
     use crate::types::Asn1Writable;
     use crate::{
-        parse_single, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, IA5String,
-        ObjectIdentifier, PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter,
-        SetOfWriter, Tlv, UtcTime,
+        parse_single, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
+        IA5String, ObjectIdentifier, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
+        SequenceWriter, SetOfWriter, Tlv, UtcTime,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -274,6 +274,24 @@ mod tests {
             (
                 UtcTime::new(Utc.timestamp(1258325776, 0)).unwrap(),
                 b"\x17\x0d091115225616Z",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_write_generalizedtime() {
+        assert_writes(&[
+            (
+                GeneralizedTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)),
+                b"\x18\x0f19910506234540Z",
+            ),
+            (
+                GeneralizedTime::new(Utc.timestamp(0, 0)),
+                b"\x18\x0f19700101000000Z",
+            ),
+            (
+                GeneralizedTime::new(Utc.timestamp(1258325776, 0)),
+                b"\x18\x0f20091115225616Z",
             ),
         ]);
     }
