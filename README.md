@@ -11,7 +11,7 @@ Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
 
 ```toml
 [dependencies]
-asn1 = "0.4"
+asn1 = "0.5"
 ```
 
 Builds on Rust 1.41.0 and newer, but versions older than 1.51.0 require disabling the `const-generics` feature, which allows using the `Implicit` and `Explicit` types.
@@ -19,7 +19,7 @@ Builds on Rust 1.41.0 and newer, but versions older than 1.51.0 require disablin
 `rust-asn1` is compatible with `#![no_std]` environments:
 
 ```toml
-asn1 = { version = "0.4", default-features = false }
+asn1 = { version = "0.5", default-features = false }
 ```
 
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
