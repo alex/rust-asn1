@@ -742,12 +742,12 @@ impl<'a> SimpleAsn1Writable<'a> for SequenceWriter<'a> {
 
 /// Represents an ASN.1 `SEQUENCE OF`. This is an `Iterator` over values that
 /// are decoded.
-pub struct SequenceOf<'a, T: SimpleAsn1Readable<'a>> {
+pub struct SequenceOf<'a, T: Asn1Readable<'a>> {
     parser: Parser<'a>,
     _phantom: PhantomData<T>,
 }
 
-impl<'a, T: SimpleAsn1Readable<'a>> SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>> SequenceOf<'a, T> {
     #[inline]
     pub(crate) fn new(data: &'a [u8]) -> SequenceOf<'a, T> {
         SequenceOf {
@@ -757,7 +757,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a>> Clone for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>> Clone for SequenceOf<'a, T> {
     fn clone(&self) -> SequenceOf<'a, T> {
         SequenceOf {
             parser: self.parser.clone_internal(),
@@ -766,7 +766,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> Clone for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
@@ -780,7 +780,7 @@ impl<'a, T: SimpleAsn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>> Iterator for SequenceOf<'a, T> {
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -795,9 +795,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> Iterator for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a> + SimpleAsn1Writable<'a>> SimpleAsn1Writable<'a>
-    for SequenceOf<'a, T>
-{
+impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for SequenceOf<'a, T> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
     fn write_data(&self, dest: &mut Vec<u8>) {
         let mut w = Writer::new(dest);
