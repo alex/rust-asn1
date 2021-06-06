@@ -493,6 +493,13 @@ fn push_two_digits(dest: &mut Vec<u8>, val: u8) {
     dest.push(b'0' + (val % 10));
 }
 
+fn push_four_digits(dest: &mut Vec<u8>, val: u16) {
+    dest.push(b'0' + ((val / 1000) % 10) as u8);
+    dest.push(b'0' + ((val / 100) % 10) as u8);
+    dest.push(b'0' + ((val / 10) % 10) as u8);
+    dest.push(b'0' + (val % 10) as u8);
+}
+
 impl SimpleAsn1Writable<'_> for UtcTime {
     const TAG: u8 = 0x17;
     fn write_data(&self, dest: &mut Vec<u8>) {
@@ -542,6 +549,21 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
         }
 
         Err(ParseError::InvalidValue)
+    }
+}
+
+impl SimpleAsn1Writable<'_> for GeneralizedTime {
+    const TAG: u8 = 0x18;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        push_four_digits(dest, self.0.year().try_into().unwrap());
+        push_two_digits(dest, self.0.month().try_into().unwrap());
+        push_two_digits(dest, self.0.day().try_into().unwrap());
+
+        push_two_digits(dest, self.0.hour().try_into().unwrap());
+        push_two_digits(dest, self.0.minute().try_into().unwrap());
+        push_two_digits(dest, self.0.second().try_into().unwrap());
+
+        dest.push(b'Z');
     }
 }
 
