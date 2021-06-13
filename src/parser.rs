@@ -185,7 +185,7 @@ mod tests {
     use crate::{
         BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime, IA5String,
         ObjectIdentifier, ParseError, ParseResult, PrintableString, Sequence, SequenceOf, SetOf,
-        Tlv, UtcTime,
+        Tlv, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -496,6 +496,24 @@ mod tests {
             (Ok(IA5String::new("abc").unwrap()), b"\x16\x03abc"),
             (Ok(IA5String::new(")").unwrap()), b"\x16\x01)"),
             (Err(ParseError::InvalidValue), b"\x16\x03ab\xff"),
+        ])
+    }
+
+    #[test]
+    fn test_parse_utf8string() {
+        assert_parses::<Utf8String>(&[
+            (Ok(Utf8String::new("abc")), b"\x0c\x03abc"),
+            (Ok(Utf8String::new(")")), b"\x0c\x01)"),
+            (Err(ParseError::InvalidValue), b"\x0c\x01\xff"),
+        ])
+    }
+
+    #[test]
+    fn test_parse_visiblestring() {
+        assert_parses::<VisibleString>(&[
+            (Ok(VisibleString::new("abc").unwrap()), b"\x1a\x03abc"),
+            (Ok(VisibleString::new(")").unwrap()), b"\x1a\x01)"),
+            (Err(ParseError::InvalidValue), b"\x1a\x01\n"),
         ])
     }
 
