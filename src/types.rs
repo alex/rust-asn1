@@ -285,6 +285,92 @@ impl<'a> SimpleAsn1Writable<'a> for IA5String<'a> {
     }
 }
 
+/// Type for use with `Parser.read_element` and `Writer.write_element` for
+/// handling ASN.1 `UTF8String`.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Utf8String<'a>(&'a str);
+
+impl<'a> Utf8String<'a> {
+    pub fn new(s: &'a str) -> Utf8String<'a> {
+        Utf8String(s)
+    }
+
+    fn new_from_bytes(s: &'a [u8]) -> Option<Utf8String> {
+        Some(Utf8String(core::str::from_utf8(s).ok()?))
+    }
+
+    pub fn as_str(&self) -> &'a str {
+        self.0
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for Utf8String<'a> {
+    const TAG: u8 = 0x0c;
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        Utf8String::new_from_bytes(data).ok_or(ParseError::InvalidValue)
+    }
+}
+impl<'a> SimpleAsn1Writable<'a> for Utf8String<'a> {
+    const TAG: u8 = 0x0c;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        dest.extend_from_slice(self.0.as_bytes());
+    }
+}
+
+/// Type for use with `Parser.read_element` and `Writer.write_element` for
+/// handling ASN.1 `VisibleString`.  An `VisibleString` contains an `&str`
+/// with only valid characers.
+#[derive(Clone, Debug, PartialEq)]
+pub struct VisibleString<'a>(&'a str);
+
+impl<'a> VisibleString<'a> {
+    pub fn new(s: &'a str) -> Option<VisibleString<'a>> {
+        if VisibleString::verify(s.as_bytes()) {
+            Some(VisibleString(s))
+        } else {
+            None
+        }
+    }
+
+    fn new_from_bytes(s: &'a [u8]) -> Option<VisibleString> {
+        if VisibleString::verify(s) {
+            // TODO: This value is always valid utf-8 because we just verified
+            // the contents, but I don't want to call an unsafe function, so we
+            // end up validating it twice. If your profile says this is slow,
+            // now you know why.
+            Some(VisibleString(core::str::from_utf8(s).unwrap()))
+        } else {
+            None
+        }
+    }
+
+    fn verify(s: &[u8]) -> bool {
+        for b in s {
+            if !(b.is_ascii_graphic() || *b == b' ') {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn as_str(&self) -> &'a str {
+        self.0
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for VisibleString<'a> {
+    const TAG: u8 = 0x1a;
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        VisibleString::new_from_bytes(data).ok_or(ParseError::InvalidValue)
+    }
+}
+impl<'a> SimpleAsn1Writable<'a> for VisibleString<'a> {
+    const TAG: u8 = 0x1a;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        dest.extend_from_slice(self.0.as_bytes());
+    }
+}
+
 fn validate_integer(data: &[u8], signed: bool) -> ParseResult<()> {
     if data.is_empty() {
         return Err(ParseError::InvalidValue);
