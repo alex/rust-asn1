@@ -117,7 +117,7 @@ mod tests {
     use crate::{
         parse_single, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
         IA5String, ObjectIdentifier, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
-        SequenceWriter, SetOfWriter, Tlv, UtcTime, Utf8String, VisibleString,
+        SequenceWriter, SetOf, SetOfWriter, Tlv, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -398,6 +398,11 @@ mod tests {
                 b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
             ),
         ]);
+
+        assert_writes(&[(
+            parse_single::<SetOf<u64>>(b"\x31\x06\x02\x01\x05\x02\x01\x07").unwrap(),
+            b"\x31\x06\x02\x01\x05\x02\x01\x07",
+        )]);
     }
 
     #[test]
