@@ -929,6 +929,15 @@ impl<'a, T: Asn1Readable<'a>> SetOf<'a, T> {
     }
 }
 
+impl<'a, T: Asn1Readable<'a>> Clone for SetOf<'a, T> {
+    fn clone(&self) -> SetOf<'a, T> {
+        SetOf {
+            parser: self.parser.clone_internal(),
+            _phantom: PhantomData,
+        }
+    }
+}
+
 impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
     const TAG: u8 = 0x11 | CONSTRUCTED;
 
@@ -964,6 +973,18 @@ impl<'a, T: Asn1Readable<'a>> Iterator for SetOf<'a, T> {
                 .read_element::<T>()
                 .expect("Should always succeed"),
         )
+    }
+}
+
+impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for SetOf<'a, T> {
+    const TAG: u8 = 0x11 | CONSTRUCTED;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        let mut w = Writer::new(dest);
+        // We are known to be ordered correctly because that's an invariant for
+        // `self`, so we don't need to sort here.
+        for el in self.clone() {
+            w.write_element(&el);
+        }
     }
 }
 
