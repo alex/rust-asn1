@@ -1,6 +1,7 @@
 use alloc::vec;
 use alloc::vec::Vec;
 use core::convert::TryInto;
+use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::mem;
 
@@ -68,7 +69,7 @@ impl<'a, T: SimpleAsn1Writable<'a>> SimpleAsn1Writable<'a> for &T {
 
 /// A TLV (type, length, value) represented as the tag and bytes content.
 /// Generally used for parsing ASN.1 `ANY` values.
-#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Debug, PartialEq, PartialOrd, Hash, Clone, Copy)]
 pub struct Tlv<'a> {
     pub(crate) tag: u8,
     // `data` is the value of a TLV
@@ -852,6 +853,32 @@ impl<'a, T: Asn1Readable<'a>> Clone for SequenceOf<'a, T> {
     }
 }
 
+impl<'a, T: Asn1Readable<'a> + PartialEq> PartialEq for SequenceOf<'a, T> {
+    fn eq(&self, other: &Self) -> bool {
+        let mut it1 = self.clone();
+        let mut it2 = other.clone();
+        loop {
+            match (it1.next(), it2.next()) {
+                (Some(v1), Some(v2)) => {
+                    if v1 != v2 {
+                        return false;
+                    }
+                }
+                (None, None) => return true,
+                _ => return false,
+            }
+        }
+    }
+}
+
+impl<'a, T: Asn1Readable<'a> + Hash> Hash for SequenceOf<'a, T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for val in self.clone() {
+            val.hash(state);
+        }
+    }
+}
+
 impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
     #[inline]
@@ -934,6 +961,32 @@ impl<'a, T: Asn1Readable<'a>> Clone for SetOf<'a, T> {
         SetOf {
             parser: self.parser.clone_internal(),
             _phantom: PhantomData,
+        }
+    }
+}
+
+impl<'a, T: Asn1Readable<'a> + PartialEq> PartialEq for SetOf<'a, T> {
+    fn eq(&self, other: &Self) -> bool {
+        let mut it1 = self.clone();
+        let mut it2 = other.clone();
+        loop {
+            match (it1.next(), it2.next()) {
+                (Some(v1), Some(v2)) => {
+                    if v1 != v2 {
+                        return false;
+                    }
+                }
+                (None, None) => return true,
+                _ => return false,
+            }
+        }
+    }
+}
+
+impl<'a, T: Asn1Readable<'a> + Hash> Hash for SetOf<'a, T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        for val in self.clone() {
+            val.hash(state);
         }
     }
 }
@@ -1138,7 +1191,9 @@ impl<'a, T: Asn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a> for Explicit
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse_single, IA5String, ParseError, PrintableString, SequenceOf, Tlv};
+    use crate::{parse_single, IA5String, ParseError, PrintableString, SequenceOf, SetOf, Tlv};
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
 
     #[test]
     fn test_printable_string_new() {
@@ -1181,5 +1236,37 @@ mod tests {
         let seq2 = seq1.clone();
         assert_eq!(seq1.collect::<Vec<_>>(), vec![2, 3]);
         assert_eq!(seq2.collect::<Vec<_>>(), vec![2, 3]);
+    }
+
+    fn hash<T: Hash>(v: &T) -> u64 {
+        let mut h = DefaultHasher::new();
+        v.hash(&mut h);
+        h.finish()
+    }
+
+    #[test]
+    fn test_set_of_eq_hash() {
+        let s1 = SetOf::<bool>::new(b"");
+        let s2 = SetOf::<bool>::new(b"");
+        let s3 = SetOf::<bool>::new(b"\x01\x01\x00");
+
+        assert!(s1 == s2);
+        assert_eq!(hash(&s1), hash(&s2));
+
+        assert!(s2 != s3);
+        assert_ne!(hash(&s2), hash(&s3));
+    }
+
+    #[test]
+    fn test_sequence_of_eq_hash() {
+        let s1 = SequenceOf::<bool>::new(b"");
+        let s2 = SequenceOf::<bool>::new(b"");
+        let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00");
+
+        assert!(s1 == s2);
+        assert_eq!(hash(&s1), hash(&s2));
+
+        assert!(s2 != s3);
+        assert_ne!(hash(&s2), hash(&s3));
     }
 }
