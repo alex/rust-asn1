@@ -769,7 +769,7 @@ declare_choice!(Choice3 => (T1 ChoiceA), (T2 ChoiceB), (T3 ChoiceC));
 /// Represents an ASN.1 `SEQUENCE`. By itself, this merely indicates a sequence of bytes that are
 /// claimed to form an ASN1 sequence. In almost any circumstance, you'll want to immediately call
 /// `Sequence.parse` on this value to decode the actual contents therein.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Hash)]
 pub struct Sequence<'a> {
     data: &'a [u8],
 }
@@ -914,6 +914,7 @@ impl<'a, T: Asn1Writable<'a>> SimpleAsn1Writable<'a> for SequenceOfWriter<'a, T>
 
 /// Represents an ASN.1 `SET OF`. This is an `Iterator` over values that
 /// are decoded.
+#[derive(PartialEq, Hash)]
 pub struct SetOf<'a, T: Asn1Readable<'a>> {
     parser: Parser<'a>,
     _phantom: PhantomData<T>,
