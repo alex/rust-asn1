@@ -446,7 +446,7 @@ impl_asn1_element_for_int!(u64; false);
 /// Arbitrary sized unsigned integer. Contents may be accessed as `&[u8]` of
 /// big-endian data. Its contents always match the DER encoding of a value
 /// (i.e. they are minimal)
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Clone, Copy, Debug, Hash)]
 pub struct BigUint<'a> {
     data: &'a [u8],
 }
@@ -512,7 +512,7 @@ impl<'a> SimpleAsn1Writable<'a> for BitString<'a> {
 
 /// Used for parsing and writing ASN.1 `UTC TIME` values. Wraps a
 /// `chrono::DateTime<Utc>`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct UtcTime(chrono::DateTime<chrono::Utc>);
 
 impl UtcTime {
@@ -611,7 +611,7 @@ impl SimpleAsn1Writable<'_> for UtcTime {
 
 /// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
 /// `chrono::DateTime<Utc>`.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Hash)]
 pub struct GeneralizedTime(chrono::DateTime<chrono::Utc>);
 
 impl GeneralizedTime {
