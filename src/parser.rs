@@ -17,9 +17,6 @@ pub enum ParseError {
     InvalidSetOrdering,
     /// An OPTIONAL DEFAULT was written with a default value.
     EncodedDefault,
-    /// OID value is longer than the maximum size rust-asn1 can store. This is
-    /// a limitation of rust-asn1.
-    OidTooLong,
 }
 
 /// The result of a `parse`. Either a successful value or a `ParseError`.
@@ -433,7 +430,7 @@ mod tests {
 
     #[test]
     fn test_parse_object_identifier() {
-        assert_parses::<ObjectIdentifier>(&[
+        assert_parses::<ObjectIdentifier<'_>>(&[
             (
                 Ok(ObjectIdentifier::from_string("2.5").unwrap()),
                 b"\x06\x01\x55",
