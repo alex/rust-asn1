@@ -2,7 +2,7 @@ use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq)]
-pub enum ParseError {
+pub enum ParseErrorKind {
     /// Something about the value was invalid.
     InvalidValue,
     /// An unexpected tag was encountered.
@@ -17,6 +17,17 @@ pub enum ParseError {
     InvalidSetOrdering,
     /// An OPTIONAL DEFAULT was written with a default value.
     EncodedDefault,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ParseError {
+    kind: ParseErrorKind,
+}
+
+impl ParseError {
+    pub fn new(kind: ParseErrorKind) -> ParseError {
+        ParseError { kind }
+    }
 }
 
 /// The result of a `parse`. Either a successful value or a `ParseError`.
@@ -56,7 +67,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn finish(self) -> ParseResult<()> {
         if !self.is_empty() {
-            return Err(ParseError::ExtraData);
+            return Err(ParseError::new(ParseErrorKind::ExtraData));
         }
         Ok(())
     }
@@ -72,7 +83,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn read_u8(&mut self) -> ParseResult<u8> {
         if self.data.is_empty() {
-            return Err(ParseError::ShortData);
+            return Err(ParseError::new(ParseErrorKind::ShortData));
         }
         let (val, data) = self.data.split_at(1);
         self.data = data;
@@ -82,7 +93,7 @@ impl<'a> Parser<'a> {
     #[inline]
     fn read_bytes(&mut self, length: usize) -> ParseResult<&'a [u8]> {
         if length > self.data.len() {
-            return Err(ParseError::ShortData);
+            return Err(ParseError::new(ParseErrorKind::ShortData));
         }
         let (result, data) = self.data.split_at(length);
         self.data = data;
@@ -97,25 +108,25 @@ impl<'a> Parser<'a> {
         let num_bytes = b & 0x7f;
         // Indefinite length form is not valid DER
         if num_bytes == 0 {
-            return Err(ParseError::InvalidValue);
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
 
         let mut length = 0;
         for _ in 0..num_bytes {
             let b = self.read_u8()?;
             if length > (usize::max_value() >> 8) {
-                return Err(ParseError::IntegerOverflow);
+                return Err(ParseError::new(ParseErrorKind::IntegerOverflow));
             }
             length <<= 8;
             length |= b as usize;
             // Disallow leading 0s
             if length == 0 {
-                return Err(ParseError::InvalidValue);
+                return Err(ParseError::new(ParseErrorKind::InvalidValue));
             }
         }
         // Do not allow values <0x80 to be encoded using the long form
         if length < 0x80 {
-            return Err(ParseError::InvalidValue);
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
         Ok(length)
     }
@@ -184,8 +195,8 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime, IA5String,
-        ObjectIdentifier, ParseError, ParseResult, PrintableString, Sequence, SequenceOf, SetOf,
-        Tlv, UtcTime, Utf8String, VisibleString,
+        ObjectIdentifier, ParseError, ParseErrorKind, ParseResult, PrintableString, Sequence,
+        SequenceOf, SetOf, Tlv, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -253,7 +264,7 @@ mod tests {
     #[test]
     fn test_parse_extra_data() {
         let result = crate::parse(b"\x00", |_| Ok(()));
-        assert_eq!(result, Err(ParseError::ExtraData));
+        assert_eq!(result, Err(ParseError::new(ParseErrorKind::ExtraData)));
     }
 
     #[test]
@@ -273,7 +284,10 @@ mod tests {
         assert_parses_cb(
             &[
                 (Ok(8), b"\x02\x01\x08"),
-                (Err(E::P(ParseError::ShortData)), b"\x02\x01"),
+                (
+                    Err(E::P(ParseError::new(ParseErrorKind::ShortData))),
+                    b"\x02\x01",
+                ),
                 (Err(E::X(7)), b"\x02\x01\x07"),
             ],
             |p| {
@@ -298,9 +312,12 @@ mod tests {
                 }),
                 b"\x04\x03abc",
             ),
-            (Err(ParseError::ShortData), b"\x04\x03a"),
-            (Err(ParseError::ShortData), b"\x04"),
-            (Err(ParseError::ShortData), b""),
+            (
+                Err(ParseError::new(ParseErrorKind::ShortData)),
+                b"\x04\x03a",
+            ),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04"),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
         ]);
     }
 
@@ -308,7 +325,10 @@ mod tests {
     fn test_parse_null() {
         assert_parses::<()>(&[
             (Ok(()), b"\x05\x00"),
-            (Err(ParseError::InvalidValue), b"\x05\x01\x00"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x05\x01\x00",
+            ),
         ]);
     }
 
@@ -317,10 +337,22 @@ mod tests {
         assert_parses::<bool>(&[
             (Ok(true), b"\x01\x01\xff"),
             (Ok(false), b"\x01\x01\x00"),
-            (Err(ParseError::InvalidValue), b"\x01\x00"),
-            (Err(ParseError::InvalidValue), b"\x01\x01\x01"),
-            (Err(ParseError::InvalidValue), b"\x01\x02\x00\x00"),
-            (Err(ParseError::InvalidValue), b"\x01\x02\xff\x01"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x01\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x01\x01\x01",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x01\x02\x00\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x01\x02\xff\x01",
+            ),
         ]);
     }
 
@@ -333,15 +365,15 @@ mod tests {
                 Ok(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
                 b"\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             ),
-            (Err(ParseError::InvalidValue), b"\x04\x80"),
-            (Err(ParseError::InvalidValue), b"\x04\x81\x00"),
-            (Err(ParseError::InvalidValue), b"\x04\x81\x01\x09"),
+            (Err(ParseError::new(ParseErrorKind::InvalidValue)), b"\x04\x80"),
+            (Err(ParseError::new(ParseErrorKind::InvalidValue)), b"\x04\x81\x00"),
+            (Err(ParseError::new(ParseErrorKind::InvalidValue)), b"\x04\x81\x01\x09"),
             (
-                Err(ParseError::IntegerOverflow),
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
                 b"\x04\x89\x01\x01\x01\x01\x01\x01\x01\x01\x01"
             ),
-            (Err(ParseError::ShortData), b"\x04\x03\x01\x02"),
-            (Err(ParseError::ShortData), b"\x04\x83\xff\xff\xff\xff\xff\xff"),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04\x03\x01\x02"),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04\x83\xff\xff\xff\xff\xff\xff"),
         ]);
     }
 
@@ -359,20 +391,34 @@ mod tests {
                 Ok(core::i64::MAX),
                 b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff",
             ),
-            (Err(ParseError::UnexpectedTag { actual: 0x3 }), b"\x03\x00"),
-            (Err(ParseError::ShortData), b"\x02\x02\x00"),
-            (Err(ParseError::ShortData), b""),
-            (Err(ParseError::ShortData), b"\x02"),
             (
-                Err(ParseError::IntegerOverflow),
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x3,
+                })),
+                b"\x03\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::ShortData)),
+                b"\x02\x02\x00",
+            ),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x02"),
+            (
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
                 b"\x02\x09\x02\x00\x00\x00\x00\x00\x00\x00\x00",
             ),
             (
-                Err(ParseError::InvalidValue),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x02\x05\x00\x00\x00\x00\x01",
             ),
-            (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
-            (Err(ParseError::InvalidValue), b"\x02\x00"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x02\xff\x80",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x00",
+            ),
         ])
     }
 
@@ -383,9 +429,12 @@ mod tests {
                 Ok(core::u64::MAX),
                 b"\x02\x09\x00\xff\xff\xff\xff\xff\xff\xff\xff",
             ),
-            (Err(ParseError::InvalidValue), b"\x02\x01\xff"),
             (
-                Err(ParseError::IntegerOverflow),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x01\xff",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
                 b"\x02\x09\x02\x00\x00\x00\x00\x00\x00\x00\x00",
             ),
         ]);
@@ -397,8 +446,14 @@ mod tests {
             (Ok(0i8), b"\x02\x01\x00"),
             (Ok(127i8), b"\x02\x01\x7f"),
             (Ok(-128i8), b"\x02\x01\x80"),
-            (Err(ParseError::IntegerOverflow), b"\x02\x02\x02\x00"),
-            (Err(ParseError::InvalidValue), b"\x02\x00"),
+            (
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
+                b"\x02\x02\x02\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x00",
+            ),
         ])
     }
 
@@ -408,8 +463,14 @@ mod tests {
             (Ok(0u8), b"\x02\x01\x00"),
             (Ok(127u8), b"\x02\x01\x7f"),
             (Ok(255u8), b"\x02\x02\x00\xff"),
-            (Err(ParseError::IntegerOverflow), b"\x02\x02\x01\x00"),
-            (Err(ParseError::InvalidValue), b"\x02\x01\x80"),
+            (
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
+                b"\x02\x02\x01\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x01\x80",
+            ),
         ])
     }
 
@@ -422,9 +483,18 @@ mod tests {
                 Ok(BigUint::new(b"\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff").unwrap()),
                 b"\x02\x0d\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
             ),
-            (Err(ParseError::InvalidValue), b"\x02\x00"),
-            (Err(ParseError::InvalidValue), b"\x02\x01\x80"),
-            (Err(ParseError::InvalidValue), b"\x02\x02\xff\x80"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x01\x80",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x02\xff\x80",
+            ),
         ]);
     }
 
@@ -455,12 +525,18 @@ mod tests {
                 Ok(ObjectIdentifier::from_string("2.100.3").unwrap()),
                 b"\x06\x03\x81\x34\x03",
             ),
-            (Err(ParseError::InvalidValue), b"\x06\x00"),
             (
-                Err(ParseError::InvalidValue),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x06\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x06\x07\x55\x02\xc0\x80\x80\x80\x80",
             ),
-            (Err(ParseError::InvalidValue), b"\x06\x02\x2a\x86"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x06\x02\x2a\x86",
+            ),
         ])
     }
 
@@ -474,10 +550,22 @@ mod tests {
                 Ok(BitString::new(b"\x81\xf0", 4).unwrap()),
                 b"\x03\x03\x04\x81\xf0",
             ),
-            (Err(ParseError::InvalidValue), b"\x03\x00"),
-            (Err(ParseError::InvalidValue), b"\x03\x02\x07\x01"),
-            (Err(ParseError::InvalidValue), b"\x03\x02\x07\x40"),
-            (Err(ParseError::InvalidValue), b"\x03\x02\x08\x00"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x03\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x03\x02\x07\x01",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x03\x02\x07\x40",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x03\x02\x08\x00",
+            ),
         ]);
     }
 
@@ -486,7 +574,10 @@ mod tests {
         assert_parses::<PrintableString>(&[
             (Ok(PrintableString::new("abc").unwrap()), b"\x13\x03abc"),
             (Ok(PrintableString::new(")").unwrap()), b"\x13\x01)"),
-            (Err(ParseError::InvalidValue), b"\x13\x03ab\x00"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x13\x03ab\x00",
+            ),
         ]);
     }
 
@@ -495,7 +586,10 @@ mod tests {
         assert_parses::<IA5String>(&[
             (Ok(IA5String::new("abc").unwrap()), b"\x16\x03abc"),
             (Ok(IA5String::new(")").unwrap()), b"\x16\x01)"),
-            (Err(ParseError::InvalidValue), b"\x16\x03ab\xff"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x16\x03ab\xff",
+            ),
         ])
     }
 
@@ -504,7 +598,10 @@ mod tests {
         assert_parses::<Utf8String>(&[
             (Ok(Utf8String::new("abc")), b"\x0c\x03abc"),
             (Ok(Utf8String::new(")")), b"\x0c\x01)"),
-            (Err(ParseError::InvalidValue), b"\x0c\x01\xff"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x0c\x01\xff",
+            ),
         ])
     }
 
@@ -513,7 +610,10 @@ mod tests {
         assert_parses::<VisibleString>(&[
             (Ok(VisibleString::new("abc").unwrap()), b"\x1a\x03abc"),
             (Ok(VisibleString::new(")").unwrap()), b"\x1a\x01)"),
-            (Err(ParseError::InvalidValue), b"\x1a\x01\n"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1a\x01\n",
+            ),
         ])
     }
 
@@ -552,30 +652,102 @@ mod tests {
                 Ok(UtcTime::new(Utc.ymd(1951, 5, 6).and_hms(23, 45, 0)).unwrap()),
                 b"\x17\x0b5105062345Z",
             ),
-            (Err(ParseError::InvalidValue), b"\x17\x0da10506234540Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d91a506234540Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d9105a6234540Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d910506a34540Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d910506334a40Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d91050633444aZ"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d910506334461Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0e910506334400Za"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d000100000000Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d101302030405Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d100002030405Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d100100030405Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d100132030405Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d100231030405Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d100102240405Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d100102036005Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0d100102030460Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0e-100102030410Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0e10-0102030410Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0e10-0002030410Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0e1001-02030410Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0e100102-030410Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0e10010203-0410Z"),
-            (Err(ParseError::InvalidValue), b"\x17\x0e1001020304-10Z"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0da10506234540Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d91a506234540Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d9105a6234540Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d910506a34540Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d910506334a40Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d91050633444aZ",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d910506334461Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0e910506334400Za",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d000100000000Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d101302030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d100002030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d100100030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d100132030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d100231030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d100102240405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d100102036005Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0d100102030460Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0e-100102030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0e10-0102030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0e10-0002030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0e1001-02030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0e100102-030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0e10010203-0410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0e1001020304-10Z",
+            ),
         ]);
     }
 
@@ -604,34 +776,91 @@ mod tests {
                 )),
                 b"\x18\x1320100102030405-0607",
             ),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20100102030405"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e00000100000000Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20101302030405Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20100002030405Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20100100030405Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20100132030405Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20100231030405Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20100102240405Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20100102036005Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0e20100102030460Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0f-20100102030410Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0f2010-0102030410Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0f2010-0002030410Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0f201001-02030410Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0f20100102-030410Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0f2010010203-0410Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0f201001020304-10Z"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20100102030405",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e00000100000000Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20101302030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20100002030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20100100030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20100132030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20100231030405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20100102240405Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20100102036005Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0e20100102030460Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0f-20100102030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0f2010-0102030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0f2010-0002030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0f201001-02030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0f20100102-030410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0f2010010203-0410Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0f201001020304-10Z",
+            ),
             // Tests for fractional seconds, which we currently don't support
             (
-                Err(ParseError::InvalidValue),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x1620100102030405.123456Z",
             ),
             (
-                Err(ParseError::InvalidValue),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x1520100102030405.123456",
             ),
-            (Err(ParseError::InvalidValue), b"\x18\x1020100102030405.Z"),
-            (Err(ParseError::InvalidValue), b"\x18\x0f20100102030405."),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1020100102030405.Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0f20100102030405.",
+            ),
         ]);
     }
 
@@ -640,7 +869,7 @@ mod tests {
         assert_parses::<Enumerated>(&[
             (Ok(Enumerated::new(12)), b"\x0a\x01\x0c"),
             (
-                Err(ParseError::InvalidValue),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x0a\x09\xff\xff\xff\xff\xff\xff\xff\xff\xff",
             ),
         ]);
@@ -653,9 +882,12 @@ mod tests {
                 Ok(Sequence::new(b"\x02\x01\x01\x02\x01\x02")),
                 b"\x30\x06\x02\x01\x01\x02\x01\x02",
             ),
-            (Err(ParseError::ShortData), b"\x30\x04\x02\x01\x01"),
             (
-                Err(ParseError::ExtraData),
+                Err(ParseError::new(ParseErrorKind::ShortData)),
+                b"\x30\x04\x02\x01\x01",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::ExtraData)),
                 b"\x30\x06\x02\x01\x01\x02\x01\x02\x00",
             ),
         ])
@@ -666,9 +898,12 @@ mod tests {
         assert_parses_cb(
             &[
                 (Ok((1, 2)), b"\x30\x06\x02\x01\x01\x02\x01\x02"),
-                (Err(ParseError::ShortData), b"\x30\x03\x02\x01\x01"),
                 (
-                    Err(ParseError::ExtraData),
+                    Err(ParseError::new(ParseErrorKind::ShortData)),
+                    b"\x30\x03\x02\x01\x01",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
                     b"\x30\x07\x02\x01\x01\x02\x01\x02\x00",
                 ),
             ],
@@ -688,7 +923,10 @@ mod tests {
                     b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
                 ),
                 (Ok(vec![]), b"\x30\x00"),
-                (Err(ParseError::ShortData), b"\x30\x02\x02\x01"),
+                (
+                    Err(ParseError::new(ParseErrorKind::ShortData)),
+                    b"\x30\x02\x02\x01",
+                ),
             ],
             |p| {
                 p.read_element::<Sequence>()?.parse(|p| {
@@ -711,7 +949,10 @@ mod tests {
                     b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
                 ),
                 (Ok(vec![]), b"\x30\x00"),
-                (Err(ParseError::ShortData), b"\x30\x02\x02\x01"),
+                (
+                    Err(ParseError::new(ParseErrorKind::ShortData)),
+                    b"\x30\x02\x02\x01",
+                ),
             ],
             |p| Ok(p.read_element::<SequenceOf<i64>>()?.collect()),
         )
@@ -727,12 +968,17 @@ mod tests {
                 ),
                 (Ok(vec![]), b"\x31\x00"),
                 (
-                    Err(ParseError::InvalidSetOrdering),
+                    Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)),
                     b"\x31\x06\x02\x01\x03\x02\x01\x01",
                 ),
-                (Err(ParseError::ShortData), b"\x31\x01\x02"),
                 (
-                    Err(ParseError::UnexpectedTag { actual: 0x1 }),
+                    Err(ParseError::new(ParseErrorKind::ShortData)),
+                    b"\x31\x01\x02",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: 0x1,
+                    })),
                     b"\x31\x02\x01\x00",
                 ),
             ],
@@ -749,8 +995,8 @@ mod tests {
                 (Ok((None, Some(18))), b"\x02\x01\x12"),
                 (Ok((Some(true), Some(18))), b"\x01\x01\xff\x02\x01\x12"),
                 (Ok((None, None)), b""),
-                (Err(ParseError::ShortData), b"\x01"),
-                (Err(ParseError::ShortData), b"\x02"),
+                (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x01"),
+                (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x02"),
             ],
             |p| {
                 Ok((
@@ -770,7 +1016,7 @@ mod tests {
                 b"\x04\x03abc",
             ),
             (Ok(None), b""),
-            (Err(ParseError::ShortData), b"\x04"),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04"),
         ]);
 
         assert_parses::<Option<Choice2<u64, bool>>>(&[
@@ -784,8 +1030,13 @@ mod tests {
     fn test_choice1() {
         assert_parses::<Choice1<bool>>(&[
             (Ok(Choice1::ChoiceA(true)), b"\x01\x01\xff"),
-            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03\x00"),
-            (Err(ParseError::ShortData), b""),
+            (
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x03,
+                })),
+                b"\x03\x00",
+            ),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
         ]);
     }
 
@@ -794,8 +1045,13 @@ mod tests {
         assert_parses::<Choice2<bool, i64>>(&[
             (Ok(Choice2::ChoiceA(true)), b"\x01\x01\xff"),
             (Ok(Choice2::ChoiceB(18)), b"\x02\x01\x12"),
-            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03\x00"),
-            (Err(ParseError::ShortData), b""),
+            (
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x03,
+                })),
+                b"\x03\x00",
+            ),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
         ]);
     }
 
@@ -805,8 +1061,13 @@ mod tests {
             (Ok(Choice3::ChoiceA(true)), b"\x01\x01\xff"),
             (Ok(Choice3::ChoiceB(18)), b"\x02\x01\x12"),
             (Ok(Choice3::ChoiceC(())), b"\x05\x00"),
-            (Err(ParseError::UnexpectedTag { actual: 0x03 }), b"\x03\x00"),
-            (Err(ParseError::ShortData), b""),
+            (
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x03,
+                })),
+                b"\x03\x00",
+            ),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
         ]);
     }
 
@@ -817,11 +1078,15 @@ mod tests {
             (Ok(Implicit::new(true)), b"\x82\x01\xff"),
             (Ok(Implicit::new(false)), b"\x82\x01\x00"),
             (
-                Err(ParseError::UnexpectedTag { actual: 0x01 }),
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x01,
+                })),
                 b"\x01\x01\xff",
             ),
             (
-                Err(ParseError::UnexpectedTag { actual: 0x02 }),
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x02,
+                })),
                 b"\x02\x01\xff",
             ),
         ]);
@@ -830,14 +1095,18 @@ mod tests {
             (Ok(Implicit::new(Sequence::new(b"abc"))), b"\xa2\x03abc"),
             (Ok(Implicit::new(Sequence::new(b""))), b"\xa2\x00"),
             (
-                Err(ParseError::UnexpectedTag { actual: 0x01 }),
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x01,
+                })),
                 b"\x01\x01\xff",
             ),
             (
-                Err(ParseError::UnexpectedTag { actual: 0x02 }),
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x02,
+                })),
                 b"\x02\x01\xff",
             ),
-            (Err(ParseError::ShortData), b""),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
         ]);
 
         assert_parses_cb(
@@ -845,8 +1114,14 @@ mod tests {
                 (Ok(Some(true)), b"\x82\x01\xff"),
                 (Ok(Some(false)), b"\x82\x01\x00"),
                 (Ok(None), b""),
-                (Err(ParseError::ExtraData), b"\x01\x01\xff"),
-                (Err(ParseError::ExtraData), b"\x02\x01\xff"),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x02\x01\xff",
+                ),
             ],
             |p| p.read_optional_implicit_element::<bool>(2),
         );
@@ -855,8 +1130,14 @@ mod tests {
                 (Ok(Some(Sequence::new(b"abc"))), b"\xa2\x03abc"),
                 (Ok(Some(Sequence::new(b""))), b"\xa2\x00"),
                 (Ok(None), b""),
-                (Err(ParseError::ExtraData), b"\x01\x01\xff"),
-                (Err(ParseError::ExtraData), b"\x02\x01\xff"),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x02\x01\xff",
+                ),
             ],
             |p| p.read_optional_implicit_element::<Sequence>(2),
         );
@@ -869,15 +1150,21 @@ mod tests {
             (Ok(Explicit::new(true)), b"\xa2\x03\x01\x01\xff"),
             (Ok(Explicit::new(false)), b"\xa2\x03\x01\x01\x00"),
             (
-                Err(ParseError::UnexpectedTag { actual: 0x01 }),
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x01,
+                })),
                 b"\x01\x01\xff",
             ),
             (
-                Err(ParseError::UnexpectedTag { actual: 0x02 }),
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x02,
+                })),
                 b"\x02\x01\xff",
             ),
             (
-                Err(ParseError::UnexpectedTag { actual: 0x03 }),
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x03,
+                })),
                 b"\xa2\x03\x03\x01\xff",
             ),
         ]);
@@ -887,9 +1174,14 @@ mod tests {
                 (Ok(Some(true)), b"\xa2\x03\x01\x01\xff"),
                 (Ok(Some(false)), b"\xa2\x03\x01\x01\x00"),
                 (Ok(None), b""),
-                (Err(ParseError::ExtraData), b"\x01\x01\xff"),
                 (
-                    Err(ParseError::UnexpectedTag { actual: 0x03 }),
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: 0x03,
+                    })),
                     b"\xa2\x03\x03\x01\xff",
                 ),
             ],

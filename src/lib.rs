@@ -107,7 +107,7 @@ mod writer;
 
 pub use crate::bit_string::BitString;
 pub use crate::object_identifier::ObjectIdentifier;
-pub use crate::parser::{parse, parse_single, ParseError, ParseResult, Parser};
+pub use crate::parser::{parse, parse_single, ParseError, ParseErrorKind, ParseResult, Parser};
 pub use crate::types::{
     Asn1Readable, Asn1Writable, BigUint, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
     IA5String, PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, SetOf,
@@ -124,7 +124,7 @@ pub use asn1_derive::{Asn1Read, Asn1Write};
 /// immediately after [`Parser::read_element`].
 pub fn from_optional_default<T: PartialEq>(v: Option<T>, default: T) -> ParseResult<T> {
     match v {
-        Some(v) if v == default => Err(ParseError::EncodedDefault),
+        Some(v) if v == default => Err(ParseError::new(ParseErrorKind::EncodedDefault)),
         Some(v) => Ok(v),
         None => Ok(default),
     }
