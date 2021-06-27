@@ -6,8 +6,10 @@ const MAX_OID_LENGTH: usize = 32;
 /// Represents an ASN.1 `OBJECT IDENTIFIER`. ObjectIdentifiers are opaque, the only thing may be
 /// done with them is test if they are equal to another `ObjectIdentifier`. The generally
 /// recommended practice for handling them is to create some `ObjectIdentifier` constants with
-/// `ObjectIdentifier::from_string` and then compare ObjectIdentifiers you get from parsing to
+/// `asn1::oid!()` and then compare ObjectIdentifiers you get from parsing to
 /// those.
+///
+/// `asn1::oid!()` takes a series of arcs, for example: `asn1::oid!(1, 2, 3)`.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct ObjectIdentifier {
     // Store the OID as DER encoded.
@@ -104,6 +106,17 @@ impl ObjectIdentifier {
             der_encoded: storage,
             der_encoded_len: data.len() as u8,
         })
+    }
+
+    /// Creates an `ObjectIdentifier` from its DER representation. Does not
+    /// check that the DER is valid. Intended only for use from the `oid!()`
+    /// macro. Do not use yourself!
+    #[doc(hidden)]
+    pub const fn from_der_unchecked(data: [u8; MAX_OID_LENGTH], data_len: u8) -> ObjectIdentifier {
+        ObjectIdentifier {
+            der_encoded: data,
+            der_encoded_len: data_len,
+        }
     }
 
     pub(crate) fn as_der(&self) -> &[u8] {
