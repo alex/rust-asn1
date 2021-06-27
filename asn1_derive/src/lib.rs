@@ -30,7 +30,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                     fn parse(parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
                         let tlv = parser.read_element::<asn1::Tlv>()?;
                         #read_block
-                        Err(asn1::ParseError::UnexpectedTag{actual: tlv.tag()})
+                        Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag{actual: tlv.tag()}))
                     }
 
                     fn can_parse(tag: u8) -> bool {

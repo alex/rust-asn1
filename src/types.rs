@@ -8,7 +8,10 @@ use core::mem;
 use chrono::{Datelike, TimeZone, Timelike};
 
 use crate::writer::Writer;
-use crate::{parse, parse_single, BitString, ObjectIdentifier, ParseError, ParseResult, Parser};
+use crate::{
+    parse, parse_single, BitString, ObjectIdentifier, ParseError, ParseErrorKind, ParseResult,
+    Parser,
+};
 
 pub(crate) const CONTEXT_SPECIFIC: u8 = 0x80;
 pub(crate) const CONSTRUCTED: u8 = 0x20;
@@ -31,7 +34,9 @@ impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
         let tlv = parser.read_tlv()?;
         if !Self::can_parse(tlv.tag) {
-            return Err(ParseError::UnexpectedTag { actual: tlv.tag });
+            return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                actual: tlv.tag,
+            }));
         }
         Self::parse_data(tlv.data)
     }
@@ -120,7 +125,7 @@ impl SimpleAsn1Readable<'_> for () {
         if data.is_empty() {
             Ok(())
         } else {
-            Err(ParseError::InvalidValue)
+            Err(ParseError::new(ParseErrorKind::InvalidValue))
         }
     }
 }
@@ -137,7 +142,7 @@ impl SimpleAsn1Readable<'_> for bool {
         match data {
             b"\x00" => Ok(false),
             b"\xff" => Ok(true),
-            _ => Err(ParseError::InvalidValue),
+            _ => Err(ParseError::new(ParseErrorKind::InvalidValue)),
         }
     }
 }
@@ -226,7 +231,8 @@ impl<'a> PrintableString<'a> {
 impl<'a> SimpleAsn1Readable<'a> for PrintableString<'a> {
     const TAG: u8 = 0x13;
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        PrintableString::new_from_bytes(data).ok_or(ParseError::InvalidValue)
+        PrintableString::new_from_bytes(data)
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 
@@ -276,7 +282,7 @@ impl<'a> IA5String<'a> {
 impl<'a> SimpleAsn1Readable<'a> for IA5String<'a> {
     const TAG: u8 = 0x16;
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        IA5String::new_from_bytes(data).ok_or(ParseError::InvalidValue)
+        IA5String::new_from_bytes(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl<'a> SimpleAsn1Writable<'a> for IA5String<'a> {
@@ -308,7 +314,8 @@ impl<'a> Utf8String<'a> {
 impl<'a> SimpleAsn1Readable<'a> for Utf8String<'a> {
     const TAG: u8 = 0x0c;
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        Utf8String::new_from_bytes(data).ok_or(ParseError::InvalidValue)
+        Utf8String::new_from_bytes(data)
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl<'a> SimpleAsn1Writable<'a> for Utf8String<'a> {
@@ -362,7 +369,8 @@ impl<'a> VisibleString<'a> {
 impl<'a> SimpleAsn1Readable<'a> for VisibleString<'a> {
     const TAG: u8 = 0x1a;
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        VisibleString::new_from_bytes(data).ok_or(ParseError::InvalidValue)
+        VisibleString::new_from_bytes(data)
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl<'a> SimpleAsn1Writable<'a> for VisibleString<'a> {
@@ -374,18 +382,18 @@ impl<'a> SimpleAsn1Writable<'a> for VisibleString<'a> {
 
 fn validate_integer(data: &[u8], signed: bool) -> ParseResult<()> {
     if data.is_empty() {
-        return Err(ParseError::InvalidValue);
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
     // Ensure integer is minimally encoded
     if data.len() > 1
         && ((data[0] == 0 && data[1] & 0x80 == 0) || (data[0] == 0xff && data[1] & 0x80 == 0x80))
     {
-        return Err(ParseError::InvalidValue);
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
 
     // Reject negatives for unsigned types.
     if !signed && data[0] & 0x80 == 0x80 {
-        return Err(ParseError::InvalidValue);
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
 
     Ok(())
@@ -405,7 +413,7 @@ macro_rules! impl_asn1_element_for_int {
                     data = &data[1..];
                 }
                 if data.len() > mem::size_of::<Self>() {
-                    return Err(ParseError::IntegerOverflow);
+                    return Err(ParseError::new(ParseErrorKind::IntegerOverflow));
                 }
 
                 let mut fixed_data = [0; mem::size_of::<$t>()];
@@ -470,7 +478,7 @@ impl<'a> BigUint<'a> {
 impl<'a> SimpleAsn1Readable<'a> for BigUint<'a> {
     const TAG: u8 = 0x02;
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        BigUint::new(data).ok_or(ParseError::InvalidValue)
+        BigUint::new(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl<'a> SimpleAsn1Writable<'a> for BigUint<'a> {
@@ -483,7 +491,8 @@ impl<'a> SimpleAsn1Writable<'a> for BigUint<'a> {
 impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
     fn parse_data(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
-        ObjectIdentifier::from_der(data).ok_or(ParseError::InvalidValue)
+        ObjectIdentifier::from_der(data)
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl<'a> SimpleAsn1Writable<'a> for ObjectIdentifier<'a> {
@@ -497,9 +506,10 @@ impl<'a> SimpleAsn1Readable<'a> for BitString<'a> {
     const TAG: u8 = 0x03;
     fn parse_data(data: &'a [u8]) -> ParseResult<BitString<'a>> {
         if data.is_empty() {
-            return Err(ParseError::InvalidValue);
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        BitString::new(&data[1..], data[0]).ok_or(ParseError::InvalidValue)
+        BitString::new(&data[1..], data[0])
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl<'a> SimpleAsn1Writable<'a> for BitString<'a> {
@@ -536,7 +546,8 @@ const UTCTIME: &str = "%y%m%d%H%MZ";
 impl SimpleAsn1Readable<'_> for UtcTime {
     const TAG: u8 = 0x17;
     fn parse_data(data: &[u8]) -> ParseResult<Self> {
-        let data = core::str::from_utf8(data).map_err(|_| ParseError::InvalidValue)?;
+        let data = core::str::from_utf8(data)
+            .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
 
         // Try parsing with every combination of "including seconds or not" and "fixed offset or
         // UTC".
@@ -558,7 +569,7 @@ impl SimpleAsn1Readable<'_> for UtcTime {
                 // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes them as
                 // nanoseconds == 1000000.
                 if dt.nanosecond() >= 1_000_000 {
-                    return Err(ParseError::InvalidValue);
+                    return Err(ParseError::new(ParseErrorKind::InvalidValue));
                 }
                 // UTCTime only encodes times prior to 2050. We use the X.509 mapping of two-digit
                 // year ordinals to full year:
@@ -570,7 +581,7 @@ impl SimpleAsn1Readable<'_> for UtcTime {
                 }
                 Ok(UtcTime(dt))
             }
-            None => Err(ParseError::InvalidValue),
+            None => Err(ParseError::new(ParseErrorKind::InvalidValue)),
         }
     }
 }
@@ -627,7 +638,8 @@ impl GeneralizedTime {
 impl SimpleAsn1Readable<'_> for GeneralizedTime {
     const TAG: u8 = 0x18;
     fn parse_data(data: &[u8]) -> ParseResult<GeneralizedTime> {
-        let data = core::str::from_utf8(data).map_err(|_| ParseError::InvalidValue)?;
+        let data = core::str::from_utf8(data)
+            .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
         if let Ok(v) = chrono::Utc.datetime_from_str(data, "%Y%m%d%H%M%SZ") {
             return Ok(GeneralizedTime::new(v));
         }
@@ -635,7 +647,7 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
             return Ok(GeneralizedTime::new(v.into()));
         }
 
-        Err(ParseError::InvalidValue)
+        Err(ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 
@@ -733,7 +745,7 @@ macro_rules! declare_choice {
                         return Ok($count::$name(tlv.parse::<$number>()?));
                     }
                 )*
-                Err(ParseError::UnexpectedTag{actual: tlv.tag()})
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag{actual: tlv.tag()}))
             }
 
             fn can_parse(tag: u8) -> bool {
@@ -1002,7 +1014,7 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
                 let el = p.read_tlv()?;
                 if let Some(last_el) = last_element {
                     if el.full_data < last_el.full_data {
-                        return Err(ParseError::InvalidSetOrdering);
+                        return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering));
                     }
                 }
                 last_element = Some(el);
@@ -1191,7 +1203,10 @@ impl<'a, T: Asn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a> for Explicit
 
 #[cfg(test)]
 mod tests {
-    use crate::{parse_single, IA5String, ParseError, PrintableString, SequenceOf, SetOf, Tlv};
+    use crate::{
+        parse_single, IA5String, ParseError, ParseErrorKind, PrintableString, SequenceOf, SetOf,
+        Tlv,
+    };
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
@@ -1223,7 +1238,9 @@ mod tests {
         assert_eq!(tlv.parse::<u64>(), Ok(3));
         assert_eq!(
             tlv.parse::<&[u8]>(),
-            Err(ParseError::UnexpectedTag { actual: 0x2 })
+            Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                actual: 0x2
+            }))
         );
     }
 

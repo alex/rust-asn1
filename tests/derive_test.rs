@@ -25,7 +25,10 @@ fn test_struct_no_fields() {
 
     assert_roundtrips(&[
         (Ok(NoFields), b"\x30\x00"),
-        (Err(asn1::ParseError::ExtraData), b"\x30\x01\x00"),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::ExtraData)),
+            b"\x30\x01\x00",
+        ),
     ])
 }
 
@@ -70,7 +73,10 @@ fn test_optional() {
     assert_roundtrips(&[
         (Ok(OptionalFields { zzz: None }), b"\x30\x00"),
         (Ok(OptionalFields { zzz: Some(8) }), b"\x30\x03\x02\x01\x08"),
-        (Err(asn1::ParseError::ExtraData), b"\x30\x03\x04\x00\x00"),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::ExtraData)),
+            b"\x30\x03\x04\x00\x00",
+        ),
     ]);
 }
 
@@ -192,15 +198,15 @@ fn test_default() {
             b"\x30\x0b\x02\x01\x03\xa1\x03\x02\x01\x05\x85\x01\x07",
         ),
         (
-            Err(asn1::ParseError::EncodedDefault),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
             b"\x30\x03\x02\x01\x0d",
         ),
         (
-            Err(asn1::ParseError::EncodedDefault),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
             b"\x30\x05\xa1\x03\x02\x01\x0f",
         ),
         (
-            Err(asn1::ParseError::EncodedDefault),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
             b"\x30\x03\x85\x01\x11",
         ),
     ]);
@@ -247,11 +253,11 @@ fn test_default_const_generics() {
             b"\x30\x08\xa1\x03\x02\x01\x05\x85\x01\x07",
         ),
         (
-            Err(asn1::ParseError::EncodedDefault),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
             b"\x30\x05\xa1\x03\x02\x01\x0f",
         ),
         (
-            Err(asn1::ParseError::EncodedDefault),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
             b"\x30\x03\x85\x01\x11",
         ),
     ]);
@@ -269,7 +275,7 @@ fn test_default_bool() {
         (Ok(DefaultField { a: true }), b"\x30\x03\x01\x01\xff"),
         (Ok(DefaultField { a: false }), b"\x30\x00"),
         (
-            Err(asn1::ParseError::EncodedDefault),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
             b"\x30\x03\x01\x01\x00",
         ),
     ])
@@ -287,7 +293,9 @@ fn test_enum() {
         (Ok(BasicChoice::A(17)), b"\x02\x01\x11"),
         (Ok(BasicChoice::B(())), b"\x05\x00"),
         (
-            Err(asn1::ParseError::UnexpectedTag { actual: 4 }),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
+                actual: 4,
+            })),
             b"\x04\x00",
         ),
     ]);
@@ -311,7 +319,9 @@ fn test_enum_lifetimes() {
         (Ok(LifetimesChoice::A(17)), b"\x02\x01\x11"),
         (Ok(LifetimesChoice::B(b"lol")), b"\x04\x03lol"),
         (
-            Err(asn1::ParseError::UnexpectedTag { actual: 5 }),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
+                actual: 5,
+            })),
             b"\x05\x00",
         ),
     ]);
@@ -336,7 +346,9 @@ fn test_enum_explicit() {
         (Ok(ExplicitChoice::A(17)), b"\xa5\x03\x02\x01\x11"),
         (Ok(ExplicitChoice::B(b"lol")), b"\x04\x03lol"),
         (
-            Err(asn1::ParseError::UnexpectedTag { actual: 5 }),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
+                actual: 5,
+            })),
             b"\x05\x00",
         ),
     ]);
@@ -367,7 +379,9 @@ fn test_enum_implicit() {
         (Ok(ImplicitChoice::B(EmptySequence)), b"\xa7\x00"),
         (Ok(ImplicitChoice::C(b"lol")), b"\x04\x03lol"),
         (
-            Err(asn1::ParseError::UnexpectedTag { actual: 5 }),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
+                actual: 5,
+            })),
             b"\x05\x00",
         ),
     ]);
