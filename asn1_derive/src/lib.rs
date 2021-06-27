@@ -1,5 +1,6 @@
 extern crate proc_macro;
 
+use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
@@ -438,4 +439,52 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
             #(#write_arms)*
         }
     }
+}
+
+fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
+    if n == 0 {
+        data.push(0);
+        return;
+    }
+
+    let mut l = 0;
+    let mut i = n;
+    while i > 0 {
+        l += 1;
+        i >>= 7;
+    }
+
+    for i in (0..l).rev() {
+        let mut o = (n >> (i * 7)) as u8;
+        o &= 0x7f;
+        if i != 0 {
+            o |= 0x80;
+        }
+        data.push(o);
+    }
+}
+
+#[proc_macro]
+pub fn oid(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let p_arcs = Punctuated::<syn::LitInt, syn::Token![,]>::parse_terminated
+        .parse(item)
+        .unwrap();
+    let mut arcs = p_arcs.iter();
+
+    let mut der_encoded = vec![];
+    let first = arcs.next().unwrap().base10_parse::<u32>().unwrap();
+    let second = arcs.next().unwrap().base10_parse::<u32>().unwrap();
+    _write_base128_int(&mut der_encoded, 40 * first + second);
+    for arc in arcs {
+        _write_base128_int(&mut der_encoded, arc.base10_parse().unwrap());
+    }
+
+    let der_len = der_encoded.len();
+    der_encoded.resize(32, 0);
+    let der_lit = syn::LitByteStr::new(&der_encoded, proc_macro2::Span::call_site());
+    let expanded = quote::quote! {
+        asn1::ObjectIdentifier::from_der_unchecked(*#der_lit, #der_len as u8)
+    };
+
+    proc_macro::TokenStream::from(expanded)
 }
