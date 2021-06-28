@@ -198,15 +198,18 @@ fn test_default() {
             b"\x30\x0b\x02\x01\x03\xa1\x03\x02\x01\x05\x85\x01\x07",
         ),
         (
-            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)
+                .add_location(asn1::ParseLocation::Field("DefaultFields::a"))),
             b"\x30\x03\x02\x01\x0d",
         ),
         (
-            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)
+                .add_location(asn1::ParseLocation::Field("DefaultFields::b"))),
             b"\x30\x05\xa1\x03\x02\x01\x0f",
         ),
         (
-            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)
+                .add_location(asn1::ParseLocation::Field("DefaultFields::c"))),
             b"\x30\x03\x85\x01\x11",
         ),
     ]);
@@ -253,11 +256,13 @@ fn test_default_const_generics() {
             b"\x30\x08\xa1\x03\x02\x01\x05\x85\x01\x07",
         ),
         (
-            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)
+                .add_location(asn1::ParseLocation::Field("DefaultFields::a"))),
             b"\x30\x05\xa1\x03\x02\x01\x0f",
         ),
         (
-            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)
+                .add_location(asn1::ParseLocation::Field("DefaultFields::b"))),
             b"\x30\x03\x85\x01\x11",
         ),
     ]);
@@ -275,7 +280,8 @@ fn test_default_bool() {
         (Ok(DefaultField { a: true }), b"\x30\x03\x01\x01\xff"),
         (Ok(DefaultField { a: false }), b"\x30\x00"),
         (
-            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)
+                .add_location(asn1::ParseLocation::Field("DefaultField::a"))),
             b"\x30\x03\x01\x01\x00",
         ),
     ])
@@ -391,5 +397,37 @@ fn test_enum_implicit() {
         (Ok(Some(ImplicitChoice::B(EmptySequence))), b"\xa7\x00"),
         (Ok(Some(ImplicitChoice::C(b"lol"))), b"\x04\x03lol"),
         (Ok(None), b""),
+    ]);
+}
+
+#[test]
+fn test_error_parse_location() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct InnerSeq(u64);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    enum InnerEnum {
+        Int(u64),
+    }
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct OuterSeq {
+        inner: InnerSeq,
+        inner_enum: Option<InnerEnum>,
+    }
+
+    assert_roundtrips::<OuterSeq>(&[
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::InvalidValue)
+                .add_location(asn1::ParseLocation::Field("InnerSeq::0"))
+                .add_location(asn1::ParseLocation::Field("OuterSeq::inner"))),
+            b"\x30\x04\x30\x02\x02\x00",
+        ),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::InvalidValue)
+                .add_location(asn1::ParseLocation::Field("InnerEnum::Int"))
+                .add_location(asn1::ParseLocation::Field("OuterSeq::inner_enum"))),
+            b"\x30\x07\x30\x03\x02\x01\x01\x02\x00",
+        ),
     ]);
 }

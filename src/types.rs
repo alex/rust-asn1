@@ -9,8 +9,8 @@ use chrono::{Datelike, TimeZone, Timelike};
 
 use crate::writer::Writer;
 use crate::{
-    parse, parse_single, BitString, ObjectIdentifier, ParseError, ParseErrorKind, ParseResult,
-    Parser,
+    parse, parse_single, BitString, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation,
+    ParseResult, Parser,
 };
 
 pub(crate) const CONTEXT_SPECIFIC: u8 = 0x80;
@@ -896,8 +896,11 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> 
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         parse(data, |p| {
+            let mut i = 0;
             while !p.is_empty() {
-                p.read_element::<T>()?;
+                p.read_element::<T>()
+                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
+                i += 1;
             }
             Ok(())
         })?;
@@ -1010,15 +1013,21 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         parse(data, |p| {
             let mut last_element: Option<Tlv> = None;
+            let mut i = 0;
             while !p.is_empty() {
-                let el = p.read_tlv()?;
+                let el = p
+                    .read_tlv()
+                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
                 if let Some(last_el) = last_element {
                     if el.full_data < last_el.full_data {
-                        return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering));
+                        return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
+                            .add_location(ParseLocation::Index(i)));
                     }
                 }
                 last_element = Some(el);
-                el.parse::<T>()?;
+                el.parse::<T>()
+                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
+                i += 1;
             }
             Ok(())
         })?;
