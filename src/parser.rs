@@ -1,5 +1,7 @@
 use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
 use alloc::borrow::Cow;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use core::fmt;
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
