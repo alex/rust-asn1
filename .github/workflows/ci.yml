@@ -67,6 +67,9 @@ jobs:
             FLAGS: ""
           - VERSION: stable
             FLAGS: "--no-default-features --features std"
+          - VERSION: stable
+            FLAGS: "--no-default-features"
+            SKIP_TESTS: true
           - VERSION: beta
             FLAGS: ""
           - VERSION: beta
@@ -100,6 +103,7 @@ jobs:
         with:
           command: test
           args: ${{ matrix.RUST.FLAGS }}
+        if: "${{ !matrix.RUST.SKIP_TESTS }}"
 
       - uses: actions-rs/cargo@v1.0.3
         with:
