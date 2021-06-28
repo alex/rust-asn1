@@ -103,7 +103,7 @@ jobs:
         with:
           command: test
           args: ${{ matrix.RUST.FLAGS }}
-        if: "!${{ matrix.RUST.SKIP_TESTS }}"
+        if: "${{ !matrix.RUST.SKIP_TESTS }}"
 
       - uses: actions-rs/cargo@v1.0.3
         with:
