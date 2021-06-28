@@ -1,4 +1,6 @@
 use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
+use alloc::borrow::Cow;
+use core::fmt;
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq)]
@@ -20,13 +22,56 @@ pub enum ParseErrorKind {
 }
 
 #[derive(Debug, PartialEq)]
+#[doc(hidden)]
+pub enum ParseLocation {
+    Field(&'static str),
+    Index(usize),
+}
+
+#[derive(PartialEq)]
 pub struct ParseError {
     kind: ParseErrorKind,
+    parse_locations: [Option<ParseLocation>; 8],
+    parse_depth: u8,
 }
 
 impl ParseError {
     pub fn new(kind: ParseErrorKind) -> ParseError {
-        ParseError { kind }
+        ParseError {
+            kind,
+            parse_locations: [None, None, None, None, None, None, None, None],
+            parse_depth: 0,
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn add_location(mut self, loc: ParseLocation) -> Self {
+        if (self.parse_depth as usize) < self.parse_locations.len() {
+            self.parse_locations[self.parse_depth as usize] = Some(loc);
+            self.parse_depth += 1;
+        }
+        self
+    }
+}
+
+impl fmt::Debug for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut f = f.debug_struct("ParseError");
+        f.field("kind", &self.kind);
+        if self.parse_depth > 0 {
+            f.field(
+                "location",
+                &self.parse_locations[..self.parse_depth as usize]
+                    .iter()
+                    .rev()
+                    .map(|l| match l.as_ref().unwrap() {
+                        ParseLocation::Field(f) => Cow::<'_, str>::Borrowed(f),
+                        ParseLocation::Index(i) => Cow::<'_, str>::Owned(i.to_string()),
+                    })
+                    .collect::<Vec<_>>(),
+            );
+        }
+        f.finish()
     }
 }
 
@@ -195,8 +240,8 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime, IA5String,
-        ObjectIdentifier, ParseError, ParseErrorKind, ParseResult, PrintableString, Sequence,
-        SequenceOf, SetOf, Tlv, UtcTime, Utf8String, VisibleString,
+        ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation, ParseResult, PrintableString,
+        Sequence, SequenceOf, SetOf, Tlv, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -237,6 +282,25 @@ mod tests {
         })
         .unwrap();
         assert_eq!(result, b"\x00");
+    }
+
+    #[test]
+    fn test_parse_error_debug() {
+        for (e, expected) in [
+            (
+                ParseError::new(ParseErrorKind::InvalidValue),
+                "ParseError { kind: InvalidValue }",
+            ),
+            (
+                ParseError::new(ParseErrorKind::InvalidValue)
+                    .add_location(ParseLocation::Field("Abc::123")),
+                "ParseError { kind: InvalidValue, location: [\"Abc::123\"] }",
+            ),
+        ]
+        .iter()
+        {
+            assert_eq!(&format!("{:?}", e), expected)
+        }
     }
 
     fn assert_parses_cb<
@@ -950,7 +1014,8 @@ mod tests {
                 ),
                 (Ok(vec![]), b"\x30\x00"),
                 (
-                    Err(ParseError::new(ParseErrorKind::ShortData)),
+                    Err(ParseError::new(ParseErrorKind::ShortData)
+                        .add_location(ParseLocation::Index(0))),
                     b"\x30\x02\x02\x01",
                 ),
             ],
@@ -968,17 +1033,20 @@ mod tests {
                 ),
                 (Ok(vec![]), b"\x31\x00"),
                 (
-                    Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)),
+                    Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
+                        .add_location(ParseLocation::Index(1))),
                     b"\x31\x06\x02\x01\x03\x02\x01\x01",
                 ),
                 (
-                    Err(ParseError::new(ParseErrorKind::ShortData)),
+                    Err(ParseError::new(ParseErrorKind::ShortData)
+                        .add_location(ParseLocation::Index(0))),
                     b"\x31\x01\x02",
                 ),
                 (
-                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: 0x1,
-                    })),
+                    Err(
+                        ParseError::new(ParseErrorKind::UnexpectedTag { actual: 0x1 })
+                            .add_location(ParseLocation::Index(0)),
+                    ),
                     b"\x31\x02\x01\x00",
                 ),
             ],

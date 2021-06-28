@@ -13,7 +13,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
     let expanded = match input.data {
         syn::Data::Struct(data) => {
-            let read_block = generate_struct_read_block(&data);
+            let read_block = generate_struct_read_block(&name, &data);
             quote::quote! {
                 impl<#impl_lifetimes> asn1::SimpleAsn1Readable<#lifetime_name> for #name<#ty_lifetimes> {
                     const TAG: u8 = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
@@ -140,34 +140,46 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
     (op_type, default)
 }
 
-fn generate_read_element(f: &syn::Field) -> proc_macro2::TokenStream {
+fn generate_read_element(
+    struct_name: &syn::Ident,
+    f: &syn::Field,
+    f_name: &str,
+) -> proc_macro2::TokenStream {
     let (read_type, default) = extract_field_properties(&f.attrs);
 
+    let error_location = format!("{}::{}", struct_name, f_name);
+    let add_error_location = quote::quote! {
+        .map_err(|e| e.add_location(asn1::ParseLocation::Field(#error_location)))
+    };
     let mut read_op = match read_type {
         OpType::Explicit(arg) => quote::quote! {
-            p.read_optional_explicit_element(#arg)?
+            p.read_optional_explicit_element(#arg)#add_error_location?
         },
         OpType::Implicit(arg) => quote::quote! {
-            p.read_optional_implicit_element(#arg)?
+            p.read_optional_implicit_element(#arg)#add_error_location?
         },
         OpType::Regular => quote::quote! {
-            p.read_element()?
+            p.read_element()#add_error_location?
         },
     };
     if let Some(default) = default {
         read_op = quote::quote! {{
-            asn1::from_optional_default(#read_op, #default.into())?
+            asn1::from_optional_default(#read_op, #default.into())#add_error_location?
         }};
     }
     read_op
 }
 
-fn generate_struct_read_block(data: &syn::DataStruct) -> proc_macro2::TokenStream {
+fn generate_struct_read_block(
+    struct_name: &syn::Ident,
+    data: &syn::DataStruct,
+) -> proc_macro2::TokenStream {
     match data.fields {
         syn::Fields::Named(ref fields) => {
             let recurse = fields.named.iter().map(|f| {
                 let name = &f.ident;
-                let read_op = generate_read_element(f);
+                let read_op =
+                    generate_read_element(struct_name, f, &format!("{}", name.as_ref().unwrap()));
                 quote::quote_spanned! {f.span() =>
                     #name: #read_op,
                 }
@@ -180,8 +192,8 @@ fn generate_struct_read_block(data: &syn::DataStruct) -> proc_macro2::TokenStrea
             }
         }
         syn::Fields::Unnamed(ref fields) => {
-            let recurse = fields.unnamed.iter().map(|f| {
-                let read_op = generate_read_element(f);
+            let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
+                let read_op = generate_read_element(struct_name, f, &format!("{}", i));
                 quote::quote_spanned! {f.span() =>
                     #read_op,
                 }
@@ -220,11 +232,15 @@ fn generate_enum_read_block(
         let ty = &field.ty;
         let ident = &variant.ident;
 
+        let error_location = format!("{}::{}", name, ident);
+        let add_error_location = quote::quote! {
+            .map_err(|e| e.add_location(asn1::ParseLocation::Field(#error_location)))
+        };
         match op_type {
             OpType::Regular => {
                 read_blocks.push(quote::quote! {
                     if <#ty>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(tlv.parse()?));
+                        return Ok(#name::#ident(tlv.parse()#add_error_location?));
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
@@ -238,7 +254,7 @@ fn generate_enum_read_block(
                     if tlv.tag() == asn1::explicit_tag(#tag) {
                         return Ok(#name::#ident(asn1::parse(
                             tlv.full_data(),
-                            |p| Ok(p.read_optional_explicit_element(#tag)?.unwrap()))?
+                            |p| Ok(p.read_optional_explicit_element(#tag)#add_error_location?.unwrap()))?
                         ))
                     }
                 });
@@ -253,7 +269,7 @@ fn generate_enum_read_block(
                     if tlv.tag() == asn1::implicit_tag(#tag, <#ty as asn1::SimpleAsn1Readable>::TAG) {
                         return Ok(#name::#ident(asn1::parse(
                             tlv.full_data(),
-                            |p| Ok(p.read_optional_implicit_element(#tag)?.unwrap()))?
+                            |p| Ok(p.read_optional_implicit_element(#tag)#add_error_location?.unwrap()))?
                         ))
                     }
                 });
