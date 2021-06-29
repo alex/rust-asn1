@@ -622,7 +622,7 @@ impl SimpleAsn1Writable<'_> for UtcTime {
 
 /// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
 /// `chrono::DateTime<Utc>`.
-#[derive(Debug, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
 pub struct GeneralizedTime(chrono::DateTime<chrono::Utc>);
 
 impl GeneralizedTime {
