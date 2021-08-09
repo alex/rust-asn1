@@ -316,7 +316,7 @@ mod tests {
     ) {
         for (expected, der_bytes) in data {
             let result = crate::parse(der_bytes, &f);
-            assert_eq!(&result, expected)
+            assert_eq!(&result, expected);
         }
     }
 
@@ -813,6 +813,14 @@ mod tests {
             (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x17\x0e1001020304-10Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0c18102813516Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x1018102813516+0730",
             ),
         ]);
     }
