@@ -316,7 +316,7 @@ mod tests {
     ) {
         for (expected, der_bytes) in data {
             let result = crate::parse(der_bytes, &f);
-            assert_eq!(&result, expected)
+            assert_eq!(&result, expected);
         }
     }
 

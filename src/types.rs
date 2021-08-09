@@ -538,10 +538,10 @@ impl UtcTime {
     }
 }
 
-const UTCTIME_WITH_SECONDS_AND_OFFSET: &str = "%y%m%d%H%M%S%z";
-const UTCTIME_WITH_SECONDS: &str = "%y%m%d%H%M%SZ";
-const UTCTIME_WITH_OFFSET: &str = "%y%m%d%H%M%z";
-const UTCTIME: &str = "%y%m%d%H%MZ";
+const UTCTIME_WITH_SECONDS_AND_OFFSET: (&str, usize) = ("%y%m%d%H%M%S%z", 17);
+const UTCTIME_WITH_SECONDS: (&str, usize) = ("%y%m%d%H%M%SZ", 13);
+const UTCTIME_WITH_OFFSET: (&str, usize) = ("%y%m%d%H%M%z", 15);
+const UTCTIME: (&str, usize) = ("%y%m%d%H%MZ", 11);
 
 impl SimpleAsn1Readable<'_> for UtcTime {
     const TAG: u8 = 0x17;
@@ -552,20 +552,22 @@ impl SimpleAsn1Readable<'_> for UtcTime {
         // Try parsing with every combination of "including seconds or not" and "fixed offset or
         // UTC".
         let mut result = None;
-        for format in [UTCTIME_WITH_SECONDS, UTCTIME].iter() {
+        for (format, expected_length) in [UTCTIME_WITH_SECONDS, UTCTIME].iter() {
+            if data.len() != *expected_length {
+                continue;
+            }
             if let Ok(dt) = chrono::Utc.datetime_from_str(data, format) {
-                if dt.format(format).to_string() != data {
-                    return Err(ParseError::new(ParseErrorKind::InvalidValue));
-                }
                 result = Some(dt);
                 break;
             }
         }
-        for format in [UTCTIME_WITH_SECONDS_AND_OFFSET, UTCTIME_WITH_OFFSET].iter() {
+        for (format, expected_length) in
+            [UTCTIME_WITH_SECONDS_AND_OFFSET, UTCTIME_WITH_OFFSET].iter()
+        {
+            if data.len() != *expected_length {
+                continue;
+            }
             if let Ok(dt) = chrono::DateTime::parse_from_str(data, format) {
-                if dt.format(format).to_string() != data {
-                    return Err(ParseError::new(ParseErrorKind::InvalidValue));
-                }
                 result = Some(dt.into());
                 break;
             }
