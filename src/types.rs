@@ -554,12 +554,18 @@ impl SimpleAsn1Readable<'_> for UtcTime {
         let mut result = None;
         for format in [UTCTIME_WITH_SECONDS, UTCTIME].iter() {
             if let Ok(dt) = chrono::Utc.datetime_from_str(data, format) {
+                if &dt.format(format).to_string() != data {
+                    return Err(ParseError::new(ParseErrorKind::InvalidValue));
+                }
                 result = Some(dt);
                 break;
             }
         }
         for format in [UTCTIME_WITH_SECONDS_AND_OFFSET, UTCTIME_WITH_OFFSET].iter() {
             if let Ok(dt) = chrono::DateTime::parse_from_str(data, format) {
+                if &dt.format(format).to_string() != data {
+                    return Err(ParseError::new(ParseErrorKind::InvalidValue));
+                }
                 result = Some(dt.into());
                 break;
             }

@@ -814,6 +814,14 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x17\x0e1001020304-10Z",
             ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0c18102813516Z",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x1018102813516+0730",
+            ),
         ]);
     }
 
