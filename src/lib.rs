@@ -121,10 +121,10 @@ pub use crate::types::{Explicit, Implicit};
 pub use crate::writer::{write, write_single, Writer};
 
 #[cfg(feature = "derive")]
-pub use asn1_derive::{Asn1Read, Asn1Write};
-#[cfg(feature = "derive")]
 #[proc_macro_hack::proc_macro_hack]
 pub use asn1_derive::oid;
+#[cfg(feature = "derive")]
+pub use asn1_derive::{Asn1Read, Asn1Write};
 
 /// Decodes an `OPTIONAL` ASN.1 value which has a `DEFAULT`. Generaly called
 /// immediately after [`Parser::read_element`].
