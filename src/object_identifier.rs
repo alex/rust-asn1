@@ -1,4 +1,4 @@
-use crate::parser::{ParseError, ParseResult};
+use crate::parser::{ParseError, ParseErrorKind, ParseResult};
 use alloc::fmt;
 
 const MAX_OID_LENGTH: usize = 32;
@@ -20,14 +20,16 @@ pub struct ObjectIdentifier {
 fn _read_base128_int<I: Iterator<Item = u8>>(mut reader: I) -> ParseResult<u32> {
     let mut ret = 0u32;
     for _ in 0..4 {
-        let b = reader.next().ok_or(ParseError::InvalidValue)?;
+        let b = reader
+            .next()
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))?;
         ret <<= 7;
         ret |= u32::from(b & 0x7f);
         if b & 0x80 == 0 {
             return Ok(ret);
         }
     }
-    Err(ParseError::InvalidValue)
+    Err(ParseError::new(ParseErrorKind::InvalidValue))
 }
 
 fn _write_base128_int(data: &mut [u8], data_len: &mut usize, n: u32) -> Option<()> {
@@ -90,9 +92,9 @@ impl ObjectIdentifier {
     /// not perform any allocations or copies.
     pub fn from_der(data: &[u8]) -> ParseResult<ObjectIdentifier> {
         if data.is_empty() {
-            return Err(ParseError::InvalidValue);
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
         } else if data.len() > MAX_OID_LENGTH {
-            return Err(ParseError::OidTooLong);
+            return Err(ParseError::new(ParseErrorKind::OidTooLong));
         }
         let mut cursor = data.iter().copied();
         while cursor.len() > 0 {
@@ -148,7 +150,7 @@ impl fmt::Display for ObjectIdentifier {
 
 #[cfg(test)]
 mod tests {
-    use crate::{ObjectIdentifier, ParseError};
+    use crate::{ObjectIdentifier, ParseError, ParseErrorKind};
 
     #[test]
     fn test_object_identifier_from_string() {
@@ -182,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_from_der() {
-        assert_eq!(ObjectIdentifier::from_der(b"\x06\x2b\x2b\x06\x01\x04\x01\x89\x60\x01\x01\x02\x01\x03\x15\x45\x70\x73\x6f\x6e\x20\x53\x74\x79\x6c\x75\x73\x20\x50\x72\x6f\x20\x34\x39\x30\x30\x7b\x87\xcb\x7c\x1f\x8d\x82\x49\x7b"), Err(ParseError::OidTooLong));
+        assert_eq!(ObjectIdentifier::from_der(b"\x06\x2b\x2b\x06\x01\x04\x01\x89\x60\x01\x01\x02\x01\x03\x15\x45\x70\x73\x6f\x6e\x20\x53\x74\x79\x6c\x75\x73\x20\x50\x72\x6f\x20\x34\x39\x30\x30\x7b\x87\xcb\x7c\x1f\x8d\x82\x49\x7b"), Err(ParseError::new(ParseErrorKind::OidTooLong)));
     }
 
     #[test]

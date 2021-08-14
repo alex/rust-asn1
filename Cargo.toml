@@ -17,6 +17,7 @@ derive = ["asn1_derive"]
 [dependencies]
 chrono = { version = "0.4", default-features = false, features = ["alloc"] }
 asn1_derive = { path = "asn1_derive/", version = "0.8.7", optional = true }
+proc-macro-hack = "0.5"
 
 [dev-dependencies]
 libc = "0.2"

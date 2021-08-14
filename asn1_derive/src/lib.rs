@@ -464,7 +464,7 @@ fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
     }
 }
 
-#[proc_macro]
+#[proc_macro_hack::proc_macro_hack]
 pub fn oid(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let p_arcs = Punctuated::<syn::LitInt, syn::Token![,]>::parse_terminated
         .parse(item)
