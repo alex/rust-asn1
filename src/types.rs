@@ -538,59 +538,37 @@ impl UtcTime {
     }
 }
 
-const UTCTIME_WITH_SECONDS_AND_OFFSET: (&str, usize) = ("%y%m%d%H%M%S%z", 17);
-const UTCTIME_WITH_SECONDS: (&str, usize) = ("%y%m%d%H%M%SZ", 13);
-const UTCTIME_WITH_OFFSET: (&str, usize) = ("%y%m%d%H%M%z", 15);
-const UTCTIME: (&str, usize) = ("%y%m%d%H%MZ", 11);
-
 impl SimpleAsn1Readable<'_> for UtcTime {
     const TAG: u8 = 0x17;
     fn parse_data(data: &[u8]) -> ParseResult<Self> {
         let data = core::str::from_utf8(data)
             .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
 
-        // Try parsing with every combination of "including seconds or not" and "fixed offset or
-        // UTC".
-        let mut result = None;
-        for (format, expected_length) in [UTCTIME_WITH_SECONDS, UTCTIME].iter() {
-            if data.len() != *expected_length {
-                continue;
-            }
-            if let Ok(dt) = chrono::Utc.datetime_from_str(data, format) {
-                result = Some(dt);
-                break;
-            }
+        // UTCTime comes in 4 different formats: with and without seconds, and
+        // with a fixed offset or UTC. We choose which to parse as based on the
+        // input length.
+        let mut dt = match data.len() {
+            17 => chrono::DateTime::parse_from_str(data, "%y%m%d%H%M%S%z").map(|dt| dt.into()),
+            15 => chrono::DateTime::parse_from_str(data, "%y%m%d%H%M%z").map(|dt| dt.into()),
+            13 => chrono::Utc.datetime_from_str(data, "%y%m%d%H%M%SZ"),
+            11 => chrono::Utc.datetime_from_str(data, "%y%m%d%H%MZ"),
+            _ => return Err(ParseError::new(ParseErrorKind::InvalidValue)),
         }
-        for (format, expected_length) in
-            [UTCTIME_WITH_SECONDS_AND_OFFSET, UTCTIME_WITH_OFFSET].iter()
-        {
-            if data.len() != *expected_length {
-                continue;
-            }
-            if let Ok(dt) = chrono::DateTime::parse_from_str(data, format) {
-                result = Some(dt.into());
-                break;
-            }
+        .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
+        // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes them as
+        // nanoseconds == 1000000.
+        if dt.nanosecond() >= 1_000_000 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        match result {
-            Some(mut dt) => {
-                // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes them as
-                // nanoseconds == 1000000.
-                if dt.nanosecond() >= 1_000_000 {
-                    return Err(ParseError::new(ParseErrorKind::InvalidValue));
-                }
-                // UTCTime only encodes times prior to 2050. We use the X.509 mapping of two-digit
-                // year ordinals to full year:
-                // https://tools.ietf.org/html/rfc5280#section-4.1.2.5.1
-                if dt.year() >= 2050 {
-                    dt = chrono::Utc
-                        .ymd(dt.year() - 100, dt.month(), dt.day())
-                        .and_hms(dt.hour(), dt.minute(), dt.second());
-                }
-                Ok(UtcTime(dt))
-            }
-            None => Err(ParseError::new(ParseErrorKind::InvalidValue)),
+        // UTCTime only encodes times prior to 2050. We use the X.509 mapping of two-digit
+        // year ordinals to full year:
+        // https://tools.ietf.org/html/rfc5280#section-4.1.2.5.1
+        if dt.year() >= 2050 {
+            dt = chrono::Utc
+                .ymd(dt.year() - 100, dt.month(), dt.day())
+                .and_hms(dt.hour(), dt.minute(), dt.second());
         }
+        Ok(UtcTime(dt))
     }
 }
 
