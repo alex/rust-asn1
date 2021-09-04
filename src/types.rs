@@ -829,16 +829,36 @@ impl<'a> SimpleAsn1Writable<'a> for SequenceWriter<'a> {
 /// are decoded.
 pub struct SequenceOf<'a, T: Asn1Readable<'a>> {
     parser: Parser<'a>,
+    length: usize,
     _phantom: PhantomData<T>,
 }
 
 impl<'a, T: Asn1Readable<'a>> SequenceOf<'a, T> {
     #[inline]
-    pub(crate) fn new(data: &'a [u8]) -> SequenceOf<'a, T> {
-        SequenceOf {
+    pub(crate) fn new(data: &'a [u8]) -> ParseResult<SequenceOf<'a, T>> {
+        let length = parse(data, |p| {
+            let mut i = 0;
+            while !p.is_empty() {
+                p.read_element::<T>()
+                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
+                i += 1;
+            }
+            Ok(i)
+        })?;
+
+        Ok(SequenceOf {
+            length,
             parser: Parser::new(data),
             _phantom: PhantomData,
-        }
+        })
+    }
+
+    pub fn len(&self) -> usize {
+        self.length
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 
@@ -846,6 +866,7 @@ impl<'a, T: Asn1Readable<'a>> Clone for SequenceOf<'a, T> {
     fn clone(&self) -> SequenceOf<'a, T> {
         SequenceOf {
             parser: self.parser.clone_internal(),
+            length: self.length,
             _phantom: PhantomData,
         }
     }
@@ -881,16 +902,7 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> 
     const TAG: u8 = 0x10 | CONSTRUCTED;
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        parse(data, |p| {
-            let mut i = 0;
-            while !p.is_empty() {
-                p.read_element::<T>()
-                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
-                i += 1;
-            }
-            Ok(())
-        })?;
-        Ok(SequenceOf::new(data))
+        SequenceOf::new(data)
     }
 }
 
@@ -901,6 +913,7 @@ impl<'a, T: Asn1Readable<'a>> Iterator for SequenceOf<'a, T> {
         if self.parser.is_empty() {
             return None;
         }
+        self.length -= 1;
         Some(
             self.parser
                 .read_element::<T>()
@@ -1250,6 +1263,27 @@ mod tests {
         assert_eq!(seq2.collect::<Vec<_>>(), vec![2, 3]);
     }
 
+    #[test]
+    fn test_sequence_of_len() {
+        let mut seq1 =
+            parse_single::<SequenceOf<u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
+                .unwrap();
+        let seq2 = seq1.clone();
+
+        assert_eq!(seq1.len(), 3);
+        assert!(seq1.next().is_some());
+        assert_eq!(seq1.len(), 2);
+        assert_eq!(seq2.len(), 3);
+        assert!(seq1.next().is_some());
+        assert!(seq1.next().is_some());
+        assert_eq!(seq1.len(), 0);
+        assert!(seq1.next().is_none());
+        assert_eq!(seq1.len(), 0);
+        assert!(seq1.is_empty());
+        assert_eq!(seq2.len(), 3);
+        assert!(!seq2.is_empty());
+    }
+
     fn hash<T: Hash>(v: &T) -> u64 {
         let mut h = DefaultHasher::new();
         v.hash(&mut h);
@@ -1271,9 +1305,9 @@ mod tests {
 
     #[test]
     fn test_sequence_of_eq_hash() {
-        let s1 = SequenceOf::<bool>::new(b"");
-        let s2 = SequenceOf::<bool>::new(b"");
-        let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00");
+        let s1 = SequenceOf::<bool>::new(b"").unwrap();
+        let s2 = SequenceOf::<bool>::new(b"").unwrap();
+        let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00").unwrap();
 
         assert!(s1 == s2);
         assert_eq!(hash(&s1), hash(&s2));
