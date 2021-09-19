@@ -9,7 +9,7 @@ const MAX_OID_LENGTH: usize = 32;
 /// `asn1::oid!()` and then compare ObjectIdentifiers you get from parsing to
 /// those.
 ///
-/// `asn1::oid!()` takes a series of arcs, for example: `asn1::oid!(1, 2, 3)`.
+/// `asn1::oid!()` takes a series of arcs, for example: `asn1::oid!(1.2.3)`.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct ObjectIdentifier {
     // Store the OID as DER encoded.
@@ -67,6 +67,7 @@ fn _write_base128_int(data: &mut [u8], data_len: &mut usize, n: u32) -> Option<(
 
 impl ObjectIdentifier {
     /// Parses an OID from a dotted string, e.g. `"1.2.840.113549"`.
+    /// ``asn1::oid!(1.2.3)`` is preferred for compile-time constants.
     pub fn from_string(oid: &str) -> Option<ObjectIdentifier> {
         let mut parts = oid.split('.');
 

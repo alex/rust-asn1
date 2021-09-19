@@ -1,6 +1,5 @@
 extern crate proc_macro;
 
-use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
@@ -466,17 +465,15 @@ fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
 
 #[proc_macro_hack::proc_macro_hack]
 pub fn oid(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let p_arcs = Punctuated::<syn::LitInt, syn::Token![,]>::parse_terminated
-        .parse(item)
-        .unwrap();
-    let mut arcs = p_arcs.iter();
+    let contents = item.to_string();
+    let mut arcs = contents.split('.');
 
     let mut der_encoded = vec![];
-    let first = arcs.next().unwrap().base10_parse::<u32>().unwrap();
-    let second = arcs.next().unwrap().base10_parse::<u32>().unwrap();
+    let first = arcs.next().unwrap().parse::<u32>().unwrap();
+    let second = arcs.next().unwrap().parse::<u32>().unwrap();
     _write_base128_int(&mut der_encoded, 40 * first + second);
     for arc in arcs {
-        _write_base128_int(&mut der_encoded, arc.base10_parse().unwrap());
+        _write_base128_int(&mut der_encoded, arc.parse().unwrap());
     }
 
     let der_len = der_encoded.len();
