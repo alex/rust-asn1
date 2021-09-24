@@ -172,6 +172,27 @@ impl<'a> SimpleAsn1Writable<'a> for &'a [u8] {
     }
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct Null();
+
+impl Null {
+    pub fn new() -> Null {
+        Null {}
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for Null {
+    const TAG: u8 = 0x05;
+    fn parse_data(_: &'a [u8]) -> ParseResult<Self> {
+        Ok(Null::new())
+    }
+}
+
+impl<'a> SimpleAsn1Writable<'a> for Null {
+    const TAG: u8 = 0x05;
+    fn write_data(&self, _: &mut Vec<u8>) {}
+}
+
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `PrintableString`.  A `PrintableString` contains an `&str`
 /// with only valid characers.
