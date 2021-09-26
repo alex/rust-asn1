@@ -110,7 +110,26 @@ fn add_lifetime_if_none(
 enum OpType {
     Regular,
     Explicit(proc_macro2::Literal),
-    Implicit(proc_macro2::Literal),
+    Implicit(OpTypeArgs),
+}
+
+struct OpTypeArgs {
+    value: proc_macro2::Literal,
+    required: bool,
+}
+
+impl syn::parse::Parse for OpTypeArgs {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let value = input.parse::<proc_macro2::Literal>()?;
+        let required = if input.lookahead1().peek(syn::Token![,]) {
+            input.parse::<syn::Token![,]>()?;
+            assert_eq!(input.parse::<syn::Ident>()?, "required");
+            true
+        } else {
+            false
+        };
+        Ok(OpTypeArgs { value, required })
+    }
 }
 
 fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Lit>) {
@@ -125,7 +144,7 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
             }
         } else if attr.path.is_ident("implicit") {
             if let OpType::Regular = op_type {
-                op_type = OpType::Implicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
+                op_type = OpType::Implicit(attr.parse_args::<OpTypeArgs>().unwrap());
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
@@ -155,9 +174,18 @@ fn generate_read_element(
         OpType::Explicit(arg) => quote::quote! {
             p.read_optional_explicit_element(#arg)#add_error_location?
         },
-        OpType::Implicit(arg) => quote::quote! {
-            p.read_optional_implicit_element(#arg)#add_error_location?
-        },
+        OpType::Implicit(arg) => {
+            let value = arg.value;
+            if arg.required {
+                quote::quote! {
+                    p.read_implicit_element(#value)#add_error_location?
+                }
+            } else {
+                quote::quote! {
+                    p.read_optional_implicit_element(#value)#add_error_location?
+                }
+            }
+        }
         OpType::Regular => quote::quote! {
             p.read_element()#add_error_location?
         },
@@ -264,7 +292,8 @@ fn generate_enum_read_block(
                     }
                 });
             }
-            OpType::Implicit(tag) => {
+            OpType::Implicit(arg) => {
+                let tag = arg.value;
                 read_blocks.push(quote::quote! {
                     if tlv.tag() == asn1::implicit_tag(#tag, <#ty as asn1::SimpleAsn1Readable>::TAG) {
                         return Ok(#name::#ident(asn1::parse(
@@ -307,9 +336,18 @@ fn generate_write_element(
         OpType::Explicit(arg) => quote::quote_spanned! {f.span() =>
             w.write_optional_explicit_element(#field_read, #arg);
         },
-        OpType::Implicit(arg) => quote::quote_spanned! {f.span() =>
-            w.write_optional_implicit_element(#field_read, #arg);
-        },
+        OpType::Implicit(arg) => {
+            let value = arg.value;
+            if arg.required {
+                quote::quote_spanned! {f.span() =>
+                    w.write_implicit_element(#field_read, #value);
+                }
+            } else {
+                quote::quote_spanned! {f.span() =>
+                    w.write_optional_implicit_element(#field_read, #value);
+                }
+            }
+        }
         OpType::Regular => quote::quote! {
             w.write_element(#field_read);
         },
@@ -369,7 +407,8 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
                     #name::#ident(value) => w.write_optional_explicit_element(&Some(value), #tag),
                 }
             }
-            OpType::Implicit(tag) => {
+            OpType::Implicit(arg) => {
+                let tag = arg.value;
                 quote::quote! {
                     #name::#ident(value) => w.write_optional_implicit_element(&Some(value), #tag),
                 }

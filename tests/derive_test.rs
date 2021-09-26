@@ -431,3 +431,28 @@ fn test_error_parse_location() {
         ),
     ]);
 }
+
+#[test]
+fn test_required_implicit() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct RequiredImplicit {
+        #[implicit(0, required)]
+        value: u8,
+    }
+
+    assert_roundtrips::<RequiredImplicit>(&[
+        (Ok(RequiredImplicit { value: 8 }), b"\x30\x03\x80\x01\x08"),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::ShortData)
+                .add_location(asn1::ParseLocation::Field("RequiredImplicit::value"))),
+            b"\x30\x00",
+        ),
+        (
+            Err(
+                asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag { actual: 11 })
+                    .add_location(asn1::ParseLocation::Field("RequiredImplicit::value")),
+            ),
+            b"\x30\x03\x0b\x01\x00",
+        ),
+    ]);
+}

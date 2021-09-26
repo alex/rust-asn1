@@ -221,6 +221,19 @@ impl<'a> Parser<'a> {
         Ok(Some(parse_single::<T>(tlv.data())?))
     }
 
+    /// This is an alias for `read_element::<Implicit<T, tag>>` for use when
+    /// MSRV is <1.51.
+    pub fn read_implicit_element<T: SimpleAsn1Readable<'a>>(&mut self, tag: u8) -> ParseResult<T> {
+        let expected_tag = crate::implicit_tag(tag, T::TAG);
+        let tlv = self.read_tlv()?;
+        if tlv.tag != expected_tag {
+            return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                actual: tlv.tag,
+            }));
+        }
+        T::parse_data(tlv.data())
+    }
+
     /// This is an alias for `read_element::<Option<Implicit<T, tag>>>` for use
     /// when MSRV is <1.51.
     pub fn read_optional_implicit_element<T: SimpleAsn1Readable<'a>>(
