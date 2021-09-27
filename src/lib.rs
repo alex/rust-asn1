@@ -112,8 +112,9 @@ pub use crate::parser::{
 };
 pub use crate::types::{
     Asn1Readable, Asn1Writable, BigUint, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
-    IA5String, PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, SetOf,
-    SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv, UtcTime, Utf8String, VisibleString,
+    IA5String, Null, PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter,
+    SetOf, SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv, UtcTime, Utf8String,
+    VisibleString,
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};

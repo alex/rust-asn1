@@ -118,10 +118,14 @@ impl<'a> Asn1Writable<'a> for Tlv<'a> {
     }
 }
 
-impl SimpleAsn1Readable<'_> for () {
+/// The ASN.1 NULL type, for use with `Parser.read_element` and
+/// `Writer.write_element`.
+pub type Null = ();
+
+impl SimpleAsn1Readable<'_> for Null {
     const TAG: u8 = 0x05;
     #[inline]
-    fn parse_data(data: &[u8]) -> ParseResult<()> {
+    fn parse_data(data: &[u8]) -> ParseResult<Null> {
         if data.is_empty() {
             Ok(())
         } else {
@@ -130,7 +134,7 @@ impl SimpleAsn1Readable<'_> for () {
     }
 }
 
-impl SimpleAsn1Writable<'_> for () {
+impl SimpleAsn1Writable<'_> for Null {
     const TAG: u8 = 0x05;
     #[inline]
     fn write_data(&self, _dest: &mut Vec<u8>) {}
