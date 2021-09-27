@@ -118,10 +118,14 @@ impl<'a> Asn1Writable<'a> for Tlv<'a> {
     }
 }
 
-impl SimpleAsn1Readable<'_> for () {
+/// The ASN.1 NULL type, for use with `Parser.read_element` and
+/// `Writer.write_element`.
+pub type Null = ();
+
+impl SimpleAsn1Readable<'_> for Null {
     const TAG: u8 = 0x05;
     #[inline]
-    fn parse_data(data: &[u8]) -> ParseResult<()> {
+    fn parse_data(data: &[u8]) -> ParseResult<Null> {
         if data.is_empty() {
             Ok(())
         } else {
@@ -130,7 +134,7 @@ impl SimpleAsn1Readable<'_> for () {
     }
 }
 
-impl SimpleAsn1Writable<'_> for () {
+impl SimpleAsn1Writable<'_> for Null {
     const TAG: u8 = 0x05;
     #[inline]
     fn write_data(&self, _dest: &mut Vec<u8>) {}
@@ -171,9 +175,6 @@ impl<'a> SimpleAsn1Writable<'a> for &'a [u8] {
         dest.extend_from_slice(self);
     }
 }
-
-// the NULL type (TAG 5) representation
-type Null = ();
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `PrintableString`.  A `PrintableString` contains an `&str`
