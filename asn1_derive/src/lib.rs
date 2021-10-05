@@ -152,10 +152,11 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
         } else if attr.path.is_ident("default") || attr.path.is_ident("relaxeddefault") {
             if default.is_some() {
                 panic!("Can't specify #[default] or #[relaxeddefault] more than once");
-            }
-            default = Some(attr.parse_args::<syn::Lit>().unwrap());
-            if attr.path.is_ident("relaxeddefault") {
-                relaxed = true;
+            } else {
+                default = Some(attr.parse_args::<syn::Lit>().unwrap());
+                if attr.path.is_ident("relaxeddefault") {
+                    relaxed = true;
+                }
             }
         }
     }
