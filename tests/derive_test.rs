@@ -18,6 +18,24 @@ fn assert_roundtrips<
     }
 }
 
+fn assert_not_roundtrips<
+    'a,
+    'b,
+    T: asn1::Asn1Readable<'a> + asn1::Asn1Writable<'a> + PartialEq + fmt::Debug,
+>(
+    data: &[(asn1::ParseResult<T>, &'a [u8], &'b [u8])],
+) {
+    for (value, der_bytes, roundtrip_bytes) in data {
+        let parsed = asn1::parse_single::<T>(der_bytes);
+        assert_eq!(value, &parsed);
+        if let Ok(v) = value {
+            let result = asn1::write_single(v);
+            assert_ne!(&result, der_bytes);
+            assert_eq!(&result, roundtrip_bytes);
+        }
+    }
+}
+
 #[test]
 fn test_struct_no_fields() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
@@ -211,6 +229,77 @@ fn test_default() {
             Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)
                 .add_location(asn1::ParseLocation::Field("DefaultFields::c"))),
             b"\x30\x03\x85\x01\x11",
+        ),
+    ]);
+}
+
+#[test]
+fn test_relaxeddefault() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct DefaultFields {
+        #[relaxeddefault(13)]
+        a: u8,
+        #[relaxeddefault(15)]
+        #[explicit(1)]
+        b: u8,
+        #[relaxeddefault(17)]
+        #[implicit(5)]
+        c: u8,
+    }
+
+    assert_roundtrips(&[
+        (
+            Ok(DefaultFields {
+                a: 13,
+                b: 15,
+                c: 17,
+            }),
+            b"\x30\x00",
+        ),
+        (
+            Ok(DefaultFields { a: 3, b: 15, c: 17 }),
+            b"\x30\x03\x02\x01\x03",
+        ),
+        (
+            Ok(DefaultFields { a: 13, b: 5, c: 17 }),
+            b"\x30\x05\xa1\x03\x02\x01\x05",
+        ),
+        (
+            Ok(DefaultFields { a: 13, b: 15, c: 7 }),
+            b"\x30\x03\x85\x01\x07",
+        ),
+        (
+            Ok(DefaultFields { a: 3, b: 5, c: 7 }),
+            b"\x30\x0b\x02\x01\x03\xa1\x03\x02\x01\x05\x85\x01\x07",
+        ),
+    ]);
+    assert_not_roundtrips(&[
+        (
+            Ok(DefaultFields {
+                a: 13,
+                b: 15,
+                c: 17,
+            }),
+            b"\x30\x03\x02\x01\x0d",
+            b"\x30\x00",
+        ),
+        (
+            Ok(DefaultFields {
+                a: 13,
+                b: 15,
+                c: 17,
+            }),
+            b"\x30\x05\xa1\x03\x02\x01\x0f",
+            b"\x30\x00",
+        ),
+        (
+            Ok(DefaultFields {
+                a: 13,
+                b: 15,
+                c: 17,
+            }),
+            b"\x30\x03\x85\x01\x11",
+            b"\x30\x00",
         ),
     ]);
 }

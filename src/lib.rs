@@ -133,6 +133,16 @@ pub fn from_optional_default<T: PartialEq>(v: Option<T>, default: T) -> ParseRes
     }
 }
 
+/// Decodes an `OPTIONAL` ASN.1 value which has a `DEFAULT`. Unlike
+/// [`from_optional_default`] parsing doesn't fail when value is equal to default.
+/// Generaly called immediately after [`Parser::read_element`].
+pub fn from_optional_default_relaxed<T: PartialEq>(v: Option<T>, default: T) -> ParseResult<T> {
+    match v {
+        Some(v) => Ok(v),
+        None => Ok(default),
+    }
+}
+
 /// Prepares an `OPTIONAL` ASN.1 value which has a `DEFAULT` for writing.
 /// Generally called immediately before [`Writer::write_element`].
 pub fn to_optional_default<'a, T: PartialEq>(v: &'a T, default: &'a T) -> Option<&'a T> {

@@ -4,7 +4,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 
-#[proc_macro_derive(Asn1Read, attributes(explicit, implicit, default))]
+#[proc_macro_derive(Asn1Read, attributes(explicit, implicit, default, relaxeddefault))]
 pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -132,9 +132,10 @@ impl syn::parse::Parse for OpTypeArgs {
     }
 }
 
-fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Lit>) {
+fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Lit>, bool) {
     let mut op_type = OpType::Regular;
     let mut default = None;
+    let mut relaxed = false;
     for attr in attrs {
         if attr.path.is_ident("explicit") {
             if let OpType::Regular = op_type {
@@ -149,12 +150,20 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
         } else if attr.path.is_ident("default") {
-            assert!(default.is_none(), "Can't specify #[default] more than once");
+            if default.is_some() {
+                panic!("Can't specify #[default] or #[relaxeddefault] more than once");
+            }
             default = Some(attr.parse_args::<syn::Lit>().unwrap());
+        } else if attr.path.is_ident("relaxeddefault") {
+            if default.is_some() {
+                panic!("Can't specify #[default] or #[relaxeddefault] more than once");
+            }
+            default = Some(attr.parse_args::<syn::Lit>().unwrap());
+            relaxed = true;
         }
     }
 
-    (op_type, default)
+    (op_type, default, relaxed)
 }
 
 fn generate_read_element(
@@ -162,7 +171,7 @@ fn generate_read_element(
     f: &syn::Field,
     f_name: &str,
 ) -> proc_macro2::TokenStream {
-    let (read_type, default) = extract_field_properties(&f.attrs);
+    let (read_type, default, relaxed) = extract_field_properties(&f.attrs);
 
     let error_location = format!("{}::{}", struct_name, f_name);
     let add_error_location = quote::quote! {
@@ -198,9 +207,15 @@ fn generate_read_element(
         },
     };
     if let Some(default) = default {
-        read_op = quote::quote! {{
-            asn1::from_optional_default(#read_op, #default.into())#add_error_location?
-        }};
+        if relaxed {
+            read_op = quote::quote! {{
+                asn1::from_optional_default_relaxed(#read_op, #default.into())#add_error_location?
+            }};
+        } else {
+            read_op = quote::quote! {{
+                asn1::from_optional_default(#read_op, #default.into())#add_error_location?
+            }};
+        }
     }
     read_op
 }
@@ -261,7 +276,7 @@ fn generate_enum_read_block(
             }
             _ => panic!("enum elements must have a single field"),
         };
-        let (op_type, default) = extract_field_properties(&variant.attrs);
+        let (op_type, default, _relaxed) = extract_field_properties(&variant.attrs);
         assert!(default.is_none());
 
         let ty = &field.ty;
@@ -332,7 +347,7 @@ fn generate_write_element(
     f: &syn::Field,
     mut field_read: proc_macro2::TokenStream,
 ) -> proc_macro2::TokenStream {
-    let (write_type, default) = extract_field_properties(&f.attrs);
+    let (write_type, default, _relaxed) = extract_field_properties(&f.attrs);
 
     if let Some(default) = default {
         field_read = quote::quote! {&{
@@ -409,7 +424,7 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
             }
             _ => panic!("enum elements must have a single field"),
         };
-        let (op_type, default) = extract_field_properties(&v.attrs);
+        let (op_type, default, _relaxed) = extract_field_properties(&v.attrs);
         assert!(default.is_none());
         let ident = &v.ident;
 
