@@ -149,9 +149,7 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
         } else if attr.path.is_ident("default") {
-            if default.is_some() {
-                panic!("Can't specify #[default] more than once");
-            }
+            assert!(default.is_none(), "Can't specify #[default] more than once");
             default = Some(attr.parse_args::<syn::Lit>().unwrap());
         }
     }
