@@ -364,14 +364,21 @@ mod tests {
 
     #[test]
     fn test_write_sequence_of() {
-        assert_writes(&[
+        assert_writes::<SequenceOfWriter<u8, &[u8]>>(&[
             (SequenceOfWriter::new(&[]), b"\x30\x00"),
             (
                 SequenceOfWriter::new(&[1u8, 2, 3]),
                 b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
             ),
         ]);
-        assert_writes(&[
+        assert_writes::<SequenceOfWriter<u8, Vec<u8>>>(&[
+            (SequenceOfWriter::new(vec![]), b"\x30\x00"),
+            (
+                SequenceOfWriter::new(vec![1u8, 2, 3]),
+                b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+            ),
+        ]);
+        assert_writes::<SequenceOfWriter<SequenceWriter, &[SequenceWriter]>>(&[
             (SequenceOfWriter::new(&[]), b"\x30\x00"),
             (
                 SequenceOfWriter::new(&[SequenceWriter::new(&|_w| ())]),
