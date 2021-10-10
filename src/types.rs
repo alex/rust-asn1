@@ -1,5 +1,6 @@
 use alloc::vec;
 use alloc::vec::Vec;
+use core::borrow::Borrow;
 use core::convert::TryInto;
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
@@ -937,21 +938,27 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for Sequ
 }
 
 /// Writes a `SEQUENCE OF` ASN.1 structure from a slice of `T`.
-pub struct SequenceOfWriter<'a, T: Asn1Writable<'a>> {
-    vals: &'a [T],
+pub struct SequenceOfWriter<'a, T: Asn1Writable<'a>, V: Borrow<[T]> = &'a [T]> {
+    vals: V,
+    _phantom: PhantomData<&'a T>,
 }
 
-impl<'a, T: Asn1Writable<'a>> SequenceOfWriter<'a, T> {
-    pub fn new(vals: &'a [T]) -> Self {
-        SequenceOfWriter { vals }
+impl<'a, T: Asn1Writable<'a>, V: Borrow<[T]>> SequenceOfWriter<'a, T, V> {
+    pub fn new(vals: V) -> Self {
+        SequenceOfWriter {
+            vals,
+            _phantom: PhantomData,
+        }
     }
 }
 
-impl<'a, T: Asn1Writable<'a>> SimpleAsn1Writable<'a> for SequenceOfWriter<'a, T> {
+impl<'a, T: Asn1Writable<'a>, V: Borrow<[T]>> SimpleAsn1Writable<'a>
+    for SequenceOfWriter<'a, T, V>
+{
     const TAG: u8 = 0x10 | CONSTRUCTED;
     fn write_data(&self, dest: &mut Vec<u8>) {
         let mut w = Writer::new(dest);
-        for el in self.vals {
+        for el in self.vals.borrow() {
             w.write_element(el);
         }
     }
