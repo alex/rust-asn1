@@ -109,7 +109,7 @@ fn add_lifetime_if_none(
 
 enum OpType {
     Regular,
-    Explicit(proc_macro2::Literal),
+    Explicit(OpTypeArgs),
     Implicit(OpTypeArgs),
 }
 
@@ -138,7 +138,7 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
     for attr in attrs {
         if attr.path.is_ident("explicit") {
             if let OpType::Regular = op_type {
-                op_type = OpType::Explicit(attr.parse_args::<proc_macro2::Literal>().unwrap());
+                op_type = OpType::Explicit(attr.parse_args::<OpTypeArgs>().unwrap());
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
@@ -169,9 +169,18 @@ fn generate_read_element(
         .map_err(|e| e.add_location(asn1::ParseLocation::Field(#error_location)))
     };
     let mut read_op = match read_type {
-        OpType::Explicit(arg) => quote::quote! {
-            p.read_optional_explicit_element(#arg)#add_error_location?
-        },
+        OpType::Explicit(arg) => {
+            let value = arg.value;
+            if arg.required {
+                quote::quote! {
+                    p.read_explicit_element(#value)#add_error_location?
+                }
+            } else {
+                quote::quote! {
+                    p.read_optional_explicit_element(#value)#add_error_location?
+                }
+            }
+        }
         OpType::Implicit(arg) => {
             let value = arg.value;
             if arg.required {
@@ -275,7 +284,8 @@ fn generate_enum_read_block(
                     }
                 });
             }
-            OpType::Explicit(tag) => {
+            OpType::Explicit(arg) => {
+                let tag = arg.value;
                 read_blocks.push(quote::quote! {
                     if tlv.tag() == asn1::explicit_tag(#tag) {
                         return Ok(#name::#ident(asn1::parse(
@@ -331,9 +341,18 @@ fn generate_write_element(
     }
 
     match write_type {
-        OpType::Explicit(arg) => quote::quote_spanned! {f.span() =>
-            w.write_optional_explicit_element(#field_read, #arg);
-        },
+        OpType::Explicit(arg) => {
+            let value = arg.value;
+            if arg.required {
+                quote::quote_spanned! {f.span() =>
+                    w.write_explicit_element(#field_read, #value);
+                }
+            } else {
+                quote::quote_spanned! {f.span() =>
+                    w.write_optional_explicit_element(#field_read, #value);
+                }
+            }
+        }
         OpType::Implicit(arg) => {
             let value = arg.value;
             if arg.required {
@@ -400,7 +419,8 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
                     #name::#ident(value) => w.write_element(value),
                 }
             }
-            OpType::Explicit(tag) => {
+            OpType::Explicit(arg) => {
+                let tag = arg.value;
                 quote::quote! {
                     #name::#ident(value) => w.write_optional_explicit_element(&Some(value), #tag),
                 }
