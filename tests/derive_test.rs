@@ -456,3 +456,31 @@ fn test_required_implicit() {
         ),
     ]);
 }
+
+#[test]
+fn test_required_explicit() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct RequiredExplicit {
+        #[explicit(0, required)]
+        value: u8,
+    }
+
+    assert_roundtrips::<RequiredExplicit>(&[
+        (
+            Ok(RequiredExplicit { value: 8 }),
+            b"\x30\x05\xa0\x03\x02\x01\x08",
+        ),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::ShortData)
+                .add_location(asn1::ParseLocation::Field("RequiredExplicit::value"))),
+            b"\x30\x00",
+        ),
+        (
+            Err(
+                asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag { actual: 11 })
+                    .add_location(asn1::ParseLocation::Field("RequiredExplicit::value")),
+            ),
+            b"\x30\x03\x0b\x01\x00",
+        ),
+    ]);
+}
