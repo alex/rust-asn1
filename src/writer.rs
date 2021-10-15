@@ -407,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_write_set_of() {
-        assert_writes(&[
+        assert_writes::<SetOfWriter<u8, &[u8]>>(&[
             (SetOfWriter::new(&[]), b"\x31\x00"),
             (SetOfWriter::new(&[1u8]), b"\x31\x03\x02\x01\x01"),
             (
@@ -416,6 +416,18 @@ mod tests {
             ),
             (
                 SetOfWriter::new(&[3, 2, 1]),
+                b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+            ),
+        ]);
+        assert_writes(&[
+            (SetOfWriter::new(vec![]), b"\x31\x00"),
+            (SetOfWriter::new(vec![1u8]), b"\x31\x03\x02\x01\x01"),
+            (
+                SetOfWriter::new(vec![1, 2, 3]),
+                b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+            ),
+            (
+                SetOfWriter::new(vec![3, 2, 1]),
                 b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
             ),
         ]);

@@ -1074,24 +1074,29 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for SetO
 
 /// Writes an ASN.1 `SET OF` whose contents is a slice of `T`. This type is
 /// responsible for ensure the values are properly ordered when written as DER.
-pub struct SetOfWriter<'a, T: Asn1Writable<'a>> {
-    vals: &'a [T],
+pub struct SetOfWriter<'a, T: Asn1Writable<'a>, V: Borrow<[T]> = &'a [T]> {
+    vals: V,
+    _phantom: PhantomData<&'a T>,
 }
 
-impl<'a, T: Asn1Writable<'a>> SetOfWriter<'a, T> {
-    pub fn new(vals: &'a [T]) -> Self {
-        SetOfWriter { vals }
+impl<'a, T: Asn1Writable<'a>, V: Borrow<[T]>> SetOfWriter<'a, T, V> {
+    pub fn new(vals: V) -> Self {
+        SetOfWriter {
+            vals,
+            _phantom: PhantomData,
+        }
     }
 }
 
-impl<'a, T: Asn1Writable<'a>> SimpleAsn1Writable<'a> for SetOfWriter<'a, T> {
+impl<'a, T: Asn1Writable<'a>, V: Borrow<[T]>> SimpleAsn1Writable<'a> for SetOfWriter<'a, T, V> {
     const TAG: u8 = 0x11 | CONSTRUCTED;
     fn write_data(&self, dest: &mut Vec<u8>) {
-        if self.vals.is_empty() {
+        let vals = self.vals.borrow();
+        if vals.is_empty() {
             return;
-        } else if self.vals.len() == 1 {
+        } else if vals.len() == 1 {
             let mut w = Writer::new(dest);
-            w.write_element(&self.vals[0]);
+            w.write_element(&vals[0]);
             return;
         }
 
@@ -1102,7 +1107,7 @@ impl<'a, T: Asn1Writable<'a>> SimpleAsn1Writable<'a> for SetOfWriter<'a, T> {
         let mut spans = vec![];
 
         let mut pos = 0;
-        for el in self.vals {
+        for el in vals {
             w.write_element(el);
             let l = w.data.len();
             spans.push(pos..l);
