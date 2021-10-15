@@ -148,9 +148,9 @@ jobs:
           command: fuzz
           args: run --all-features fuzz_asn1_parse -- -max_total_time=30
 
-      # On main we fuzz for 10 minutes, but only 30 seconds on PRs.
+      # On main we fuzz for 30 minutes, but only 30 seconds on PRs.
       - uses: actions-rs/cargo@v1.0.3
         with:
           command: fuzz
-          args: run --all-features fuzz_asn1_parse -- -max_total_time=600
+          args: run --all-features fuzz_asn1_parse -- -max_total_time=1800
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
