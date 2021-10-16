@@ -938,6 +938,7 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for Sequ
 }
 
 /// Writes a `SEQUENCE OF` ASN.1 structure from a slice of `T`.
+#[derive(Hash, PartialEq)]
 pub struct SequenceOfWriter<'a, T: Asn1Writable<'a>, V: Borrow<[T]> = &'a [T]> {
     vals: V,
     _phantom: PhantomData<&'a T>,
@@ -1072,8 +1073,9 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for SetO
     }
 }
 
-/// Writes an ASN.1 `SET OF` whose contents is a slice of `T`. This type is
-/// responsible for ensure the values are properly ordered when written as DER.
+/// Writes an ASN.1 `SET OF` whose contents is a slice of `T`. This type handles
+/// ensuring that the values are properly ordered when written as DER.
+#[derive(Hash, PartialEq)]
 pub struct SetOfWriter<'a, T: Asn1Writable<'a>, V: Borrow<[T]> = &'a [T]> {
     vals: V,
     _phantom: PhantomData<&'a T>,
