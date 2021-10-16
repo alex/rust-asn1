@@ -78,8 +78,11 @@ impl Writer<'_> {
         }
     }
 
+    /// Writes a TLV with the specified tag where the value is any bytes
+    /// written to the `Vec` in the callback. The length portion of the
+    /// TLV is automatically computed.
     #[inline]
-    pub(crate) fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: u8, body: F) {
+    pub fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: u8, body: F) {
         self.data.push(tag);
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
