@@ -10,8 +10,8 @@ use chrono::{Datelike, TimeZone, Timelike};
 
 use crate::writer::Writer;
 use crate::{
-    parse, parse_single, BitString, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation,
-    ParseResult, Parser,
+    parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
+    ParseLocation, ParseResult, Parser,
 };
 
 pub(crate) const CONTEXT_SPECIFIC: u8 = 0x80;
@@ -522,6 +522,12 @@ impl<'a> SimpleAsn1Writable<'a> for BitString<'a> {
     fn write_data(&self, dest: &mut Vec<u8>) {
         dest.push(self.padding_bits());
         dest.extend_from_slice(self.as_bytes());
+    }
+}
+impl<'a> SimpleAsn1Writable<'a> for OwnedBitString {
+    const TAG: u8 = 0x03;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        self.as_bitstring().write_data(dest);
     }
 }
 

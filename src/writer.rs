@@ -133,8 +133,9 @@ mod tests {
     use crate::types::Asn1Writable;
     use crate::{
         parse_single, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
-        IA5String, ObjectIdentifier, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
-        SequenceWriter, SetOf, SetOfWriter, Tlv, UtcTime, Utf8String, VisibleString,
+        IA5String, ObjectIdentifier, OwnedBitString, PrintableString, Sequence, SequenceOf,
+        SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UtcTime, Utf8String,
+        VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -300,6 +301,18 @@ mod tests {
             (BitString::new(b"\x80", 7).unwrap(), b"\x03\x02\x07\x80"),
             (
                 BitString::new(b"\x81\xf0", 4).unwrap(),
+                b"\x03\x03\x04\x81\xf0",
+            ),
+        ]);
+
+        assert_writes::<OwnedBitString>(&[
+            (OwnedBitString::new(vec![], 0).unwrap(), b"\x03\x01\x00"),
+            (
+                OwnedBitString::new(vec![0x80], 7).unwrap(),
+                b"\x03\x02\x07\x80",
+            ),
+            (
+                OwnedBitString::new(vec![0x81, 0xf0], 4).unwrap(),
                 b"\x03\x03\x04\x81\xf0",
             ),
         ]);

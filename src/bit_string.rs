@@ -1,4 +1,6 @@
-/// Represents an ASN.1 `BIT STRING`.
+use alloc::vec::Vec;
+
+/// Represents an ASN.1 `BIT STRING` whose contents is borrowed.
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub struct BitString<'a> {
     data: &'a [u8],
@@ -41,9 +43,27 @@ impl<'a> BitString<'a> {
     }
 }
 
+/// Represents an ASN.1 `BIT STRING` whose contents owned.
+#[derive(Debug, PartialEq, Clone, Hash)]
+pub struct OwnedBitString {
+    data: Vec<u8>,
+    padding_bits: u8,
+}
+
+impl OwnedBitString {
+    pub fn new(data: Vec<u8>, padding_bits: u8) -> Option<OwnedBitString> {
+        BitString::new(&data, padding_bits)?;
+        Some(OwnedBitString { data, padding_bits })
+    }
+
+    pub fn as_bitstring(&self) -> BitString<'_> {
+        BitString::new(&self.data, self.padding_bits).unwrap()
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::BitString;
+    use crate::{BitString, OwnedBitString};
 
     #[test]
     fn test_bitstring_new() {
@@ -53,6 +73,16 @@ mod tests {
 
         assert!(BitString::new(b"\xff", 0).is_some());
         assert!(BitString::new(b"\xfe", 1).is_some());
+    }
+
+    #[test]
+    fn test_owned_bitstring_new() {
+        assert_eq!(OwnedBitString::new(vec![b'a', b'b', b'c'], 8), None);
+        assert_eq!(OwnedBitString::new(vec![], 2), None);
+        assert_eq!(OwnedBitString::new(vec![0xff], 1), None);
+
+        assert!(OwnedBitString::new(vec![0xff], 0).is_some());
+        assert!(OwnedBitString::new(vec![0xfe], 1).is_some());
     }
 
     #[test]
