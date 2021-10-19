@@ -105,7 +105,7 @@ mod parser;
 mod types;
 mod writer;
 
-pub use crate::bit_string::BitString;
+pub use crate::bit_string::{BitString, OwnedBitString};
 pub use crate::object_identifier::ObjectIdentifier;
 pub use crate::parser::{
     parse, parse_single, ParseError, ParseErrorKind, ParseLocation, ParseResult, Parser,
