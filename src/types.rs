@@ -944,7 +944,7 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for Sequ
 }
 
 /// Writes a `SEQUENCE OF` ASN.1 structure from a slice of `T`.
-#[derive(Hash, PartialEq)]
+#[derive(Hash, PartialEq, Clone)]
 pub struct SequenceOfWriter<'a, T: Asn1Writable<'a>, V: Borrow<[T]> = &'a [T]> {
     vals: V,
     _phantom: PhantomData<&'a T>,
