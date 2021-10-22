@@ -1081,7 +1081,7 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for SetO
 
 /// Writes an ASN.1 `SET OF` whose contents is a slice of `T`. This type handles
 /// ensuring that the values are properly ordered when written as DER.
-#[derive(Hash, PartialEq)]
+#[derive(Hash, PartialEq, Clone)]
 pub struct SetOfWriter<'a, T: Asn1Writable<'a>, V: Borrow<[T]> = &'a [T]> {
     vals: V,
     _phantom: PhantomData<&'a T>,
