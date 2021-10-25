@@ -538,7 +538,7 @@ pub struct UtcTime(chrono::DateTime<chrono::Utc>);
 
 impl UtcTime {
     pub fn new(v: chrono::DateTime<chrono::Utc>) -> Option<UtcTime> {
-        if v.year() > 2050 || v.year() <= 1950 {
+        if v.year() >= 2050 || v.year() < 1950 {
             return None;
         }
         Some(UtcTime(v))
@@ -1237,8 +1237,9 @@ impl<'a, T: Asn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a> for Explicit
 mod tests {
     use crate::{
         parse_single, IA5String, ParseError, ParseErrorKind, PrintableString, SequenceOf, SetOf,
-        Tlv,
+        Tlv, UtcTime,
     };
+    use chrono::TimeZone;
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
@@ -1338,5 +1339,11 @@ mod tests {
 
         assert!(s2 != s3);
         assert_ne!(hash(&s2), hash(&s3));
+    }
+
+    #[test]
+    fn test_utctime_new() {
+        assert!(UtcTime::new(chrono::Utc.ymd(1950, 1, 1).and_hms(12, 0, 0)).is_some());
+        assert!(UtcTime::new(chrono::Utc.ymd(2050, 1, 1).and_hms(12, 0, 0)).is_none());
     }
 }
