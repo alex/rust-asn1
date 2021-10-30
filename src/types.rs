@@ -405,7 +405,7 @@ impl<'a> BMPString<'a> {
             return false;
         }
 
-        for r in std::char::decode_utf16(
+        for r in core::char::decode_utf16(
             b.chunks_exact(2)
                 .map(|v| ((v[0] as u16) << 8) | (v[1] as u16)),
         ) {
