@@ -388,7 +388,7 @@ impl<'a> SimpleAsn1Writable<'a> for VisibleString<'a> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `BMPString`. A `BMPString` contains encoded (UTF-16-BE)
 /// bytes which are known to be valid.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct BMPString<'a>(&'a [u8]);
 
 impl<'a> BMPString<'a> {
