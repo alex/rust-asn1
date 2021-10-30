@@ -407,7 +407,7 @@ impl<'a> BMPString<'a> {
 
         for r in core::char::decode_utf16(
             b.chunks_exact(2)
-                .map(|v| ((v[0] as u16) << 8) | (v[1] as u16)),
+                .map(|v| u16::from_be_bytes(v.try_into().unwrap())),
         ) {
             if r.is_err() {
                 return false;
@@ -432,6 +432,56 @@ impl<'a> SimpleAsn1Writable<'a> for BMPString<'a> {
     const TAG: u8 = 0x1e;
     fn write_data(&self, dest: &mut Vec<u8>) {
         dest.extend_from_slice(self.as_utf16_be_bytes());
+    }
+}
+
+/// Type for use with `Parser.read_element` and `Writer.write_element` for
+/// handling ASN.1 `UniversalString`. A `UniversalString` contains encoded
+/// (UTF-32-BE) bytes which are known to be valid.
+#[derive(Debug, PartialEq, Clone)]
+pub struct UniversalString<'a>(&'a [u8]);
+
+impl<'a> UniversalString<'a> {
+    pub fn new(b: &'a [u8]) -> Option<UniversalString<'a>> {
+        if UniversalString::verify(b) {
+            Some(UniversalString(b))
+        } else {
+            None
+        }
+    }
+
+    fn verify(b: &[u8]) -> bool {
+        if b.len() % 4 != 0 {
+            return false;
+        }
+
+        for r in b
+            .chunks_exact(4)
+            .map(|v| u32::from_be_bytes(v.try_into().unwrap()))
+        {
+            if core::char::from_u32(r).is_none() {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn as_utf32_be_bytes(&self) -> &'a [u8] {
+        self.0
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for UniversalString<'a> {
+    const TAG: u8 = 0x1c;
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        UniversalString::new(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+    }
+}
+impl<'a> SimpleAsn1Writable<'a> for UniversalString<'a> {
+    const TAG: u8 = 0x1c;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        dest.extend_from_slice(self.as_utf32_be_bytes());
     }
 }
 

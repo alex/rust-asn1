@@ -269,7 +269,8 @@ mod tests {
     use crate::{
         BMPString, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
         IA5String, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation, ParseResult,
-        PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime, Utf8String, VisibleString,
+        PrintableString, Sequence, SequenceOf, SetOf, Tlv, UniversalString, UtcTime, Utf8String,
+        VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -727,6 +728,36 @@ mod tests {
             (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x1e\x02\xdeX",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_parse_universalstring() {
+        assert_parses::<UniversalString>(&[
+            (
+                Ok(UniversalString::new(b"\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c").unwrap()),
+                b"\x1c\x0c\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1c\x01a",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1c\x02ab",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1c\x03abc",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1c\x03abc",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1c\x04\x96\x8c\xeaU",
             ),
         ]);
     }

@@ -134,8 +134,8 @@ mod tests {
     use crate::{
         parse_single, BMPString, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
         GeneralizedTime, IA5String, ObjectIdentifier, OwnedBitString, PrintableString, Sequence,
-        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UtcTime, Utf8String,
-        VisibleString,
+        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString,
+        UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -242,6 +242,14 @@ mod tests {
         assert_writes::<BMPString>(&[(
             BMPString::new(b"\x00a\x00b\x00c").unwrap(),
             b"\x1e\x06\x00a\x00b\x00c",
+        )])
+    }
+
+    #[test]
+    fn test_write_universalstring() {
+        assert_writes::<UniversalString>(&[(
+            UniversalString::new(b"\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c").unwrap(),
+            b"\x1c\x0c\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c",
         )])
     }
 
