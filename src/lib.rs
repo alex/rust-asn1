@@ -111,10 +111,10 @@ pub use crate::parser::{
     parse, parse_single, ParseError, ParseErrorKind, ParseLocation, ParseResult, Parser,
 };
 pub use crate::types::{
-    Asn1Readable, Asn1Writable, BigUint, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
-    IA5String, Null, PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter,
-    SetOf, SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv, UtcTime, Utf8String,
-    VisibleString,
+    Asn1Readable, Asn1Writable, BMPString, BigUint, Choice1, Choice2, Choice3, Enumerated,
+    GeneralizedTime, IA5String, Null, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
+    SequenceWriter, SetOf, SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv, UtcTime,
+    Utf8String, VisibleString,
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};

@@ -385,6 +385,56 @@ impl<'a> SimpleAsn1Writable<'a> for VisibleString<'a> {
     }
 }
 
+/// Type for use with `Parser.read_element` and `Writer.write_element` for
+/// handling ASN.1 `BMPString`. A `BMPString` contains encoded (UTF-16-BE)
+/// bytes which are known to be valid.
+#[derive(Debug, PartialEq)]
+pub struct BMPString<'a>(&'a [u8]);
+
+impl<'a> BMPString<'a> {
+    pub fn new(b: &'a [u8]) -> Option<BMPString<'a>> {
+        if BMPString::verify(b) {
+            Some(BMPString(b))
+        } else {
+            None
+        }
+    }
+
+    fn verify(b: &[u8]) -> bool {
+        if b.len() % 2 == 1 {
+            return false;
+        }
+
+        for r in std::char::decode_utf16(
+            b.chunks_exact(2)
+                .map(|v| ((v[0] as u16) << 8) | (v[1] as u16)),
+        ) {
+            if r.is_err() {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    pub fn as_utf16_be_bytes(&self) -> &'a [u8] {
+        self.0
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for BMPString<'a> {
+    const TAG: u8 = 0x1e;
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        BMPString::new(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+    }
+}
+impl<'a> SimpleAsn1Writable<'a> for BMPString<'a> {
+    const TAG: u8 = 0x1e;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        dest.extend_from_slice(self.as_utf16_be_bytes());
+    }
+}
+
 fn validate_integer(data: &[u8], signed: bool) -> ParseResult<()> {
     if data.is_empty() {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
