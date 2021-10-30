@@ -14,6 +14,7 @@ fuzz_target!(|data: &[u8]| {
 
         d.read_element::<&[u8]>()?;
         d.read_element::<asn1::PrintableString>()?;
+        d.read_element::<asn1::BMPString>()?;
         d.read_element::<asn1::ObjectIdentifier>()?;
         d.read_element::<asn1::BitString>()?;
         d.read_element::<asn1::UtcTime>()?;
