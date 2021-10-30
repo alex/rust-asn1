@@ -132,9 +132,9 @@ mod tests {
     use super::{_insert_at_position, write, write_single, Writer};
     use crate::types::Asn1Writable;
     use crate::{
-        parse_single, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
-        IA5String, ObjectIdentifier, OwnedBitString, PrintableString, Sequence, SequenceOf,
-        SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UtcTime, Utf8String,
+        parse_single, BMPString, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
+        GeneralizedTime, IA5String, ObjectIdentifier, OwnedBitString, PrintableString, Sequence,
+        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UtcTime, Utf8String,
         VisibleString,
     };
     #[cfg(feature = "const-generics")]
@@ -235,6 +235,14 @@ mod tests {
                 b"\x1a\x81\x80xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
             ),
         ]);
+    }
+
+    #[test]
+    fn test_write_bmpstring() {
+        assert_writes::<BMPString>(&[(
+            BMPString::new(b"\x00a\x00b\x00c").unwrap(),
+            b"\x1e\x06\x00a\x00b\x00c",
+        )])
     }
 
     #[test]

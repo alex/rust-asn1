@@ -267,9 +267,9 @@ mod tests {
     use super::Parser;
     use crate::types::Asn1Readable;
     use crate::{
-        BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime, IA5String,
-        ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation, ParseResult, PrintableString,
-        Sequence, SequenceOf, SetOf, Tlv, UtcTime, Utf8String, VisibleString,
+        BMPString, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
+        IA5String, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation, ParseResult,
+        PrintableString, Sequence, SequenceOf, SetOf, Tlv, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -707,6 +707,28 @@ mod tests {
                 b"\x1a\x01\n",
             ),
         ])
+    }
+
+    #[test]
+    fn test_parse_bmpstring() {
+        assert_parses::<BMPString>(&[
+            (
+                Ok(BMPString::new(b"\x00a\x00b\x00c").unwrap()),
+                b"\x1e\x06\x00a\x00b\x00c",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1e\x01a",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1e\x04\xde|X@",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x1e\x02\xdeX",
+            ),
+        ]);
     }
 
     #[test]
