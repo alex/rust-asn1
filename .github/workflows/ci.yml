@@ -13,7 +13,7 @@ jobs:
         RUST:
           - nightly
     steps:
-      - uses: actions/checkout@v2.3.5
+      - uses: actions/checkout@v2.4.0
 
       - uses: actions-rs/toolchain@v1.0.7
         with:
@@ -80,7 +80,7 @@ jobs:
             FLAGS: "--no-default-features --features std"
 
     steps:
-      - uses: actions/checkout@v2.3.5
+      - uses: actions/checkout@v2.4.0
 
       - uses: actions-rs/toolchain@v1.0.7
         with:
@@ -118,7 +118,7 @@ jobs:
           - nightly
 
     steps:
-      - uses: actions/checkout@v2.3.5
+      - uses: actions/checkout@v2.4.0
 
       - uses: actions-rs/toolchain@v1.0.7
         with:
