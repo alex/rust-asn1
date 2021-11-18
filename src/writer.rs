@@ -132,7 +132,7 @@ mod tests {
     use super::{_insert_at_position, write, write_single, Writer};
     use crate::types::Asn1Writable;
     use crate::{
-        parse_single, BMPString, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
+        parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
         GeneralizedTime, IA5String, ObjectIdentifier, OwnedBitString, PrintableString, Sequence,
         SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString,
         UtcTime, Utf8String, VisibleString,
@@ -284,6 +284,17 @@ mod tests {
             (
                 BigUint::new(b"\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff").unwrap(),
                 b"\x02\x0d\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_write_bigint() {
+        assert_writes::<BigInt>(&[
+            (BigInt::new(b"\xff").unwrap(), b"\x02\x01\xff"),
+            (
+                BigInt::new(b"\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff").unwrap(),
+                b"\x02\x0c\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
             ),
         ]);
     }
