@@ -267,10 +267,10 @@ mod tests {
     use super::Parser;
     use crate::types::Asn1Readable;
     use crate::{
-        BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
-        IA5String, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation, ParseResult,
-        PrintableString, Sequence, SequenceOf, SetOf, Tlv, UniversalString, UtcTime, Utf8String,
-        VisibleString,
+        BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
+        GeneralizedTime, IA5String, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation,
+        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UniversalString, UtcTime,
+        Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
