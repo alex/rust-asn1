@@ -267,7 +267,7 @@ mod tests {
     use super::Parser;
     use crate::types::Asn1Readable;
     use crate::{
-        BMPString, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
+        BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, GeneralizedTime,
         IA5String, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation, ParseResult,
         PrintableString, Sequence, SequenceOf, SetOf, Tlv, UniversalString, UtcTime, Utf8String,
         VisibleString,
@@ -587,6 +587,30 @@ mod tests {
             (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x02\x02\xff\x80",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_parse_bigint() {
+        assert_parses::<BigInt>(&[
+            (Ok(BigInt::new(b"\x80").unwrap()), b"\x02\x01\x80"),
+            (Ok(BigInt::new(b"\xff").unwrap()), b"\x02\x01\xff"),
+            (
+                Ok(BigInt::new(b"\x00\xff\xff").unwrap()),
+                b"\x02\x03\x00\xff\xff",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x02\xff\xff",
+            ),
+            (
+                Ok(BigInt::new(b"\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff").unwrap()),
+                b"\x02\x0c\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x00",
             ),
         ]);
     }

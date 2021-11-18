@@ -111,7 +111,7 @@ pub use crate::parser::{
     parse, parse_single, ParseError, ParseErrorKind, ParseLocation, ParseResult, Parser,
 };
 pub use crate::types::{
-    Asn1Readable, Asn1Writable, BMPString, BigUint, Choice1, Choice2, Choice3, Enumerated,
+    Asn1Readable, Asn1Writable, BMPString, BigInt, BigUint, Choice1, Choice2, Choice3, Enumerated,
     GeneralizedTime, IA5String, Null, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
     SequenceWriter, SetOf, SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv,
     UniversalString, UtcTime, Utf8String, VisibleString,

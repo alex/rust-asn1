@@ -593,6 +593,43 @@ impl<'a> SimpleAsn1Writable<'a> for BigUint<'a> {
     }
 }
 
+/// Arbitrary sized signed integer. Contents may be accessed as `&[u8]` of
+/// big-endian data. Its contents always match the DER encoding of a value
+/// (i.e. they are minimal)
+#[derive(PartialEq, Clone, Copy, Debug, Hash)]
+pub struct BigInt<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> BigInt<'a> {
+    /// Create a new BigInt from already encoded data. `data` must be encoded
+    /// as required by DER: minimally and if the high bit would be set in the
+    /// first octet, a leading \x00 should be prepended (to disambiguate from
+    /// negative values).
+    pub fn new(data: &'a [u8]) -> Option<Self> {
+        validate_integer(data, true).ok()?;
+        Some(BigInt { data })
+    }
+
+    /// Returns the contents of the integer as big-endian bytes.
+    pub fn as_bytes(&self) -> &'a [u8] {
+        self.data
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
+    const TAG: u8 = 0x02;
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        BigInt::new(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+    }
+}
+impl<'a> SimpleAsn1Writable<'a> for BigInt<'a> {
+    const TAG: u8 = 0x02;
+    fn write_data(&self, dest: &mut Vec<u8>) {
+        dest.extend_from_slice(self.data);
+    }
+}
+
 impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
     fn parse_data(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
