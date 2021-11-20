@@ -61,6 +61,7 @@ pub trait SimpleAsn1Writable<'a>: Sized {
 }
 
 impl<'a, T: SimpleAsn1Writable<'a>> Asn1Writable<'a> for T {
+    #[inline]
     fn write(&self, w: &mut Writer) {
         w.write_tlv(Self::TAG, move |dest| self.write_data(dest));
     }
@@ -105,15 +106,18 @@ impl<'a> Tlv<'a> {
 }
 
 impl<'a> Asn1Readable<'a> for Tlv<'a> {
+    #[inline]
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
         parser.read_tlv()
     }
 
+    #[inline]
     fn can_parse(_tag: u8) -> bool {
         true
     }
 }
 impl<'a> Asn1Writable<'a> for Tlv<'a> {
+    #[inline]
     fn write(&self, w: &mut Writer) {
         w.write_tlv(self.tag, move |dest| dest.extend_from_slice(self.data))
     }
@@ -838,12 +842,14 @@ impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for Option<T> {
         }
     }
 
+    #[inline]
     fn can_parse(tag: u8) -> bool {
         T::can_parse(tag)
     }
 }
 
 impl<'a, T: Asn1Writable<'a>> Asn1Writable<'a> for Option<T> {
+    #[inline]
     fn write(&self, w: &mut Writer) {
         if let Some(v) = self {
             w.write_element(v);

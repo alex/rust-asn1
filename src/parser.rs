@@ -203,6 +203,7 @@ impl<'a> Parser<'a> {
 
     /// Reads a single ASN.1 element from the parser. Which type you are reading is determined by
     /// the type parameter `T`.
+    #[inline]
     pub fn read_element<T: Asn1Readable<'a>>(&mut self) -> ParseResult<T> {
         T::parse(self)
     }
