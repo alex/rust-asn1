@@ -34,6 +34,7 @@ impl Writer<'_> {
     }
 
     /// Writes a single element to the output.
+    #[inline]
     pub fn write_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T) {
         val.write(self);
     }
