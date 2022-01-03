@@ -47,6 +47,7 @@ impl ParseError {
     }
 
     #[doc(hidden)]
+    #[must_use]
     pub fn add_location(mut self, loc: ParseLocation) -> Self {
         if (self.parse_depth as usize) < self.parse_locations.len() {
             self.parse_locations[self.parse_depth as usize] = Some(loc);
