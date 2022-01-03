@@ -1,7 +1,4 @@
 use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
-use alloc::borrow::Cow;
-use alloc::string::ToString;
-use alloc::vec::Vec;
 use core::fmt;
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
@@ -57,22 +54,43 @@ impl ParseError {
     }
 }
 
+// Wraps an `Option<T>`, but `fmt::Debug` will only render `Some` values and
+// panics on others.
+struct SomeFmtOption<T>(Option<T>);
+
+impl<T: fmt::Debug> fmt::Debug for SomeFmtOption<T> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.as_ref().unwrap().fmt(f)
+    }
+}
+
 impl fmt::Debug for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut f = f.debug_struct("ParseError");
         f.field("kind", &self.kind);
         if self.parse_depth > 0 {
-            f.field(
-                "location",
-                &self.parse_locations[..self.parse_depth as usize]
-                    .iter()
-                    .rev()
-                    .map(|l| match l.as_ref().unwrap() {
-                        ParseLocation::Field(f) => Cow::<'_, str>::Borrowed(f),
-                        ParseLocation::Index(i) => Cow::<'_, str>::Owned(i.to_string()),
-                    })
-                    .collect::<Vec<_>>(),
-            );
+            let mut locations = [
+                SomeFmtOption(None),
+                SomeFmtOption(None),
+                SomeFmtOption(None),
+                SomeFmtOption(None),
+                SomeFmtOption(None),
+                SomeFmtOption(None),
+                SomeFmtOption(None),
+                SomeFmtOption(None),
+            ];
+            for (i, location) in self.parse_locations[..self.parse_depth as usize]
+                .iter()
+                .rev()
+                .enumerate()
+            {
+                locations[i] = match location.as_ref().unwrap() {
+                    ParseLocation::Field(ref f) => SomeFmtOption(Some(f as &dyn fmt::Debug)),
+                    ParseLocation::Index(ref i) => SomeFmtOption(Some(i as &dyn fmt::Debug)),
+                }
+            }
+
+            f.field("location", &&locations[..self.parse_depth as usize]);
         }
         f.finish()
     }
@@ -326,6 +344,12 @@ mod tests {
                 ParseError::new(ParseErrorKind::InvalidValue)
                     .add_location(ParseLocation::Field("Abc::123")),
                 "ParseError { kind: InvalidValue, location: [\"Abc::123\"] }",
+            ),
+            (
+                ParseError::new(ParseErrorKind::InvalidValue)
+                    .add_location(ParseLocation::Index(12))
+                    .add_location(ParseLocation::Field("Abc::123")),
+                "ParseError { kind: InvalidValue, location: [\"Abc::123\", 12] }",
             ),
         ]
         .iter()
