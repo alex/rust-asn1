@@ -54,6 +54,9 @@ impl ParseError {
     }
 }
 
+#[cfg(feature = "std")]
+impl std::error::Error for ParseError {}
+
 // Wraps an `Option<T>`, but `fmt::Debug` will only render `Some` values and
 // panics on others.
 struct SomeFmtOption<T>(Option<T>);
@@ -93,6 +96,23 @@ impl fmt::Debug for ParseError {
             f.field("location", &&locations[..self.parse_depth as usize]);
         }
         f.finish()
+    }
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "ASN.1 parsing error: ")?;
+        match self.kind {
+            ParseErrorKind::InvalidValue => write!(f, "invalid value"),
+            ParseErrorKind::UnexpectedTag { actual } => {
+                write!(f, "unexpected tag (got {})", actual)
+            }
+            ParseErrorKind::ShortData => write!(f, "short data"),
+            ParseErrorKind::IntegerOverflow => write!(f, "integer overflow"),
+            ParseErrorKind::ExtraData => write!(f, "extra data"),
+            ParseErrorKind::InvalidSetOrdering => write!(f, "SET value was ordered incorrectly"),
+            ParseErrorKind::EncodedDefault => write!(f, "DEFAULT value was explicitly encoded"),
+        }
     }
 }
 
@@ -355,6 +375,31 @@ mod tests {
         .iter()
         {
             assert_eq!(&format!("{:?}", e), expected)
+        }
+    }
+
+    #[test]
+    fn test_parse_error_display() {
+        for (e, expected) in [
+            (
+                ParseError::new(ParseErrorKind::InvalidValue),
+                "ASN.1 parsing error: invalid value",
+            ),
+            (
+                ParseError::new(ParseErrorKind::ShortData)
+                    .add_location(ParseLocation::Field("Abc::123")),
+                "ASN.1 parsing error: short data",
+            ),
+            (
+                ParseError::new(ParseErrorKind::UnexpectedTag { actual: 12 })
+                    .add_location(ParseLocation::Index(12))
+                    .add_location(ParseLocation::Field("Abc::123")),
+                "ASN.1 parsing error: unexpected tag (got 12)",
+            ),
+        ]
+        .iter()
+        {
+            assert_eq!(&format!("{}", e), expected)
         }
     }
 
