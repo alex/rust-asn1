@@ -240,6 +240,46 @@ impl<'a> Parser<'a> {
         self.data.is_empty()
     }
 
+    /// Allows looking at the current value as a tag to determine the course of
+    /// action needed next. Can be useful when decoding CHOICE (enum) variants
+    /// with differing types in order to determine which variant is currently
+    /// being parsed.
+    ///
+    /// Returns a tuple with the raw tag as the first element, and the
+    /// deconstructed tag as the second (ie, the value you would pass to
+    /// [write_explicit_element](crate::writer::write_explicit_element)).
+    pub fn peek_explicit_tag(&mut self) -> ParseResult<(u8, u8)> {
+        let initial_data = self.data;
+
+        let tag = self.read_u8()?;
+        self.data = initial_data;
+        Ok((
+            tag,
+            tag & !(crate::types::CONTEXT_SPECIFIC | crate::types::CONSTRUCTED),
+        ))
+    }
+
+    /// Allows looking at the current value as a tag to determine the course of
+    /// action needed next. Can be useful when decoding CHOICE (enum) variants
+    /// with differing types in order to determine which variant is currently
+    /// being parsed.
+    ///
+    /// Returns a tuple with the raw tag as the first element, and the
+    /// deconstructed tag as the second (ie, the value you would pass to
+    /// [write_explicit_element](crate::writer::write_implicit_element)).
+    ///
+    /// Requires knowing which element you want to try to deserialize up front.
+    pub fn peek_implicit_tag<T: SimpleAsn1Readable<'a>>(&mut self) -> ParseResult<(u8, u8)> {
+        let initial_data = self.data;
+
+        let tag = self.read_u8()?;
+        self.data = initial_data;
+        Ok((
+            tag,
+            tag & !(crate::types::CONTEXT_SPECIFIC | (T::TAG & crate::types::CONSTRUCTED)),
+        ))
+    }
+
     /// Reads a single ASN.1 element from the parser. Which type you are reading is determined by
     /// the type parameter `T`.
     #[inline]
