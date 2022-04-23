@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct ObjectIdentifier<'a> {
     // Store the OID as DER encoded. This means we can 0-copy on parse.
-    pub(crate) der_encoded: Cow<'a, [u8]>,
+    der_encoded: Cow<'a, [u8]>,
 }
 
 fn _read_base128_int<I: Iterator<Item = u8>>(mut reader: I) -> Option<u32> {
@@ -85,6 +85,10 @@ impl<'a> ObjectIdentifier<'a> {
         Some(ObjectIdentifier {
             der_encoded: Cow::Borrowed(data),
         })
+    }
+
+    pub(crate) fn as_der(&self) -> &[u8] {
+        &self.der_encoded
     }
 }
 
