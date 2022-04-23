@@ -644,7 +644,7 @@ impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier<'a> {
 impl<'a> SimpleAsn1Writable<'a> for ObjectIdentifier<'a> {
     const TAG: u8 = 0x06;
     fn write_data(&self, dest: &mut Vec<u8>) {
-        dest.extend_from_slice(&self.der_encoded);
+        dest.extend_from_slice(self.as_der());
     }
 }
 
