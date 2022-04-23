@@ -1,7 +1,7 @@
 use crate::parser::{ParseError, ParseErrorKind, ParseResult};
 use alloc::fmt;
 
-const MAX_OID_LENGTH: usize = 32;
+const MAX_OID_LENGTH: usize = 63;
 
 /// Represents an ASN.1 `OBJECT IDENTIFIER`. ObjectIdentifiers are opaque, the only thing may be
 /// done with them is test if they are equal to another `ObjectIdentifier`. The generally
@@ -165,7 +165,7 @@ mod tests {
             ".2.5",
             "2..5",
             "2.5.",
-            "1.3.6.1.4.1.1248.1.1.2.1.3.21.69.112.115.111.110.32.83.116.121.108.117.115.32.80.114.111.32.52.57.48.48.123.124412.31.213321.123",
+            "1.3.6.1.4.1.1248.1.1.2.1.3.21.69.112.115.111.110.32.83.116.121.108.117.115.32.80.114.111.32.52.57.48.48.123.124412.31.213321.123.110.32.83.116.121.108.117.115.32.80.114.111.32.52.57.48.48.123.124412.31.213321.123",
         ] {
             assert_eq!(ObjectIdentifier::from_string(val), None);
         }
@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn test_from_der() {
-        assert_eq!(ObjectIdentifier::from_der(b"\x06\x2b\x2b\x06\x01\x04\x01\x89\x60\x01\x01\x02\x01\x03\x15\x45\x70\x73\x6f\x6e\x20\x53\x74\x79\x6c\x75\x73\x20\x50\x72\x6f\x20\x34\x39\x30\x30\x7b\x87\xcb\x7c\x1f\x8d\x82\x49\x7b"), Err(ParseError::new(ParseErrorKind::OidTooLong)));
+        assert_eq!(ObjectIdentifier::from_der(b"\x06\x40\x2b\x06\x01\x04\x01\x89\x60\x01\x01\x02\x01\x03\x15\x45\x70\x73\x6f\x6e\x20\x53\x74\x79\x6c\x75\x73\x20\x50\x72\x6f\x20\x34\x39\x30\x30\x7b\x87\xcb\x7c\x1f\x8d\x82\x49\x7b\x2b\x06\x01\x04\x01\x89\x60\x01\x01\x02\x01\x03\x15\x45\x70\x73\x6f\x6e\x20"), Err(ParseError::new(ParseErrorKind::OidTooLong)));
     }
 
     #[test]

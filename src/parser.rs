@@ -115,6 +115,7 @@ impl fmt::Display for ParseError {
             ParseErrorKind::ExtraData => write!(f, "extra data"),
             ParseErrorKind::InvalidSetOrdering => write!(f, "SET value was ordered incorrectly"),
             ParseErrorKind::EncodedDefault => write!(f, "DEFAULT value was explicitly encoded"),
+            ParseErrorKind::OidTooLong => write!(f, "OBJECT IDENTIFIER was too large to be stored in rust-asn1's buffer"),
         }
     }
 }

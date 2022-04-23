@@ -441,6 +441,8 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
     }
 }
 
+// TODO: Duplicate of this function in src/object_identifier.rs, can we
+// de-dupe?
 fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
     if n == 0 {
         data.push(0);
@@ -464,7 +466,7 @@ fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
     }
 }
 
-#[proc_macro_hack::proc_macro_hack]
+#[proc_macro]
 pub fn oid(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let p_arcs = Punctuated::<syn::LitInt, syn::Token![,]>::parse_terminated
         .parse(item)
@@ -480,7 +482,8 @@ pub fn oid(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 
     let der_len = der_encoded.len();
-    der_encoded.resize(32, 0);
+    // TODO: is there a way to use the `MAX_OID_LENGTH` constant here?
+    der_encoded.resize(63, 0);
     let der_lit = syn::LitByteStr::new(&der_encoded, proc_macro2::Span::call_site());
     let expanded = quote::quote! {
         asn1::ObjectIdentifier::from_der_unchecked(*#der_lit, #der_len as u8)
