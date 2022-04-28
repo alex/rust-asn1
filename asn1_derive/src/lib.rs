@@ -482,8 +482,8 @@ pub fn oid(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     }
 
     let der_len = der_encoded.len();
-    assert!(der_len <= 63);
     // TODO: is there a way to use the `MAX_OID_LENGTH` constant here?
+    assert!(der_len <= 63);
     der_encoded.resize(63, 0);
     let der_lit = syn::LitByteStr::new(&der_encoded, proc_macro2::Span::call_site());
     let expanded = quote::quote! {
