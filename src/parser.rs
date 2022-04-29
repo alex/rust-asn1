@@ -18,6 +18,9 @@ pub enum ParseErrorKind {
     InvalidSetOrdering,
     /// An OPTIONAL DEFAULT was written with a default value.
     EncodedDefault,
+    /// OID value is longer than the maximum size rust-asn1 can store. This is
+    /// a limitation of rust-asn1.
+    OidTooLong,
 }
 
 #[derive(Debug, PartialEq)]
@@ -112,6 +115,10 @@ impl fmt::Display for ParseError {
             ParseErrorKind::ExtraData => write!(f, "extra data"),
             ParseErrorKind::InvalidSetOrdering => write!(f, "SET value was ordered incorrectly"),
             ParseErrorKind::EncodedDefault => write!(f, "DEFAULT value was explicitly encoded"),
+            ParseErrorKind::OidTooLong => write!(
+                f,
+                "OBJECT IDENTIFIER was too large to be stored in rust-asn1's buffer"
+            ),
         }
     }
 }
@@ -688,7 +695,7 @@ mod tests {
 
     #[test]
     fn test_parse_object_identifier() {
-        assert_parses::<ObjectIdentifier<'_>>(&[
+        assert_parses::<ObjectIdentifier>(&[
             (
                 Ok(ObjectIdentifier::from_string("2.5").unwrap()),
                 b"\x06\x01\x55",

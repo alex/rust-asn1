@@ -634,14 +634,13 @@ impl<'a> SimpleAsn1Writable<'a> for BigInt<'a> {
     }
 }
 
-impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier<'a> {
+impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier {
     const TAG: u8 = 0x06;
-    fn parse_data(data: &'a [u8]) -> ParseResult<ObjectIdentifier<'a>> {
+    fn parse_data(data: &'a [u8]) -> ParseResult<ObjectIdentifier> {
         ObjectIdentifier::from_der(data)
-            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
-impl<'a> SimpleAsn1Writable<'a> for ObjectIdentifier<'a> {
+impl<'a> SimpleAsn1Writable<'a> for ObjectIdentifier {
     const TAG: u8 = 0x06;
     fn write_data(&self, dest: &mut Vec<u8>) {
         dest.extend_from_slice(self.as_der());
