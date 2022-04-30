@@ -37,37 +37,36 @@ fn _read_base128_int<I: Iterator<Item = u8>>(mut reader: I) -> ParseResult<u32> 
     Err(ParseError::new(ParseErrorKind::InvalidValue))
 }
 
-fn _write_base128_int(data: &mut [u8], data_len: &mut usize, n: u32) -> Option<()> {
+fn _write_base128_int(mut data: &mut [u8], n: u32) -> Option<usize> {
     if n == 0 {
-        if *data_len >= data.len() {
+        if data.is_empty() {
             return None;
         }
-        data[*data_len] = 0;
-        *data_len += 1;
-        return Some(());
+        data[0] = 0;
+        return Some(1);
     }
 
-    let mut l = 0;
+    let mut length = 0;
     let mut i = n;
     while i > 0 {
-        l += 1;
+        length += 1;
         i >>= 7;
     }
 
-    for i in (0..l).rev() {
+    for i in (0..length).rev() {
         let mut o = (n >> (i * 7)) as u8;
         o &= 0x7f;
         if i != 0 {
             o |= 0x80;
         }
-        if *data_len >= data.len() {
+        if data.is_empty() {
             return None;
         }
-        data[*data_len] = o;
-        *data_len += 1;
+        data[0] = o;
+        data = &mut data[1..];
     }
 
-    Some(())
+    Some(length)
 }
 
 impl ObjectIdentifier {
@@ -83,9 +82,10 @@ impl ObjectIdentifier {
 
         let mut der_data = [0; MAX_OID_LENGTH];
         let mut der_data_len = 0;
-        _write_base128_int(&mut der_data, &mut der_data_len, 40 * first + second)?;
+        der_data_len += _write_base128_int(&mut der_data[der_data_len..], 40 * first + second)?;
         for part in parts {
-            _write_base128_int(&mut der_data, &mut der_data_len, part.parse::<u32>().ok()?)?;
+            der_data_len +=
+                _write_base128_int(&mut der_data[der_data_len..], part.parse::<u32>().ok()?)?;
         }
         Some(ObjectIdentifier {
             der_encoded: der_data,
