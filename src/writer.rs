@@ -269,6 +269,15 @@ mod tests {
     }
 
     #[test]
+    fn test_write_u8() {
+        assert_writes::<u8>(&[
+            (0, b"\x02\x01\x00"),
+            (127, b"\x02\x01\x7f"),
+            (128, b"\x02\x02\x00\x80"),
+        ]);
+    }
+
+    #[test]
     fn test_write_i8() {
         assert_writes::<i8>(&[
             (0, b"\x02\x01\x00"),

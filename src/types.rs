@@ -546,7 +546,8 @@ macro_rules! impl_asn1_element_for_int {
                 }
 
                 for i in (1..num_bytes + 1).rev() {
-                    dest.push((self >> ((i - 1) * 8)) as u8);
+                    let digit = self.checked_shr((i - 1) * 8).unwrap_or(0);
+                    dest.push(digit as u8);
                 }
             }
         }
