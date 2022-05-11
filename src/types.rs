@@ -556,7 +556,7 @@ macro_rules! impl_asn1_element_for_int {
 
 impl_asn1_element_for_int!(i8; true);
 impl_asn1_element_for_int!(u8; false);
-impl_asn1_element_for_int!(i32; false);
+impl_asn1_element_for_int!(i32; true);
 impl_asn1_element_for_int!(u32; false);
 impl_asn1_element_for_int!(i64; true);
 impl_asn1_element_for_int!(u64; false);

@@ -269,6 +269,20 @@ mod tests {
     }
 
     #[test]
+    fn test_write_i32() {
+        assert_writes::<i32>(&[
+            (0, b"\x02\x01\x00"),
+            (127, b"\x02\x01\x7f"),
+            (128, b"\x02\x02\x00\x80"),
+            (255, b"\x02\x02\x00\xff"),
+            (256, b"\x02\x02\x01\x00"),
+            (-1, b"\x02\x01\xff"),
+            (-128, b"\x02\x01\x80"),
+            (-129, b"\x02\x02\xff\x7f"),
+        ]);
+    }
+
+    #[test]
     fn test_write_u8() {
         assert_writes::<u8>(&[
             (0, b"\x02\x01\x00"),
