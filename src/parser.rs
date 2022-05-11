@@ -612,6 +612,48 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_int_i32() {
+        assert_parses::<i32>(&[
+            (Ok(0), b"\x02\x01\x00"),
+            (Ok(127), b"\x02\x01\x7f"),
+            (Ok(128), b"\x02\x02\x00\x80"),
+            (Ok(256), b"\x02\x02\x01\x00"),
+            (Ok(-128), b"\x02\x01\x80"),
+            (Ok(-129), b"\x02\x02\xff\x7f"),
+            (Ok(-256), b"\x02\x02\xff\x00"),
+            (Ok(core::i32::MAX), b"\x02\x04\x7f\xff\xff\xff"),
+            (
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: 0x3,
+                })),
+                b"\x03\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::ShortData)),
+                b"\x02\x02\x00",
+            ),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x02"),
+            (
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
+                b"\x02\x09\x02\x00\x00\x00\x00\x00\x00\x00\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x05\x00\x00\x00\x00\x01",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x02\xff\x80",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x00",
+            ),
+        ])
+    }
+
+    #[test]
     fn test_parse_int_i8() {
         assert_parses::<i8>(&[
             (Ok(0i8), b"\x02\x01\x00"),
