@@ -39,7 +39,7 @@ impl Writer<'_> {
         val.write(self);
     }
 
-    /// This is an alias for `write_element::<Explicit<T, tag>>`` for use when
+    /// This is an alias for `write_element::<Explicit<T, tag>>` for use when
     /// MSRV is <1.51.
     pub fn write_explicit_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T, tag: u8) {
         let tag = crate::explicit_tag(tag);

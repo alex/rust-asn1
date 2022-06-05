@@ -20,7 +20,7 @@ fn assert_roundtrips<
 
 #[test]
 fn test_struct_no_fields() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct NoFields;
 
     assert_roundtrips(&[
@@ -34,7 +34,7 @@ fn test_struct_no_fields() {
 
 #[test]
 fn test_struct_simple_fields() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct SimpleFields {
         a: u64,
         b: u64,
@@ -47,7 +47,7 @@ fn test_struct_simple_fields() {
 
 #[test]
 fn test_tuple_struct_simple_fields() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct SimpleFields(u8, u8);
 
     assert_roundtrips(&[(Ok(SimpleFields(2, 3)), b"\x30\x06\x02\x01\x02\x02\x01\x03")]);
@@ -55,7 +55,7 @@ fn test_tuple_struct_simple_fields() {
 
 #[test]
 fn test_struct_lifetime() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct Lifetimes<'a> {
         a: &'a [u8],
     }
@@ -65,7 +65,7 @@ fn test_struct_lifetime() {
 
 #[test]
 fn test_optional() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct OptionalFields {
         zzz: Option<u8>,
     }
@@ -82,10 +82,10 @@ fn test_optional() {
 
 #[test]
 fn test_explicit() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct EmptySequence;
 
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct ExplicitFields {
         #[explicit(5)]
         a: Option<u8>,
@@ -121,10 +121,10 @@ fn test_explicit() {
 
 #[test]
 fn test_implicit() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct EmptySequence;
 
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct ImplicitFields {
         #[implicit(5)]
         a: Option<u8>,
@@ -160,7 +160,7 @@ fn test_implicit() {
 
 #[test]
 fn test_default() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct DefaultFields {
         #[default(13)]
         a: u8,
@@ -270,7 +270,7 @@ fn test_default_const_generics() {
 
 #[test]
 fn test_default_bool() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct DefaultField {
         #[default(false)]
         a: bool,
@@ -289,7 +289,7 @@ fn test_default_bool() {
 
 #[test]
 fn test_enum() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     enum BasicChoice {
         A(u64),
         B(()),
@@ -315,7 +315,7 @@ fn test_enum() {
 
 #[test]
 fn test_enum_lifetimes() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     enum LifetimesChoice<'a> {
         A(u64),
         B(&'a [u8]),
@@ -341,7 +341,7 @@ fn test_enum_lifetimes() {
 
 #[test]
 fn test_enum_explicit() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     enum ExplicitChoice<'a> {
         #[explicit(5)]
         A(u64),
@@ -368,10 +368,10 @@ fn test_enum_explicit() {
 
 #[test]
 fn test_enum_implicit() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct EmptySequence;
 
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     enum ImplicitChoice<'a> {
         #[implicit(5)]
         A(u64),
@@ -402,15 +402,15 @@ fn test_enum_implicit() {
 
 #[test]
 fn test_error_parse_location() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct InnerSeq(u64);
 
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     enum InnerEnum {
         Int(u64),
     }
 
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct OuterSeq {
         inner: InnerSeq,
         inner_enum: Option<InnerEnum>,
@@ -434,7 +434,7 @@ fn test_error_parse_location() {
 
 #[test]
 fn test_required_implicit() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct RequiredImplicit {
         #[implicit(0, required)]
         value: u8,
@@ -459,7 +459,7 @@ fn test_required_implicit() {
 
 #[test]
 fn test_required_explicit() {
-    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct RequiredExplicit {
         #[explicit(0, required)]
         value: u8,

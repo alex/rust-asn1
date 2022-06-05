@@ -2,7 +2,7 @@ use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
 use core::fmt;
 
 /// ParseError are returned when there is an error parsing the ASN.1 data.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ParseErrorKind {
     /// Something about the value was invalid.
     InvalidValue,
@@ -23,14 +23,14 @@ pub enum ParseErrorKind {
     OidTooLong,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 #[doc(hidden)]
 pub enum ParseLocation {
     Field(&'static str),
     Index(usize),
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Eq)]
 pub struct ParseError {
     kind: ParseErrorKind,
     parse_locations: [Option<ParseLocation>; 8],
@@ -440,7 +440,7 @@ mod tests {
 
     #[test]
     fn test_errors() {
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Eq)]
         enum E {
             X(u64),
             P(ParseError),
