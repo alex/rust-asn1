@@ -76,7 +76,7 @@ impl<'a, T: SimpleAsn1Writable<'a>> SimpleAsn1Writable<'a> for &T {
 
 /// A TLV (type, length, value) represented as the tag and bytes content.
 /// Generally used for parsing ASN.1 `ANY` values.
-#[derive(Debug, PartialEq, PartialOrd, Hash, Clone, Copy)]
+#[derive(Debug, PartialEq, PartialOrd, Hash, Clone, Copy, Eq)]
 pub struct Tlv<'a> {
     pub(crate) tag: u8,
     // `data` is the value of a TLV
@@ -184,7 +184,7 @@ impl<'a> SimpleAsn1Writable<'a> for &'a [u8] {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `PrintableString`.  A `PrintableString` contains an `&str`
 /// with only valid characers.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PrintableString<'a>(&'a str);
 
 impl<'a> PrintableString<'a> {
@@ -255,7 +255,7 @@ impl<'a> SimpleAsn1Writable<'a> for PrintableString<'a> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `IA5String`.  An `IA5String` contains an `&str`
 /// with only valid characers.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IA5String<'a>(&'a str);
 
 impl<'a> IA5String<'a> {
@@ -303,7 +303,7 @@ impl<'a> SimpleAsn1Writable<'a> for IA5String<'a> {
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `UTF8String`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Utf8String<'a>(&'a str);
 
 impl<'a> Utf8String<'a> {
@@ -337,7 +337,7 @@ impl<'a> SimpleAsn1Writable<'a> for Utf8String<'a> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `VisibleString`.  An `VisibleString` contains an `&str`
 /// with only valid characers.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VisibleString<'a>(&'a str);
 
 impl<'a> VisibleString<'a> {
@@ -392,7 +392,7 @@ impl<'a> SimpleAsn1Writable<'a> for VisibleString<'a> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `BMPString`. A `BMPString` contains encoded (UTF-16-BE)
 /// bytes which are known to be valid.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct BMPString<'a>(&'a [u8]);
 
 impl<'a> BMPString<'a> {
@@ -442,7 +442,7 @@ impl<'a> SimpleAsn1Writable<'a> for BMPString<'a> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `UniversalString`. A `UniversalString` contains encoded
 /// (UTF-32-BE) bytes which are known to be valid.
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub struct UniversalString<'a>(&'a [u8]);
 
 impl<'a> UniversalString<'a> {
@@ -564,7 +564,7 @@ impl_asn1_element_for_int!(u64; false);
 /// Arbitrary sized unsigned integer. Contents may be accessed as `&[u8]` of
 /// big-endian data. Its contents always match the DER encoding of a value
 /// (i.e. they are minimal)
-#[derive(PartialEq, Clone, Copy, Debug, Hash)]
+#[derive(PartialEq, Clone, Copy, Debug, Hash, Eq)]
 pub struct BigUint<'a> {
     data: &'a [u8],
 }
@@ -601,7 +601,7 @@ impl<'a> SimpleAsn1Writable<'a> for BigUint<'a> {
 /// Arbitrary sized signed integer. Contents may be accessed as `&[u8]` of
 /// big-endian data. Its contents always match the DER encoding of a value
 /// (i.e. they are minimal)
-#[derive(PartialEq, Clone, Copy, Debug, Hash)]
+#[derive(PartialEq, Clone, Copy, Debug, Hash, Eq)]
 pub struct BigInt<'a> {
     data: &'a [u8],
 }
@@ -674,7 +674,7 @@ impl<'a> SimpleAsn1Writable<'a> for OwnedBitString {
 
 /// Used for parsing and writing ASN.1 `UTC TIME` values. Wraps a
 /// `chrono::DateTime<Utc>`.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct UtcTime(chrono::DateTime<chrono::Utc>);
 
 impl UtcTime {
@@ -760,7 +760,7 @@ impl SimpleAsn1Writable<'_> for UtcTime {
 
 /// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
 /// `chrono::DateTime<Utc>`.
-#[derive(Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct GeneralizedTime(chrono::DateTime<chrono::Utc>);
 
 impl GeneralizedTime {
@@ -805,7 +805,7 @@ impl SimpleAsn1Writable<'_> for GeneralizedTime {
 }
 
 /// An ASN.1 `ENUMERATED` value.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Enumerated(u32);
 
 impl Enumerated {
@@ -922,7 +922,7 @@ declare_choice!(Choice3 => (T1 ChoiceA), (T2 ChoiceB), (T3 ChoiceC));
 /// Represents an ASN.1 `SEQUENCE`. By itself, this merely indicates a sequence of bytes that are
 /// claimed to form an ASN1 sequence. In almost any circumstance, you'll want to immediately call
 /// `Sequence.parse` on this value to decode the actual contents therein.
-#[derive(Debug, PartialEq, Hash, Clone)]
+#[derive(Debug, PartialEq, Hash, Clone, Eq)]
 pub struct Sequence<'a> {
     data: &'a [u8],
 }
