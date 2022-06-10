@@ -95,7 +95,7 @@ impl Writer<'_> {
             let n = _length_length(added_len);
             self.data[start_len - 1] = 0x80 | n;
             let mut length_buf = [0u8; 8];
-            for (pos, i) in (1..n + 1).rev().enumerate() {
+            for (pos, i) in (1..=n).rev().enumerate() {
                 length_buf[pos] = (added_len >> ((i - 1) * 8)) as u8;
             }
             _insert_at_position(self.data, start_len, &length_buf[..n as usize]);

@@ -70,7 +70,7 @@ impl<'a, T: SimpleAsn1Writable<'a>> Asn1Writable<'a> for T {
 impl<'a, T: SimpleAsn1Writable<'a>> SimpleAsn1Writable<'a> for &T {
     const TAG: u8 = T::TAG;
     fn write_data(&self, dest: &mut Vec<u8>) {
-        T::write_data(self, dest)
+        T::write_data(self, dest);
     }
 }
 
@@ -119,7 +119,7 @@ impl<'a> Asn1Readable<'a> for Tlv<'a> {
 impl<'a> Asn1Writable<'a> for Tlv<'a> {
     #[inline]
     fn write(&self, w: &mut Writer) {
-        w.write_tlv(self.tag, move |dest| dest.extend_from_slice(self.data))
+        w.write_tlv(self.tag, move |dest| dest.extend_from_slice(self.data));
     }
 }
 
@@ -545,7 +545,7 @@ macro_rules! impl_asn1_element_for_int {
                     v = v.checked_shr(8).unwrap_or(0);
                 }
 
-                for i in (1..num_bytes + 1).rev() {
+                for i in (1..=num_bytes).rev() {
                     let digit = self.checked_shr((i - 1) * 8).unwrap_or(0);
                     dest.push(digit as u8);
                 }
@@ -570,9 +570,9 @@ pub struct BigUint<'a> {
 }
 
 impl<'a> BigUint<'a> {
-    /// Create a new BigUint from already encoded data. `data` must be encoded
+    /// Create a new `BigUint` from already encoded data. `data` must be encoded
     /// as required by DER: minimally and if the high bit would be set in the
-    /// first octet, a leading \x00 should be prepended (to disambiguate from
+    /// first octet, a leading `\x00` should be prepended (to disambiguate from
     /// negative values).
     pub fn new(data: &'a [u8]) -> Option<Self> {
         validate_integer(data, false).ok()?;
@@ -607,9 +607,9 @@ pub struct BigInt<'a> {
 }
 
 impl<'a> BigInt<'a> {
-    /// Create a new BigInt from already encoded data. `data` must be encoded
+    /// Create a new `BigInt` from already encoded data. `data` must be encoded
     /// as required by DER: minimally and if the high bit would be set in the
-    /// first octet, a leading \x00 should be prepended (to disambiguate from
+    /// first octet, a leading `\x00` should be prepended (to disambiguate from
     /// negative values).
     pub fn new(data: &'a [u8]) -> Option<Self> {
         validate_integer(data, true).ok()?;
@@ -830,7 +830,7 @@ impl<'a> SimpleAsn1Writable<'a> for Enumerated {
     const TAG: u8 = 0xa;
 
     fn write_data(&self, dest: &mut Vec<u8>) {
-        u32::write_data(&self.0, dest)
+        u32::write_data(&self.0, dest);
     }
 }
 
@@ -975,7 +975,7 @@ impl<'a> SimpleAsn1Writable<'a> for SequenceWriter<'a> {
     const TAG: u8 = 0x10 | CONSTRUCTED;
     #[inline]
     fn write_data(&self, dest: &mut Vec<u8>) {
-        (self.f)(&mut Writer::new(dest))
+        (self.f)(&mut Writer::new(dest));
     }
 }
 
