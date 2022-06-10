@@ -1,7 +1,7 @@
 use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
 use core::fmt;
 
-/// ParseError are returned when there is an error parsing the ASN.1 data.
+/// `ParseError` are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseErrorKind {
     /// Something about the value was invalid.
@@ -170,7 +170,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn peek_u8(&mut self) -> Option<u8> {
-        self.data.get(0).copied()
+        self.data.first().copied()
     }
 
     #[inline]
