@@ -175,12 +175,7 @@ impl<'a> Parser<'a> {
 
     #[inline]
     fn read_u8(&mut self) -> ParseResult<u8> {
-        if self.data.is_empty() {
-            return Err(ParseError::new(ParseErrorKind::ShortData));
-        }
-        let (val, data) = self.data.split_at(1);
-        self.data = data;
-        Ok(val[0])
+        Ok(self.read_bytes(1)?[0])
     }
 
     #[inline]
