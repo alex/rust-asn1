@@ -863,7 +863,7 @@ macro_rules! declare_choice {
         ///
         /// If you need more variants than are provided, please file an issue or submit a pull
         /// request!
-        #[derive(Debug, PartialEq)]
+        #[derive(Debug, PartialEq, Eq)]
         pub enum $count<
             $($number,)*
         > {
@@ -1087,7 +1087,7 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for Sequ
 }
 
 /// Writes a `SEQUENCE OF` ASN.1 structure from a slice of `T`.
-#[derive(Hash, PartialEq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone)]
 pub struct SequenceOfWriter<'a, T: Asn1Writable<'a>, V: Borrow<[T]> = &'a [T]> {
     vals: V,
     _phantom: PhantomData<&'a T>,
@@ -1224,7 +1224,7 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable<'a>> SimpleAsn1Writable<'a> for SetO
 
 /// Writes an ASN.1 `SET OF` whose contents is a slice of `T`. This type handles
 /// ensuring that the values are properly ordered when written as DER.
-#[derive(Hash, PartialEq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone)]
 pub struct SetOfWriter<'a, T: Asn1Writable<'a>, V: Borrow<[T]> = &'a [T]> {
     vals: V,
     _phantom: PhantomData<&'a T>,
@@ -1278,7 +1278,7 @@ impl<'a, T: Asn1Writable<'a>, V: Borrow<[T]>> SimpleAsn1Writable<'a> for SetOfWr
 /// on older Rust versions, `Parser::read_optional_implicit_element` may be
 /// used.
 #[cfg(feature = "const-generics")]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Implicit<'a, T, const TAG: u8> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
@@ -1333,7 +1333,7 @@ impl<'a, T: SimpleAsn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a>
 /// on older Rust versions, `Parser::read_optional_explicit_element` may be
 /// used.
 #[cfg(feature = "const-generics")]
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Eq, Debug)]
 pub struct Explicit<'a, T, const TAG: u8> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
