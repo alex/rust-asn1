@@ -22,16 +22,18 @@ pub struct ObjectIdentifier {
     der_encoded_len: u8,
 }
 
-fn _read_base128_int<I: Iterator<Item = u8>>(mut reader: I) -> ParseResult<u32> {
+fn _read_base128_int(mut data: &[u8]) -> ParseResult<(u32, &[u8])> {
     let mut ret = 0u32;
     for _ in 0..4 {
-        let b = reader
-            .next()
-            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))?;
+        let b = match data.first() {
+            Some(b) => b,
+            None => return Err(ParseError::new(ParseErrorKind::InvalidValue)),
+        };
+        data = &data[1..];
         ret <<= 7;
         ret |= u32::from(b & 0x7f);
         if b & 0x80 == 0 {
-            return Ok(ret);
+            return Ok((ret, data));
         }
     }
     Err(ParseError::new(ParseErrorKind::InvalidValue))
@@ -101,9 +103,10 @@ impl ObjectIdentifier {
         } else if data.len() > MAX_OID_LENGTH {
             return Err(ParseError::new(ParseErrorKind::OidTooLong));
         }
-        let mut cursor = data.iter().copied();
-        while cursor.len() > 0 {
-            _read_base128_int(&mut cursor)?;
+
+        let mut parsed = (0, data);
+        while !parsed.1.is_empty() {
+            parsed = _read_base128_int(parsed.1)?;
         }
 
         let mut storage = [0; MAX_OID_LENGTH];
@@ -135,18 +138,18 @@ impl fmt::Display for ObjectIdentifier {
     /// Converts an `ObjectIdentifier` to a dotted string, e.g.
     /// "1.2.840.113549".
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut cursor = self.as_der().iter().copied();
+        let mut parsed = (0, self.as_der());
 
-        let first = _read_base128_int(&mut cursor).unwrap();
-        if first < 80 {
-            write!(f, "{}.{}", first / 40, first % 40)?;
+        parsed = _read_base128_int(parsed.1).unwrap();
+        if parsed.0 < 80 {
+            write!(f, "{}.{}", parsed.0 / 40, parsed.0 % 40)?;
         } else {
-            write!(f, "2.{}", first - 80)?;
+            write!(f, "2.{}", parsed.0 - 80)?;
         }
 
-        while cursor.len() > 0 {
-            let digit = _read_base128_int(&mut cursor).unwrap();
-            write!(f, ".{}", digit)?;
+        while !parsed.1.is_empty() {
+            parsed = _read_base128_int(parsed.1).unwrap();
+            write!(f, ".{}", parsed.0)?;
         }
 
         Ok(())
