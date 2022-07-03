@@ -1,4 +1,5 @@
 use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
+use crate::Tag;
 use core::fmt;
 
 /// `ParseError` are returned when there is an error parsing the ASN.1 data.
@@ -7,7 +8,7 @@ pub enum ParseErrorKind {
     /// Something about the value was invalid.
     InvalidValue,
     /// An unexpected tag was encountered.
-    UnexpectedTag { actual: u8 },
+    UnexpectedTag { actual: Tag },
     /// There was not enough data available to complete parsing.
     ShortData,
     /// An internal computation would have overflowed.
@@ -108,7 +109,7 @@ impl fmt::Display for ParseError {
         match self.kind {
             ParseErrorKind::InvalidValue => write!(f, "invalid value"),
             ParseErrorKind::UnexpectedTag { actual } => {
-                write!(f, "unexpected tag (got {})", actual)
+                write!(f, "unexpected tag (got {})", actual.0)
             }
             ParseErrorKind::ShortData => write!(f, "short data"),
             ParseErrorKind::IntegerOverflow => write!(f, "integer overflow"),
@@ -169,8 +170,12 @@ impl<'a> Parser<'a> {
         Parser::new(self.data)
     }
 
-    pub(crate) fn peek_u8(&mut self) -> Option<u8> {
-        self.data.first().copied()
+    pub(crate) fn peek_tag(&mut self) -> Option<Tag> {
+        Some(Tag(*self.data.first()?))
+    }
+
+    pub(crate) fn read_tag(&mut self) -> ParseResult<Tag> {
+        Ok(Tag(self.read_u8()?))
     }
 
     #[inline]
@@ -223,7 +228,7 @@ impl<'a> Parser<'a> {
     pub(crate) fn read_tlv(&mut self) -> ParseResult<Tlv<'a>> {
         let initial_data = self.data;
 
-        let tag = self.read_u8()?;
+        let tag = self.read_tag()?;
         let length = self.read_length()?;
         let data = self.read_bytes(length)?;
 
@@ -269,7 +274,7 @@ impl<'a> Parser<'a> {
         tag: u8,
     ) -> ParseResult<Option<T>> {
         let expected_tag = crate::explicit_tag(tag);
-        if self.peek_u8() != Some(expected_tag) {
+        if self.peek_tag() != Some(expected_tag) {
             return Ok(None);
         }
         let tlv = self.read_tlv()?;
@@ -296,7 +301,7 @@ impl<'a> Parser<'a> {
         tag: u8,
     ) -> ParseResult<Option<T>> {
         let expected_tag = crate::implicit_tag(tag, T::TAG);
-        if self.peek_u8() != Some(expected_tag) {
+        if self.peek_tag() != Some(expected_tag) {
             return Ok(None);
         }
         let tlv = self.read_tlv()?;
@@ -311,8 +316,8 @@ mod tests {
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
         GeneralizedTime, IA5String, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation,
-        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tlv, UniversalString, UtcTime,
-        Utf8String, VisibleString,
+        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
+        UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -393,9 +398,11 @@ mod tests {
                 "ASN.1 parsing error: short data",
             ),
             (
-                ParseError::new(ParseErrorKind::UnexpectedTag { actual: 12 })
-                    .add_location(ParseLocation::Index(12))
-                    .add_location(ParseLocation::Field("Abc::123")),
+                ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: Tag::primitive(12),
+                })
+                .add_location(ParseLocation::Index(12))
+                .add_location(ParseLocation::Field("Abc::123")),
                 "ASN.1 parsing error: unexpected tag (got 12)",
             ),
         ]
@@ -472,7 +479,7 @@ mod tests {
         assert_parses::<Tlv>(&[
             (
                 Ok(Tlv {
-                    tag: 0x4,
+                    tag: Tag::primitive(0x4),
                     data: b"abc",
                     full_data: b"\x04\x03abc",
                 }),
@@ -559,7 +566,7 @@ mod tests {
             ),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x3,
+                    actual: Tag::primitive(0x3),
                 })),
                 b"\x03\x00",
             ),
@@ -619,7 +626,7 @@ mod tests {
             (Ok(core::i32::MAX), b"\x02\x04\x7f\xff\xff\xff"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x3,
+                    actual: Tag::primitive(0x3),
                 })),
                 b"\x03\x00",
             ),
@@ -1271,10 +1278,10 @@ mod tests {
                     b"\x31\x01\x02",
                 ),
                 (
-                    Err(
-                        ParseError::new(ParseErrorKind::UnexpectedTag { actual: 0x1 })
-                            .add_location(ParseLocation::Index(0)),
-                    ),
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: Tag::primitive(0x1),
+                    })
+                    .add_location(ParseLocation::Index(0))),
                     b"\x31\x02\x01\x00",
                 ),
             ],
@@ -1305,7 +1312,7 @@ mod tests {
         assert_parses::<Option<Tlv>>(&[
             (
                 Ok(Some(Tlv {
-                    tag: 0x4,
+                    tag: Tag::primitive(0x4),
                     data: b"abc",
                     full_data: b"\x04\x03abc",
                 })),
@@ -1328,7 +1335,7 @@ mod tests {
             (Ok(Choice1::ChoiceA(true)), b"\x01\x01\xff"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x03,
+                    actual: Tag::primitive(0x03),
                 })),
                 b"\x03\x00",
             ),
@@ -1343,7 +1350,7 @@ mod tests {
             (Ok(Choice2::ChoiceB(18)), b"\x02\x01\x12"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x03,
+                    actual: Tag::primitive(0x03),
                 })),
                 b"\x03\x00",
             ),
@@ -1359,7 +1366,7 @@ mod tests {
             (Ok(Choice3::ChoiceC(())), b"\x05\x00"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x03,
+                    actual: Tag::primitive(0x03),
                 })),
                 b"\x03\x00",
             ),
@@ -1375,13 +1382,13 @@ mod tests {
             (Ok(Implicit::new(false)), b"\x82\x01\x00"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x01,
+                    actual: Tag::primitive(0x01),
                 })),
                 b"\x01\x01\xff",
             ),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x02,
+                    actual: Tag::primitive(0x02),
                 })),
                 b"\x02\x01\xff",
             ),
@@ -1392,13 +1399,13 @@ mod tests {
             (Ok(Implicit::new(Sequence::new(b""))), b"\xa2\x00"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x01,
+                    actual: Tag::primitive(0x01),
                 })),
                 b"\x01\x01\xff",
             ),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x02,
+                    actual: Tag::primitive(0x02),
                 })),
                 b"\x02\x01\xff",
             ),
@@ -1447,19 +1454,19 @@ mod tests {
             (Ok(Explicit::new(false)), b"\xa2\x03\x01\x01\x00"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x01,
+                    actual: Tag::primitive(0x01),
                 })),
                 b"\x01\x01\xff",
             ),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x02,
+                    actual: Tag::primitive(0x02),
                 })),
                 b"\x02\x01\xff",
             ),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                    actual: 0x03,
+                    actual: Tag::primitive(0x03),
                 })),
                 b"\xa2\x03\x03\x01\xff",
             ),
@@ -1476,7 +1483,7 @@ mod tests {
                 ),
                 (
                     Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: 0x03,
+                        actual: Tag::primitive(0x03),
                     })),
                     b"\xa2\x03\x03\x01\xff",
                 ),

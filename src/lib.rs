@@ -102,6 +102,7 @@ extern crate alloc;
 mod bit_string;
 mod object_identifier;
 mod parser;
+mod tag;
 mod types;
 mod writer;
 
@@ -110,6 +111,7 @@ pub use crate::object_identifier::ObjectIdentifier;
 pub use crate::parser::{
     parse, parse_single, ParseError, ParseErrorKind, ParseLocation, ParseResult, Parser,
 };
+pub use crate::tag::Tag;
 pub use crate::types::{
     Asn1Readable, Asn1Writable, BMPString, BigInt, BigUint, Choice1, Choice2, Choice3, Enumerated,
     GeneralizedTime, IA5String, Null, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
@@ -146,13 +148,17 @@ pub fn to_optional_default<'a, T: PartialEq>(v: &'a T, default: &'a T) -> Option
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
-pub const fn implicit_tag(tag: u8, inner_tag: u8) -> u8 {
-    types::CONTEXT_SPECIFIC | tag | (inner_tag & types::CONSTRUCTED)
+pub const fn implicit_tag(tag: u8, inner_tag: Tag) -> Tag {
+    Tag::new(
+        tag,
+        tag::TagClass::ContextSpecific,
+        inner_tag.is_constructed(),
+    )
 }
 
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
-pub const fn explicit_tag(tag: u8) -> u8 {
-    types::CONTEXT_SPECIFIC | types::CONSTRUCTED | tag
+pub const fn explicit_tag(tag: u8) -> Tag {
+    Tag::new(tag, tag::TagClass::ContextSpecific, true)
 }

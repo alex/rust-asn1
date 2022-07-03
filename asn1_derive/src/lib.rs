@@ -17,7 +17,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
             let read_block = generate_struct_read_block(&name, &data);
             quote::quote! {
                 impl<#impl_lifetimes> asn1::SimpleAsn1Readable<#lifetime_name> for #name<#ty_lifetimes> {
-                    const TAG: u8 = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
+                    const TAG: asn1::Tag = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
                     fn parse_data(data: &#lifetime_name [u8]) -> asn1::ParseResult<Self> {
                         asn1::parse(data, |p| #read_block)
                     }
@@ -34,7 +34,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                         Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag{actual: tlv.tag()}))
                     }
 
-                    fn can_parse(tag: u8) -> bool {
+                    fn can_parse(tag: asn1::Tag) -> bool {
                         #can_parse_block
                         false
                     }
@@ -59,7 +59,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
             let write_block = generate_struct_write_block(&data);
             quote::quote! {
                 impl<#impl_lifetimes> asn1::SimpleAsn1Writable<#lifetime_name> for #name<#ty_lifetimes> {
-                    const TAG: u8 = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
+                    const TAG: asn1::Tag = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
                     fn write_data(&self, dest: &mut Vec<u8>) {
                         #write_block
                     }

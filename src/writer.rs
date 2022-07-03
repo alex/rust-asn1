@@ -1,4 +1,5 @@
 use crate::types::{Asn1Writable, SimpleAsn1Writable};
+use crate::Tag;
 use alloc::vec;
 use alloc::vec::Vec;
 
@@ -83,8 +84,8 @@ impl Writer<'_> {
     /// written to the `Vec` in the callback. The length portion of the
     /// TLV is automatically computed.
     #[inline]
-    pub fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: u8, body: F) {
-        self.data.push(tag);
+    pub fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: Tag, body: F) {
+        self.data.push(tag.0);
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
         self.data.push(0);
