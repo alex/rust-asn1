@@ -17,20 +17,29 @@ pub(crate) fn read_base128_int(mut data: &[u8]) -> ParseResult<(u32, &[u8])> {
     Err(ParseError::new(ParseErrorKind::InvalidValue))
 }
 
-pub(crate) fn write_base128_int(mut data: &mut [u8], n: u32) -> Option<usize> {
+pub(crate) fn base128_length(mut n: u32) -> usize {
     if n == 0 {
-        if data.is_empty() {
-            return None;
-        }
-        data[0] = 0;
-        return Some(1);
+        return 1;
     }
 
     let mut length = 0;
-    let mut i = n;
-    while i > 0 {
+    while n > 0 {
         length += 1;
-        i >>= 7;
+        n >>= 7;
+    }
+    length
+}
+
+pub(crate) fn write_base128_int(mut data: &mut [u8], n: u32) -> Option<usize> {
+    let length = base128_length(n);
+
+    if data.len() < length {
+        return None;
+    }
+
+    if n == 0 {
+        data[0] = 0;
+        return Some(1);
     }
 
     for i in (0..length).rev() {
@@ -38,9 +47,6 @@ pub(crate) fn write_base128_int(mut data: &mut [u8], n: u32) -> Option<usize> {
         o &= 0x7f;
         if i != 0 {
             o |= 0x80;
-        }
-        if data.is_empty() {
-            return None;
         }
         data[0] = o;
         data = &mut data[1..];
