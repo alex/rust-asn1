@@ -175,11 +175,14 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn peek_tag(&mut self) -> Option<Tag> {
-        Tag::from_u8(*self.data.first()?)
+        let (tag, _) = Tag::from_bytes(self.data).ok()?;
+        Some(tag)
     }
 
     pub(crate) fn read_tag(&mut self) -> ParseResult<Tag> {
-        Tag::from_u8(self.read_u8()?).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidTag))
+        let (tag, data) = Tag::from_bytes(self.data)?;
+        self.data = data;
+        Ok(tag)
     }
 
     #[inline]
@@ -260,7 +263,7 @@ impl<'a> Parser<'a> {
 
     /// This is an alias for `read_element::<Explicit<T, tag>>` for use when
     /// MSRV is < 1.51.
-    pub fn read_explicit_element<T: Asn1Readable<'a>>(&mut self, tag: u8) -> ParseResult<T> {
+    pub fn read_explicit_element<T: Asn1Readable<'a>>(&mut self, tag: u32) -> ParseResult<T> {
         let expected_tag = crate::explicit_tag(tag);
         let tlv = self.read_tlv()?;
         if tlv.tag != expected_tag {
@@ -275,7 +278,7 @@ impl<'a> Parser<'a> {
     /// when MSRV is <1.51.
     pub fn read_optional_explicit_element<T: Asn1Readable<'a>>(
         &mut self,
-        tag: u8,
+        tag: u32,
     ) -> ParseResult<Option<T>> {
         let expected_tag = crate::explicit_tag(tag);
         if self.peek_tag() != Some(expected_tag) {
@@ -287,7 +290,7 @@ impl<'a> Parser<'a> {
 
     /// This is an alias for `read_element::<Implicit<T, tag>>` for use when
     /// MSRV is <1.51.
-    pub fn read_implicit_element<T: SimpleAsn1Readable<'a>>(&mut self, tag: u8) -> ParseResult<T> {
+    pub fn read_implicit_element<T: SimpleAsn1Readable<'a>>(&mut self, tag: u32) -> ParseResult<T> {
         let expected_tag = crate::implicit_tag(tag, T::TAG);
         let tlv = self.read_tlv()?;
         if tlv.tag != expected_tag {
@@ -302,7 +305,7 @@ impl<'a> Parser<'a> {
     /// when MSRV is <1.51.
     pub fn read_optional_implicit_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
-        tag: u8,
+        tag: u32,
     ) -> ParseResult<Option<T>> {
         let expected_tag = crate::implicit_tag(tag, T::TAG);
         if self.peek_tag() != Some(expected_tag) {
@@ -316,6 +319,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::Parser;
+    use crate::tag::TagClass;
     use crate::types::Asn1Readable;
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
@@ -495,8 +499,47 @@ mod tests {
             ),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04"),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
+            // Long form tags
+            (
+                Ok(Tlv {
+                    tag: Tag::new(31, TagClass::Universal, false),
+                    data: b"",
+                    full_data: b"\x1f\x1f\x00",
+                }),
+                b"\x1f\x1f\x00",
+            ),
+            (
+                Ok(Tlv {
+                    tag: Tag::new(128, TagClass::Universal, false),
+                    data: b"",
+                    full_data: b"\x1f\x81\x00\x00",
+                }),
+                b"\x1f\x81\x00\x00",
+            ),
+            (
+                Ok(Tlv {
+                    tag: Tag::new(0x4001, TagClass::Universal, false),
+                    data: b"",
+                    full_data: b"\x1f\x81\x80\x01\x00",
+                }),
+                b"\x1f\x81\x80\x01\x00",
+            ),
             (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\x1f"),
             (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\xff"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidTag)),
+                b"\x1f\x85",
+            ),
+            // Overflow u32 for the tag number.
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidTag)),
+                b"\x1f\x88\x80\x80\x80\x00\x00",
+            ),
+            // Long form tag for value that fits in a short form
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidTag)),
+                b"\x1f\x1e\x00",
+            ),
         ]);
     }
 
