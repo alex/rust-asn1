@@ -300,7 +300,7 @@ fn test_enum() {
         (Ok(BasicChoice::B(())), b"\x05\x00"),
         (
             Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
-                actual: 4,
+                actual: asn1::Tag::primitive(4),
             })),
             b"\x04\x00",
         ),
@@ -326,7 +326,7 @@ fn test_enum_lifetimes() {
         (Ok(LifetimesChoice::B(b"lol")), b"\x04\x03lol"),
         (
             Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
-                actual: 5,
+                actual: asn1::Tag::primitive(5),
             })),
             b"\x05\x00",
         ),
@@ -353,7 +353,7 @@ fn test_enum_explicit() {
         (Ok(ExplicitChoice::B(b"lol")), b"\x04\x03lol"),
         (
             Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
-                actual: 5,
+                actual: asn1::Tag::primitive(5),
             })),
             b"\x05\x00",
         ),
@@ -386,7 +386,7 @@ fn test_enum_implicit() {
         (Ok(ImplicitChoice::C(b"lol")), b"\x04\x03lol"),
         (
             Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
-                actual: 5,
+                actual: asn1::Tag::primitive(5),
             })),
             b"\x05\x00",
         ),
@@ -448,10 +448,10 @@ fn test_required_implicit() {
             b"\x30\x00",
         ),
         (
-            Err(
-                asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag { actual: 11 })
-                    .add_location(asn1::ParseLocation::Field("RequiredImplicit::value")),
-            ),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
+                actual: asn1::Tag::primitive(11),
+            })
+            .add_location(asn1::ParseLocation::Field("RequiredImplicit::value"))),
             b"\x30\x03\x0b\x01\x00",
         ),
     ]);
@@ -476,10 +476,10 @@ fn test_required_explicit() {
             b"\x30\x00",
         ),
         (
-            Err(
-                asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag { actual: 11 })
-                    .add_location(asn1::ParseLocation::Field("RequiredExplicit::value")),
-            ),
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
+                actual: asn1::Tag::primitive(11),
+            })
+            .add_location(asn1::ParseLocation::Field("RequiredExplicit::value"))),
             b"\x30\x03\x0b\x01\x00",
         ),
     ]);
