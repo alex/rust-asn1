@@ -85,7 +85,7 @@ impl Writer<'_> {
     /// TLV is automatically computed.
     #[inline]
     pub fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: Tag, body: F) {
-        self.data.push(tag.0);
+        self.data.push(tag.as_u8());
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
         self.data.push(0);
