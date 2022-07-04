@@ -128,7 +128,10 @@ mod tests {
 
     #[test]
     fn test_as_u8() {
-        for (t, expected) in &[(Tag::new(0x1f, TagClass::Universal, false), None)] {
+        for (t, expected) in &[
+            (Tag::new(5, TagClass::Application, true), Some(0x65)),
+            (Tag::new(0x1f, TagClass::Universal, false), None),
+        ] {
             assert_eq!(&t.as_u8(), expected);
         }
     }
