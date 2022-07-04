@@ -80,8 +80,9 @@ impl Tag {
         Tag::new(tag, TagClass::Universal, true)
     }
 
-    /// Returns the tag's value as a `u8` if the `value` component fits in a
-    /// short form (value < 31) or `None` if this is a long-form tag.
+    /// Returns the tag's representation (including tag class and constructed
+    /// bits) as a `u8` if the `value` component fits in a short form
+    /// (value < 31) or `None` if this is a long-form tag.
     pub fn as_u8(&self) -> Option<u8> {
         if self.value >= 0x1f {
             return None;
