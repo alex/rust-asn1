@@ -1,3 +1,4 @@
+use crate::base128;
 use crate::parser::{ParseError, ParseErrorKind, ParseResult};
 use alloc::fmt;
 
@@ -22,55 +23,6 @@ pub struct ObjectIdentifier {
     der_encoded_len: u8,
 }
 
-fn _read_base128_int(mut data: &[u8]) -> ParseResult<(u32, &[u8])> {
-    let mut ret = 0u32;
-    for _ in 0..4 {
-        let b = match data.first() {
-            Some(b) => b,
-            None => return Err(ParseError::new(ParseErrorKind::InvalidValue)),
-        };
-        data = &data[1..];
-        ret <<= 7;
-        ret |= u32::from(b & 0x7f);
-        if b & 0x80 == 0 {
-            return Ok((ret, data));
-        }
-    }
-    Err(ParseError::new(ParseErrorKind::InvalidValue))
-}
-
-fn _write_base128_int(mut data: &mut [u8], n: u32) -> Option<usize> {
-    if n == 0 {
-        if data.is_empty() {
-            return None;
-        }
-        data[0] = 0;
-        return Some(1);
-    }
-
-    let mut length = 0;
-    let mut i = n;
-    while i > 0 {
-        length += 1;
-        i >>= 7;
-    }
-
-    for i in (0..length).rev() {
-        let mut o = (n >> (i * 7)) as u8;
-        o &= 0x7f;
-        if i != 0 {
-            o |= 0x80;
-        }
-        if data.is_empty() {
-            return None;
-        }
-        data[0] = o;
-        data = &mut data[1..];
-    }
-
-    Some(length)
-}
-
 impl ObjectIdentifier {
     /// Parses an OID from a dotted string, e.g. `"1.2.840.113549"`.
     pub fn from_string(oid: &str) -> Option<ObjectIdentifier> {
@@ -84,10 +36,13 @@ impl ObjectIdentifier {
 
         let mut der_data = [0; MAX_OID_LENGTH];
         let mut der_data_len = 0;
-        der_data_len += _write_base128_int(&mut der_data[der_data_len..], 40 * first + second)?;
+        der_data_len +=
+            base128::write_base128_int(&mut der_data[der_data_len..], 40 * first + second)?;
         for part in parts {
-            der_data_len +=
-                _write_base128_int(&mut der_data[der_data_len..], part.parse::<u32>().ok()?)?;
+            der_data_len += base128::write_base128_int(
+                &mut der_data[der_data_len..],
+                part.parse::<u32>().ok()?,
+            )?;
         }
         Some(ObjectIdentifier {
             der_encoded: der_data,
@@ -106,7 +61,7 @@ impl ObjectIdentifier {
 
         let mut parsed = (0, data);
         while !parsed.1.is_empty() {
-            parsed = _read_base128_int(parsed.1)?;
+            parsed = base128::read_base128_int(parsed.1)?;
         }
 
         let mut storage = [0; MAX_OID_LENGTH];
@@ -140,7 +95,7 @@ impl fmt::Display for ObjectIdentifier {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut parsed = (0, self.as_der());
 
-        parsed = _read_base128_int(parsed.1).unwrap();
+        parsed = base128::read_base128_int(parsed.1).unwrap();
         if parsed.0 < 80 {
             write!(f, "{}.{}", parsed.0 / 40, parsed.0 % 40)?;
         } else {
@@ -148,7 +103,7 @@ impl fmt::Display for ObjectIdentifier {
         }
 
         while !parsed.1.is_empty() {
-            parsed = _read_base128_int(parsed.1).unwrap();
+            parsed = base128::read_base128_int(parsed.1).unwrap();
             write!(f, ".{}", parsed.0)?;
         }
 

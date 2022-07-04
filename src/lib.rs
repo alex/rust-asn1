@@ -99,6 +99,7 @@
 
 extern crate alloc;
 
+mod base128;
 mod bit_string;
 mod object_identifier;
 mod parser;
