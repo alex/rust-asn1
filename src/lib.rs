@@ -149,7 +149,7 @@ pub fn to_optional_default<'a, T: PartialEq>(v: &'a T, default: &'a T) -> Option
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
-pub const fn implicit_tag(tag: u8, inner_tag: Tag) -> Tag {
+pub const fn implicit_tag(tag: u32, inner_tag: Tag) -> Tag {
     Tag::new(
         tag,
         tag::TagClass::ContextSpecific,
@@ -160,6 +160,6 @@ pub const fn implicit_tag(tag: u8, inner_tag: Tag) -> Tag {
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
-pub const fn explicit_tag(tag: u8) -> Tag {
+pub const fn explicit_tag(tag: u32) -> Tag {
     Tag::new(tag, tag::TagClass::ContextSpecific, true)
 }

@@ -42,7 +42,7 @@ impl Writer<'_> {
 
     /// This is an alias for `write_element::<Explicit<T, tag>>` for use when
     /// MSRV is <1.51.
-    pub fn write_explicit_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T, tag: u8) {
+    pub fn write_explicit_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T, tag: u32) {
         let tag = crate::explicit_tag(tag);
         self.write_tlv(tag, |dest| Writer::new(dest).write_element(val));
     }
@@ -52,7 +52,7 @@ impl Writer<'_> {
     pub fn write_optional_explicit_element<'a, T: Asn1Writable<'a>>(
         &mut self,
         val: &Option<T>,
-        tag: u8,
+        tag: u32,
     ) {
         if let Some(v) = val {
             let tag = crate::explicit_tag(tag);
@@ -62,7 +62,7 @@ impl Writer<'_> {
 
     /// This is an alias for `write_element::<Implicit<T, tag>>` for use when
     /// MSRV is <1.51.
-    pub fn write_implicit_element<'a, T: SimpleAsn1Writable<'a>>(&mut self, val: &T, tag: u8) {
+    pub fn write_implicit_element<'a, T: SimpleAsn1Writable<'a>>(&mut self, val: &T, tag: u32) {
         let tag = crate::implicit_tag(tag, T::TAG);
         self.write_tlv(tag, |dest| val.write_data(dest));
     }
@@ -72,7 +72,7 @@ impl Writer<'_> {
     pub fn write_optional_implicit_element<'a, T: SimpleAsn1Writable<'a>>(
         &mut self,
         val: &Option<T>,
-        tag: u8,
+        tag: u32,
     ) {
         if let Some(v) = val {
             let tag = crate::implicit_tag(tag, T::TAG);
@@ -85,7 +85,7 @@ impl Writer<'_> {
     /// TLV is automatically computed.
     #[inline]
     pub fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: Tag, body: F) {
-        self.data.push(tag.as_u8());
+        tag.write_bytes(self.data);
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
         self.data.push(0);
@@ -580,9 +580,15 @@ mod tests {
 
     #[test]
     fn test_write_tlv() {
-        assert_writes(&[(
-            parse_single::<Tlv>(b"\x01\x01\x00").unwrap(),
-            b"\x01\x01\x00",
-        )]);
+        assert_writes(&[
+            (
+                parse_single::<Tlv>(b"\x01\x01\x00").unwrap(),
+                b"\x01\x01\x00",
+            ),
+            (
+                parse_single::<Tlv>(b"\x1f\x81\x80\x01\x00").unwrap(),
+                b"\x1f\x81\x80\x01\x00",
+            ),
+        ]);
     }
 }

@@ -1276,13 +1276,13 @@ impl<'a, T: Asn1Writable<'a>, V: Borrow<[T]>> SimpleAsn1Writable<'a> for SetOfWr
 /// used.
 #[cfg(feature = "const-generics")]
 #[derive(PartialEq, Eq, Debug)]
-pub struct Implicit<'a, T, const TAG: u8> {
+pub struct Implicit<'a, T, const TAG: u32> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T, const TAG: u8> Implicit<'a, T, { TAG }> {
+impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
     pub fn new(v: T) -> Self {
         Implicit {
             inner: v,
@@ -1296,14 +1296,14 @@ impl<'a, T, const TAG: u8> Implicit<'a, T, { TAG }> {
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T, const TAG: u8> From<T> for Implicit<'a, T, { TAG }> {
+impl<'a, T, const TAG: u32> From<T> for Implicit<'a, T, { TAG }> {
     fn from(v: T) -> Self {
         Implicit::new(v)
     }
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a>
+impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
     for Implicit<'a, T, { TAG }>
 {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
@@ -1313,7 +1313,7 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a>
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T: SimpleAsn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a>
+impl<'a, T: SimpleAsn1Writable<'a>, const TAG: u32> SimpleAsn1Writable<'a>
     for Implicit<'a, T, { TAG }>
 {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
@@ -1331,13 +1331,13 @@ impl<'a, T: SimpleAsn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a>
 /// used.
 #[cfg(feature = "const-generics")]
 #[derive(PartialEq, Eq, Debug)]
-pub struct Explicit<'a, T, const TAG: u8> {
+pub struct Explicit<'a, T, const TAG: u32> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T, const TAG: u8> Explicit<'a, T, { TAG }> {
+impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
     pub fn new(v: T) -> Self {
         Explicit {
             inner: v,
@@ -1351,14 +1351,14 @@ impl<'a, T, const TAG: u8> Explicit<'a, T, { TAG }> {
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T, const TAG: u8> From<T> for Explicit<'a, T, { TAG }> {
+impl<'a, T, const TAG: u32> From<T> for Explicit<'a, T, { TAG }> {
     fn from(v: T) -> Self {
         Explicit::new(v)
     }
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T: Asn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
+impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Explicit::new(parse(data, |p| p.read_element::<T>())?))
@@ -1366,7 +1366,7 @@ impl<'a, T: Asn1Readable<'a>, const TAG: u8> SimpleAsn1Readable<'a> for Explicit
 }
 
 #[cfg(feature = "const-generics")]
-impl<'a, T: Asn1Writable<'a>, const TAG: u8> SimpleAsn1Writable<'a> for Explicit<'a, T, { TAG }> {
+impl<'a, T: Asn1Writable<'a>, const TAG: u32> SimpleAsn1Writable<'a> for Explicit<'a, T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn write_data(&self, dest: &mut Vec<u8>) {
         Writer::new(dest).write_element(&self.inner);
