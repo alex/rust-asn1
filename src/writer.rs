@@ -589,6 +589,10 @@ mod tests {
                 parse_single::<Tlv>(b"\x1f\x81\x80\x01\x00").unwrap(),
                 b"\x1f\x81\x80\x01\x00",
             ),
+            (
+                parse_single::<Tlv>(b"\x1f\x1f\x00").unwrap(),
+                b"\x1f\x1f\x00",
+            ),
         ]);
     }
 }

@@ -83,7 +83,7 @@ impl Tag {
     /// Returns the tag's value as a `u8` if the `value` component fits in a
     /// short form (value < 31) or `None` if this is a long-form tag.
     pub fn as_u8(&self) -> Option<u8> {
-        if self.value > 0x1f {
+        if self.value >= 0x1f {
             return None;
         }
         Some(
@@ -104,7 +104,7 @@ impl Tag {
             } else {
                 0
             };
-        if self.value > 0x1f {
+        if self.value >= 0x1f {
             b |= 0x1f;
             dest.push(b);
             let len = base128::base128_length(self.value);
@@ -119,5 +119,20 @@ impl Tag {
 
     pub(crate) const fn is_constructed(&self) -> bool {
         self.constructed
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Tag, TagClass};
+
+    #[test]
+    fn test_as_u8() {
+        for (t, expected) in &[
+            (Tag::new(5, TagClass::Application, true), Some(0x65)),
+            (Tag::new(0x1f, TagClass::Universal, false), None),
+        ] {
+            assert_eq!(&t.as_u8(), expected);
+        }
     }
 }
