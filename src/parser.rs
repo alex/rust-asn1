@@ -7,6 +7,9 @@ use core::fmt;
 pub enum ParseErrorKind {
     /// Something about the value was invalid.
     InvalidValue,
+    /// Something about the tag was invalid. This refers to a syntax error,
+    /// not a tag's value being unexpected.
+    InvalidTag,
     /// An unexpected tag was encountered.
     UnexpectedTag { actual: Tag },
     /// There was not enough data available to complete parsing.
@@ -108,8 +111,9 @@ impl fmt::Display for ParseError {
         write!(f, "ASN.1 parsing error: ")?;
         match self.kind {
             ParseErrorKind::InvalidValue => write!(f, "invalid value"),
+            ParseErrorKind::InvalidTag => write!(f, "invalid tag"),
             ParseErrorKind::UnexpectedTag { actual } => {
-                write!(f, "unexpected tag (got {})", actual.0)
+                write!(f, "unexpected tag (got {:?})", actual)
             }
             ParseErrorKind::ShortData => write!(f, "short data"),
             ParseErrorKind::IntegerOverflow => write!(f, "integer overflow"),
@@ -171,11 +175,11 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn peek_tag(&mut self) -> Option<Tag> {
-        Some(Tag(*self.data.first()?))
+        Tag::from_u8(*self.data.first()?)
     }
 
     pub(crate) fn read_tag(&mut self) -> ParseResult<Tag> {
-        Ok(Tag(self.read_u8()?))
+        Tag::from_u8(self.read_u8()?).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidTag))
     }
 
     #[inline]
@@ -403,7 +407,7 @@ mod tests {
                 })
                 .add_location(ParseLocation::Index(12))
                 .add_location(ParseLocation::Field("Abc::123")),
-                "ASN.1 parsing error: unexpected tag (got 12)",
+                "ASN.1 parsing error: unexpected tag (got Tag { value: 12, constructed: false, class: Universal })",
             ),
         ]
         .iter()
@@ -491,6 +495,8 @@ mod tests {
             ),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04"),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
+            (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\x1f"),
+            (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\xff"),
         ]);
     }
 
