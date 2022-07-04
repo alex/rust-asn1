@@ -495,6 +495,8 @@ mod tests {
             ),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04"),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
+            (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\x1f"),
+            (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\xff"),
         ]);
     }
 
