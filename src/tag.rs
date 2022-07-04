@@ -121,3 +121,15 @@ impl Tag {
         self.constructed
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Tag, TagClass};
+
+    #[test]
+    fn test_as_u8() {
+        for (t, expected) in [(Tag::new(0x1f, TagClass::Universal, false), None)] {
+            assert_eq!(t.as_u8(), expected);
+        }
+    }
+}
