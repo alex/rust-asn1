@@ -20,7 +20,7 @@ pub struct Tag {
 pub(crate) const CONSTRUCTED: u32 = 0x20;
 
 impl Tag {
-    /// Parses a `Tag` from bytes and returns either the `Tag and the
+    /// Parses a `Tag` from bytes and returns either the `Tag` and the
     /// remaining bytes from the input or an error.
     pub fn from_bytes(mut data: &[u8]) -> ParseResult<(Tag, &[u8])> {
         let tag = match data.first() {
