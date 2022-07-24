@@ -343,6 +343,10 @@ mod tests {
                 ObjectIdentifier::from_string("2.100.3").unwrap(),
                 b"\x06\x03\x81\x34\x03",
             ),
+            (
+                ObjectIdentifier::from_string("2.4.0").unwrap(),
+                b"\x06\x02\x54\x00",
+            ),
         ]);
     }
 
