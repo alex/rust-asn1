@@ -90,6 +90,55 @@ jobs:
 
       - run: cargo check ${{ matrix.RUST.FLAGS }}
 
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@1ce4a7352a1efe5dede2e52c75512b34256e4f44
+        with:
+          toolchain: nightly
+          components: llvm-tools-preview
+
+      - run: sudo apt-get install -y lcov
+
+      - uses: actions/cache@v3
+        id: cargo-cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-4-${{ hashFiles('**/Cargo.toml') }}
+
+      - run: cargo install cargo-binutils
+        if: steps.cargo-cache.outputs.cache-hit != 'true'
+
+      - run: cargo test
+        env:
+          RUSTFLAGS: "-Cinstrument-coverage"
+          LLVM_PROFILE_FILE: "rust-cov/cov-%m-%p.profraw"
+
+      - run: |
+          set -xe
+          cargo profdata -- merge -sparse rust-cov/*.profraw -o cargo-test-rust-cov.profdata
+          cargo cov -- export \
+            $(env RUSTFLAGS="-Cinstrument-coverage" cargo test --tests --no-run --message-format=json | jq -r "select(.profile.test == true) | .filenames[]") \
+            -instr-profile=cargo-test-rust-cov.profdata \
+            --ignore-filename-regex='/.cargo/registry' \
+            --ignore-filename-regex='/rustc/' \
+            --ignore-filename-regex='/.rustup/toolchains/' --format=lcov > cargo-test.lcov
+
+          genhtml cargo-test.lcov -o coverage-html
+      - uses: actions/upload-artifact@v3.1.0
+        with:
+          name: coverage-html
+          path: coverage-html
+
   fuzz:
     runs-on: ubuntu-latest
     strategy:
