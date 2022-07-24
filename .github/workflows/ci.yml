@@ -102,7 +102,7 @@ jobs:
           toolchain: nightly
           components: llvm-tools-preview
 
-      - run: sudo apt-get install -y lcov
+      - run: sudo apt update && sudo apt-get install -y lcov
 
       - uses: actions/cache@v3
         id: cargo-cache
