@@ -323,9 +323,9 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
-        GeneralizedTime, IA5String, ObjectIdentifier, ParseError, ParseErrorKind, ParseLocation,
-        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
-        UtcTime, Utf8String, VisibleString,
+        GeneralizedTime, IA5String, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
+        ParseLocation, ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv,
+        UniversalString, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -836,6 +836,41 @@ mod tests {
             (Ok(BitString::new(b"\x80", 7).unwrap()), b"\x03\x02\x07\x80"),
             (
                 Ok(BitString::new(b"\x81\xf0", 4).unwrap()),
+                b"\x03\x03\x04\x81\xf0",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x03\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x03\x02\x07\x01",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x03\x02\x07\x40",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x03\x02\x08\x00",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_parse_owned_bit_string() {
+        assert_parses::<OwnedBitString>(&[
+            (Ok(OwnedBitString::new(vec![], 0).unwrap()), b"\x03\x01\x00"),
+            (
+                Ok(OwnedBitString::new(vec![0x00], 7).unwrap()),
+                b"\x03\x02\x07\x00",
+            ),
+            (
+                Ok(OwnedBitString::new(vec![0x80], 7).unwrap()),
+                b"\x03\x02\x07\x80",
+            ),
+            (
+                Ok(OwnedBitString::new(vec![0x81, 0xf0], 4).unwrap()),
                 b"\x03\x03\x04\x81\xf0",
             ),
             (

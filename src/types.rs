@@ -662,6 +662,13 @@ impl<'a> SimpleAsn1Writable<'a> for BitString<'a> {
         dest.extend_from_slice(self.as_bytes());
     }
 }
+impl<'a> SimpleAsn1Readable<'a> for OwnedBitString {
+    const TAG: Tag = Tag::primitive(0x03);
+    fn parse_data(data: &'a [u8]) -> ParseResult<OwnedBitString> {
+        let bs = BitString::parse_data(data)?;
+        Ok(OwnedBitString::new(bs.as_bytes().to_vec(), bs.padding_bits()).unwrap())
+    }
+}
 impl<'a> SimpleAsn1Writable<'a> for OwnedBitString {
     const TAG: Tag = Tag::primitive(0x03);
     fn write_data(&self, dest: &mut Vec<u8>) {
