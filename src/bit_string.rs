@@ -43,7 +43,8 @@ impl<'a> BitString<'a> {
     }
 }
 
-/// Represents an ASN.1 `BIT STRING` whose contents owned.
+/// Represents an ASN.1 `BIT STRING` whose contents owned. When used to parse
+/// data this will allocate.
 #[derive(Debug, PartialEq, Clone, Hash, Eq)]
 pub struct OwnedBitString {
     data: Vec<u8>,
