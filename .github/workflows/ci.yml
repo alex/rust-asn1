@@ -125,7 +125,8 @@ jobs:
           RUSTFLAGS: "-Cinstrument-coverage"
           LLVM_PROFILE_FILE: "rust-cov/cov-%m-%p.profraw"
 
-      - run: |
+      - name: Compute coverage HTML
+        run: |
           set -xe
           cargo profdata -- merge -sparse rust-cov/*.profraw -o cargo-test-rust-cov.profdata
           cargo cov -- export \
@@ -135,11 +136,22 @@ jobs:
             --ignore-filename-regex='/rustc/' \
             --ignore-filename-regex='/.rustup/toolchains/' --format=lcov > cargo-test.lcov
 
-          genhtml cargo-test.lcov -o coverage-html
+          genhtml cargo-test.lcov -o coverage-html | tee output.log
+
       - uses: actions/upload-artifact@v3.1.0
         with:
           name: coverage-html
           path: coverage-html
+
+      - name: Check coverage
+        run: |
+          import re
+          with open("output.log") as f:
+              [line] = [l for l in f if l.startswith("  lines......:")]
+          coverage = float(re.search("([\d\.]+)%", line).group(1))
+          if coverage < 95.8:
+              raise ValueError(f"Coverage too low: {coverage}")
+        shell: python
 
   fuzz:
     runs-on: ubuntu-latest
