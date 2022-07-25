@@ -113,6 +113,7 @@ impl fmt::Display for ObjectIdentifier {
 
 #[cfg(test)]
 mod tests {
+    use super::MAX_OID_LENGTH;
     use crate::{ObjectIdentifier, ParseError, ParseErrorKind};
 
     #[test]
@@ -148,6 +149,18 @@ mod tests {
     #[test]
     fn test_from_der() {
         assert_eq!(ObjectIdentifier::from_der(b"\x06\x40\x2b\x06\x01\x04\x01\x89\x60\x01\x01\x02\x01\x03\x15\x45\x70\x73\x6f\x6e\x20\x53\x74\x79\x6c\x75\x73\x20\x50\x72\x6f\x20\x34\x39\x30\x30\x7b\x87\xcb\x7c\x1f\x8d\x82\x49\x7b\x2b\x06\x01\x04\x01\x89\x60\x01\x01\x02\x01\x03\x15\x45\x70\x73\x6f\x6e\x20"), Err(ParseError::new(ParseErrorKind::OidTooLong)));
+    }
+
+    #[test]
+    fn test_from_der_unchecked() {
+        for (dotted_string, der) in &[("2.5", b"\x55" as &[u8]), ("2.100.3", b"\x81\x34\x03")] {
+            let mut data = [0; MAX_OID_LENGTH];
+            data[..der.len()].copy_from_slice(der);
+            assert_eq!(
+                ObjectIdentifier::from_string(dotted_string).unwrap(),
+                ObjectIdentifier::from_der_unchecked(data, der.len() as u8)
+            );
+        }
     }
 
     #[test]
