@@ -180,6 +180,7 @@ mod tests {
             (b"", b"\x04\x00"),
             (b"\x01\x02\x03", b"\x04\x03\x01\x02\x03"),
             (b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", b"\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            (b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", b"\x04\x82\x01\x02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
         ])
     }
 
@@ -537,6 +538,16 @@ mod tests {
             write(|w| { w.write_optional_explicit_element::<SequenceWriter>(&None, 2) }),
             b""
         );
+
+        assert_eq!(
+            write(|w| { w.write_implicit_element(&true, 2) }),
+            b"\x82\x01\xff"
+        );
+
+        assert_eq!(
+            write(|w| { w.write_implicit_element(&SequenceWriter::new(&|_w| {}), 2) }),
+            b"\xa2\x00"
+        );
     }
 
     #[test]
@@ -554,6 +565,11 @@ mod tests {
         assert_eq!(
             write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }),
             b""
+        );
+
+        assert_eq!(
+            write(|w| { w.write_explicit_element(&true, 2) }),
+            b"\xa2\x03\x01\x01\xff"
         );
     }
 
