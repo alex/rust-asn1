@@ -401,6 +401,30 @@ mod tests {
                 "ASN.1 parsing error: invalid value",
             ),
             (
+                ParseError::new(ParseErrorKind::InvalidTag),
+                "ASN.1 parsing error: invalid tag"
+            ),
+            (
+                ParseError::new(ParseErrorKind::IntegerOverflow),
+                "ASN.1 parsing error: integer overflow"
+            ),
+            (
+                ParseError::new(ParseErrorKind::ExtraData),
+                "ASN.1 parsing error: extra data"
+            ),
+            (
+                ParseError::new(ParseErrorKind::InvalidSetOrdering),
+                "ASN.1 parsing error: SET value was ordered incorrectly"
+            ),
+            (
+                ParseError::new(ParseErrorKind::EncodedDefault),
+                "ASN.1 parsing error: DEFAULT value was explicitly encoded"
+            ),
+            (
+                ParseError::new(ParseErrorKind::OidTooLong),
+                "ASN.1 parsing error: OBJECT IDENTIFIER was too large to be stored in rust-asn1's buffer"
+            ),
+            (
                 ParseError::new(ParseErrorKind::ShortData)
                     .add_location(ParseLocation::Field("Abc::123")),
                 "ASN.1 parsing error: short data",
@@ -1528,6 +1552,47 @@ mod tests {
             ],
             |p| p.read_optional_implicit_element::<Sequence>(2),
         );
+
+        assert_parses_cb(
+            &[
+                (Ok(true), b"\x82\x01\xff"),
+                (Ok(false), b"\x82\x01\x00"),
+                (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: Tag::primitive(0x01),
+                    })),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: Tag::primitive(0x02),
+                    })),
+                    b"\x02\x01\xff",
+                ),
+            ],
+            |p| p.read_implicit_element::<bool>(2),
+        );
+        assert_parses_cb(
+            &[
+                (Ok(Sequence::new(b"abc")), b"\xa2\x03abc"),
+                (Ok(Sequence::new(b"")), b"\xa2\x00"),
+                (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: Tag::primitive(0x01),
+                    })),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: Tag::primitive(0x02),
+                    })),
+                    b"\x02\x01\xff",
+                ),
+            ],
+            |p| p.read_implicit_element::<Sequence>(2),
+        );
     }
 
     #[test]
@@ -1573,6 +1638,27 @@ mod tests {
                 ),
             ],
             |p| p.read_optional_explicit_element::<bool>(2),
+        );
+
+        assert_parses_cb(
+            &[
+                (Ok(true), b"\xa2\x03\x01\x01\xff"),
+                (Ok(false), b"\xa2\x03\x01\x01\x00"),
+                (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: Tag::primitive(0x01),
+                    })),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: Tag::primitive(0x03),
+                    })),
+                    b"\xa2\x03\x03\x01\xff",
+                ),
+            ],
+            |p| p.read_explicit_element::<bool>(2),
         );
     }
 }
