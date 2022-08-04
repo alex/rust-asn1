@@ -149,7 +149,7 @@ jobs:
           with open("output.log") as f:
               [line] = [l for l in f if l.startswith("  lines......:")]
           coverage = float(re.search("([\d\.]+)%", line).group(1))
-          if coverage < 97.5:
+          if coverage < 97.6:
               raise ValueError(f"Coverage too low: {coverage}")
         shell: python
 

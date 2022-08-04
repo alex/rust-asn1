@@ -548,6 +548,14 @@ mod tests {
                 }),
                 b"\x1f\x81\x80\x01\x00",
             ),
+            (
+                Ok(Tlv {
+                    tag: Tag::new(0x01, TagClass::Application, false),
+                    data: b"",
+                    full_data: b"\x41\x00",
+                }),
+                b"\x41\x00",
+            ),
             (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\x1f"),
             (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\xff"),
             (
