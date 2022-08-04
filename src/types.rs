@@ -1383,10 +1383,11 @@ impl<'a, T: Asn1Writable<'a>, const TAG: u32> SimpleAsn1Writable<'a> for Explici
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, IA5String, ParseError, ParseErrorKind, PrintableString, SequenceOf, SetOf,
-        Tag, Tlv, UtcTime,
+        parse_single, BigInt, BigUint, Enumerated, GeneralizedTime, IA5String, ParseError,
+        ParseErrorKind, PrintableString, SequenceOf, SetOf, Tag, Tlv, UtcTime, Utf8String,
+        VisibleString,
     };
-    use chrono::TimeZone;
+    use chrono::{TimeZone, Utc};
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
@@ -1400,12 +1401,45 @@ mod tests {
     }
 
     #[test]
+    fn test_printable_string_as_str() {
+        assert_eq!(PrintableString::new("abc").unwrap().as_str(), "abc");
+    }
+
+    #[test]
     fn test_ia5string_new() {
         assert!(IA5String::new("abc").is_some());
         assert!(IA5String::new("").is_some());
         assert!(IA5String::new(" ").is_some());
         assert!(IA5String::new("%").is_some());
         assert!(IA5String::new("😄").is_none());
+    }
+
+    #[test]
+    fn test_ia5string_as_str() {
+        assert_eq!(IA5String::new("abc").unwrap().as_str(), "abc");
+    }
+
+    #[test]
+    fn test_utf8string_as_str() {
+        assert_eq!(Utf8String::new("abc").as_str(), "abc");
+    }
+
+    #[test]
+    fn test_visiblestring_new() {
+        assert!(VisibleString::new("").is_some());
+        assert!(VisibleString::new("abc").is_some());
+        assert!(VisibleString::new("\n").is_none());
+    }
+
+    #[test]
+    fn test_visiblestring_as_str() {
+        assert_eq!(VisibleString::new("abc").unwrap().as_str(), "abc");
+    }
+
+    #[test]
+    fn test_tlv_full_data() {
+        let tlv = parse_single::<Tlv<'_>>(b"\x01\x03abc").unwrap();
+        assert_eq!(tlv.full_data(), b"\x01\x03abc");
     }
 
     #[test]
@@ -1422,6 +1456,16 @@ mod tests {
                 actual: Tag::primitive(0x2)
             }))
         );
+    }
+
+    #[test]
+    fn test_biguint_as_bytes() {
+        assert_eq!(BigUint::new(b"\x01").unwrap().as_bytes(), b"\x01");
+    }
+
+    #[test]
+    fn test_bigint_as_bytes() {
+        assert_eq!(BigInt::new(b"\x01").unwrap().as_bytes(), b"\x01");
     }
 
     #[test]
@@ -1492,5 +1536,22 @@ mod tests {
     fn test_utctime_new() {
         assert!(UtcTime::new(chrono::Utc.ymd(1950, 1, 1).and_hms(12, 0, 0)).is_some());
         assert!(UtcTime::new(chrono::Utc.ymd(2050, 1, 1).and_hms(12, 0, 0)).is_none());
+    }
+
+    #[test]
+    fn test_utctime_as_chrono() {
+        let t = Utc.ymd(1951, 5, 6).and_hms(23, 45, 0);
+        assert_eq!(UtcTime::new(t).unwrap().as_chrono(), &t);
+    }
+
+    #[test]
+    fn test_generalized_time_as_chrono() {
+        let t = Utc.ymd(1951, 5, 6).and_hms(23, 45, 0);
+        assert_eq!(GeneralizedTime::new(t).as_chrono(), &t);
+    }
+
+    #[test]
+    fn test_enumerated_value() {
+        assert_eq!(Enumerated::new(4).value(), 4);
     }
 }
