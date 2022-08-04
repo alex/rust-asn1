@@ -125,12 +125,22 @@ impl Tag {
 
 #[cfg(test)]
 mod tests {
-    use super::{Tag, TagClass};
+    use super::{Tag, TagClass, CONSTRUCTED};
+
+    #[test]
+    fn test_constructed() {
+        for i in 0..31 {
+            let tag = Tag::constructed(i);
+            assert_eq!(tag.as_u8(), Some((CONSTRUCTED | i) as u8));
+            assert!(tag.is_constructed());
+        }
+    }
 
     #[test]
     fn test_as_u8() {
         for (t, expected) in &[
             (Tag::new(5, TagClass::Application, true), Some(0x65)),
+            (Tag::new(5, TagClass::Universal, false), Some(0x05)),
             (Tag::new(0x1f, TagClass::Universal, false), None),
         ] {
             assert_eq!(&t.as_u8(), expected);
