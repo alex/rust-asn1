@@ -30,12 +30,17 @@ impl Tag {
         data = &data[1..];
         let mut value = tag & 0x1f;
         let constructed = tag & CONSTRUCTED == CONSTRUCTED;
-        let class = match tag >> 6 {
-            0b00 => TagClass::Universal,
-            0b01 => TagClass::Application,
-            0b10 => TagClass::ContextSpecific,
-            0b11 => TagClass::Private,
-            _ => unreachable!(),
+
+        let tag_class_bits = tag >> 6;
+        let class = if tag_class_bits == TagClass::Universal as u32 {
+            TagClass::Universal
+        } else if tag_class_bits == TagClass::Application as u32 {
+            TagClass::Application
+        } else if tag_class_bits == TagClass::ContextSpecific as u32 {
+            TagClass::ContextSpecific
+        } else {
+            assert!(tag_class_bits == TagClass::Private as u32);
+            TagClass::Private
         };
 
         // Long form tag
