@@ -745,10 +745,9 @@ impl SimpleAsn1Writable<'_> for UtcTime {
     fn write_data(&self, dest: &mut Vec<u8>) {
         let year = if 1950 <= self.0.year() && self.0.year() < 2000 {
             self.0.year() - 1900
-        } else if 2000 <= self.0.year() && self.0.year() < 2050 {
-            self.0.year() - 2000
         } else {
-            unreachable!()
+            assert!(2000 <= self.0.year() && self.0.year() < 2050);
+            self.0.year() - 2000
         };
         push_two_digits(dest, year.try_into().unwrap());
         push_two_digits(dest, self.0.month().try_into().unwrap());
@@ -844,7 +843,7 @@ impl<'a> SimpleAsn1Writable<'a> for Enumerated {
 impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for Option<T> {
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
         match parser.peek_tag() {
-            Some(tag) if T::can_parse(tag) => Ok(Some(parser.read_element::<T>()?)),
+            Some(tag) if Self::can_parse(tag) => Ok(Some(parser.read_element::<T>()?)),
             Some(_) | None => Ok(None),
         }
     }
@@ -1390,6 +1389,8 @@ mod tests {
         ParseErrorKind, PrintableString, SequenceOf, SetOf, Tag, Tlv, UtcTime, Utf8String,
         VisibleString,
     };
+    #[cfg(feature = "const-generics")]
+    use crate::{Explicit, Implicit};
     use chrono::{TimeZone, Utc};
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
@@ -1514,12 +1515,18 @@ mod tests {
         let s1 = SetOf::<bool>::new(b"");
         let s2 = SetOf::<bool>::new(b"");
         let s3 = SetOf::<bool>::new(b"\x01\x01\x00");
+        let s4 = SetOf::<bool>::new(b"\x01\x01\xff");
 
         assert!(s1 == s2);
         assert_eq!(hash(&s1), hash(&s2));
 
         assert!(s2 != s3);
         assert_ne!(hash(&s2), hash(&s3));
+
+        assert!(s3 == s3);
+
+        assert!(s3 != s4);
+        assert_ne!(hash(&s3), hash(&s4));
     }
 
     #[test]
@@ -1527,12 +1534,18 @@ mod tests {
         let s1 = SequenceOf::<bool>::new(b"").unwrap();
         let s2 = SequenceOf::<bool>::new(b"").unwrap();
         let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00").unwrap();
+        let s4 = SequenceOf::<bool>::new(b"\x01\x01\xff").unwrap();
 
         assert!(s1 == s2);
         assert_eq!(hash(&s1), hash(&s2));
 
         assert!(s2 != s3);
         assert_ne!(hash(&s2), hash(&s3));
+
+        assert!(s3 == s3);
+
+        assert!(s3 != s4);
+        assert_ne!(hash(&s3), hash(&s4));
     }
 
     #[test]
@@ -1556,5 +1569,17 @@ mod tests {
     #[test]
     fn test_enumerated_value() {
         assert_eq!(Enumerated::new(4).value(), 4);
+    }
+
+    #[test]
+    #[cfg(feature = "const-generics")]
+    fn test_implicit_as_inner() {
+        assert_eq!(Implicit::<i32, 0>::new(12).as_inner(), &12);
+    }
+
+    #[test]
+    #[cfg(feature = "const-generics")]
+    fn test_explicit_as_inner() {
+        assert_eq!(Explicit::<i32, 0>::new(12).as_inner(), &12);
     }
 }

@@ -1448,6 +1448,7 @@ mod tests {
             (Ok(None), b""),
             (Ok(Some(Choice2::ChoiceA(17))), b"\x02\x01\x11"),
             (Ok(Some(Choice2::ChoiceB(true))), b"\x01\x01\xff"),
+            (Err(ParseError::new(ParseErrorKind::ExtraData)), b"\x03\x00"),
         ]);
     }
 
