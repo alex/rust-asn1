@@ -768,8 +768,11 @@ impl SimpleAsn1Writable<'_> for UtcTime {
 pub struct GeneralizedTime(chrono::DateTime<chrono::Utc>);
 
 impl GeneralizedTime {
-    pub fn new(v: chrono::DateTime<chrono::Utc>) -> GeneralizedTime {
-        GeneralizedTime(v)
+    pub fn new(v: chrono::DateTime<chrono::Utc>) -> ParseResult<GeneralizedTime> {
+        if v.year() < 0 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
+        }
+        Ok(GeneralizedTime(v))
     }
 
     pub fn as_chrono(&self) -> &chrono::DateTime<chrono::Utc> {
@@ -783,10 +786,10 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
         let data = core::str::from_utf8(data)
             .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
         if let Ok(v) = chrono::Utc.datetime_from_str(data, "%Y%m%d%H%M%SZ") {
-            return Ok(GeneralizedTime::new(v));
+            return GeneralizedTime::new(v);
         }
         if let Ok(v) = chrono::DateTime::parse_from_str(data, "%Y%m%d%H%M%S%z") {
-            return Ok(GeneralizedTime::new(v.into()));
+            return GeneralizedTime::new(v.into());
         }
 
         Err(ParseError::new(ParseErrorKind::InvalidValue))
@@ -1547,7 +1550,7 @@ mod tests {
     #[test]
     fn test_generalized_time_as_chrono() {
         let t = Utc.ymd(1951, 5, 6).and_hms(23, 45, 0);
-        assert_eq!(GeneralizedTime::new(t).as_chrono(), &t);
+        assert_eq!(GeneralizedTime::new(t).unwrap().as_chrono(), &t);
     }
 
     #[test]

@@ -1170,7 +1170,7 @@ mod tests {
     fn test_generalizedtime() {
         assert_parses::<GeneralizedTime>(&[
             (
-                Ok(GeneralizedTime::new(Utc.ymd(2010, 1, 2).and_hms(3, 4, 5))),
+                Ok(GeneralizedTime::new(Utc.ymd(2010, 1, 2).and_hms(3, 4, 5)).unwrap()),
                 b"\x18\x0f20100102030405Z",
             ),
             (
@@ -1179,7 +1179,8 @@ mod tests {
                         .ymd(2010, 1, 2)
                         .and_hms(3, 4, 5)
                         .into(),
-                )),
+                )
+                .unwrap()),
                 b"\x18\x1320100102030405+0607",
             ),
             (
@@ -1188,7 +1189,8 @@ mod tests {
                         .ymd(2010, 1, 2)
                         .and_hms(3, 4, 5)
                         .into(),
-                )),
+                )
+                .unwrap()),
                 b"\x18\x1320100102030405-0607",
             ),
             (
@@ -1275,6 +1277,10 @@ mod tests {
             (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x0f20100102030405.",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x11-1\n110723459+1002",
             ),
         ]);
     }
