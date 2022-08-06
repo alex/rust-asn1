@@ -162,39 +162,3 @@ jobs:
           if coverage < 99.9:
               raise ValueError(f"Coverage too low: {coverage}")
         shell: python
-
-  fuzz:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        RUST:
-          - nightly
-
-    steps:
-      - uses: actions/checkout@v3.0.2
-        with:
-          persist-credentials: false
-
-      - uses: dtolnay/rust-toolchain@1ce4a7352a1efe5dede2e52c75512b34256e4f44
-        with:
-          toolchain: ${{ matrix.RUST }}
-
-      - uses: actions/cache@v3.0.6
-        id: cargo-cache
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-3-${{ hashFiles('**/Cargo.toml') }}
-
-      - run: cargo install cargo-fuzz
-        if: steps.cargo-cache.outputs.cache-hit != 'true'
-
-      - run: cargo fuzz run --all-features fuzz_asn1_parse -- -max_total_time=30
-
-      # On main we fuzz for 30 minutes, but only 30 seconds on PRs.
-      - run: cargo fuzz run --all-features fuzz_asn1_parse -- -max_total_time=1800
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -1,0 +1,24 @@
+name: ClusterFuzzLite continuous builds
+on:
+  push:
+    branches:
+      - main
+
+permissions: read-all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer:
+          - address
+    steps:
+      - name: Build Fuzzers (${{ matrix.sanitizer }})
+        id: build
+        uses: google/clusterfuzzlite/actions/build_fuzzers@90ae9e93faff65e30464feb0f5c0ea48a66d4663
+        with:
+          language: rust
+          sanitizer: ${{ matrix.sanitizer }}
+          upload-build: true
