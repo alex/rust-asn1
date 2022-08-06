@@ -397,15 +397,15 @@ mod tests {
     fn test_write_generalizedtime() {
         assert_writes(&[
             (
-                GeneralizedTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)),
+                GeneralizedTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)).unwrap(),
                 b"\x18\x0f19910506234540Z",
             ),
             (
-                GeneralizedTime::new(Utc.timestamp(0, 0)),
+                GeneralizedTime::new(Utc.timestamp(0, 0)).unwrap(),
                 b"\x18\x0f19700101000000Z",
             ),
             (
-                GeneralizedTime::new(Utc.timestamp(1258325776, 0)),
+                GeneralizedTime::new(Utc.timestamp(1258325776, 0)).unwrap(),
                 b"\x18\x0f20091115225616Z",
             ),
         ]);
