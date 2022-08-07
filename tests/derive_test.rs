@@ -12,7 +12,7 @@ fn assert_roundtrips<
         let parsed = asn1::parse_single::<T>(der_bytes);
         assert_eq!(value, &parsed);
         if let Ok(v) = value {
-            let result = asn1::write_single(v);
+            let result = asn1::write_single(v).unwrap();
             assert_eq!(&result, der_bytes);
         }
     }

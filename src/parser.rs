@@ -2,7 +2,6 @@ use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
 use crate::Tag;
 use core::fmt;
 
-/// `ParseError` are returned when there is an error parsing the ASN.1 data.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ParseErrorKind {
     /// Something about the value was invalid.
@@ -34,6 +33,7 @@ pub enum ParseLocation {
     Index(usize),
 }
 
+/// `ParseError` are returned when there is an error parsing the ASN.1 data.
 #[derive(PartialEq, Eq)]
 pub struct ParseError {
     kind: ParseErrorKind,
