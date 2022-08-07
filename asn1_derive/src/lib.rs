@@ -423,13 +423,13 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
             OpType::Explicit(arg) => {
                 let tag = arg.value;
                 quote::quote! {
-                    #name::#ident(value) => w.write_optional_explicit_element(&Some(value), #tag),
+                    #name::#ident(value) => w.write_explicit_element(&value, #tag),
                 }
             }
             OpType::Implicit(arg) => {
                 let tag = arg.value;
                 quote::quote! {
-                    #name::#ident(value) => w.write_optional_implicit_element(&Some(value), #tag),
+                    #name::#ident(value) => w.write_implicit_element(&value, #tag),
                 }
             }
         }
