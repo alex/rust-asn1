@@ -1,11 +1,9 @@
 use alloc::vec;
 use core::borrow::Borrow;
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::mem;
-
-use chrono::{Datelike, TimeZone, Timelike};
 
 use crate::writer::Writer;
 use crate::{
@@ -694,19 +692,21 @@ impl SimpleAsn1Writable for OwnedBitString {
 }
 
 /// Used for parsing and writing ASN.1 `UTC TIME` values. Wraps a
-/// `chrono::DateTime<Utc>`.
+/// `time::OffsetDateTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct UtcTime(chrono::DateTime<chrono::Utc>);
+pub struct UtcTime(time::OffsetDateTime);
 
 impl UtcTime {
-    pub fn new(v: chrono::DateTime<chrono::Utc>) -> Option<UtcTime> {
+    pub fn new(v: time::OffsetDateTime) -> Option<UtcTime> {
         if v.year() >= 2050 || v.year() < 1950 {
             return None;
         }
-        Some(UtcTime(v))
+        Some(UtcTime(v.to_offset(time::UtcOffset::UTC)))
     }
 
-    pub fn as_chrono(&self) -> &chrono::DateTime<chrono::Utc> {
+    /// Returns the `time::OffsetDateTime` this value represents. The returned
+    /// value always has a UTC offset.
+    pub fn as_time(&self) -> &time::OffsetDateTime {
         &self.0
     }
 }
@@ -714,34 +714,33 @@ impl UtcTime {
 impl SimpleAsn1Readable<'_> for UtcTime {
     const TAG: Tag = Tag::primitive(0x17);
     fn parse_data(data: &[u8]) -> ParseResult<Self> {
-        let data = core::str::from_utf8(data)
-            .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
-
         // UTCTime comes in 4 different formats: with and without seconds, and
         // with a fixed offset or UTC. We choose which to parse as based on the
         // input length.
-        let mut dt = match data.len() {
-            17 => chrono::DateTime::parse_from_str(data, "%y%m%d%H%M%S%z").map(|dt| dt.into()),
-            15 => chrono::DateTime::parse_from_str(data, "%y%m%d%H%M%z").map(|dt| dt.into()),
-            13 => chrono::Utc.datetime_from_str(data, "%y%m%d%H%M%SZ"),
-            11 => chrono::Utc.datetime_from_str(data, "%y%m%d%H%MZ"),
+        let mut parsed = time::parsing::Parsed::new();
+        match data.len() {
+            17 => parsed.parse_items(data, time::macros::format_description!("[year repr:last_two][month][day][hour][minute][second][offset_hour sign:mandatory][offset_minute]")),
+            15 => parsed.parse_items(data, time::macros::format_description!("[year repr:last_two][month][day][hour][minute][offset_hour sign:mandatory][offset_minute]")),
+            13 => parsed.parse_items(data, time::macros::format_description!("[year repr:last_two][month][day][hour][minute][second]Z")),
+            11 => parsed.parse_items(data, time::macros::format_description!("[year repr:last_two][month][day][hour][minute]Z")),
             _ => return Err(ParseError::new(ParseErrorKind::InvalidValue)),
         }
         .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
-        // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes them as
-        // nanoseconds == 1000000.
-        if dt.nanosecond() >= 1_000_000 {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
         // UTCTime only encodes times prior to 2050. We use the X.509 mapping of two-digit
         // year ordinals to full year:
         // https://tools.ietf.org/html/rfc5280#section-4.1.2.5.1
-        if dt.year() >= 2050 {
-            dt = chrono::Utc
-                .ymd(dt.year() - 100, dt.month(), dt.day())
-                .and_hms(dt.hour(), dt.minute(), dt.second());
+        let yy = i32::from(parsed.year_last_two().unwrap());
+        let year = if yy >= 50 { 1900 + yy } else { 2000 + yy };
+        parsed.set_year(year);
+
+        if parsed.offset_hour().is_none() {
+            parsed.set_offset_hour(0);
         }
-        Ok(UtcTime(dt))
+
+        let dt = time::OffsetDateTime::try_from(parsed)
+            .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
+
+        Ok(UtcTime::new(dt).unwrap())
     }
 }
 
@@ -772,11 +771,11 @@ impl SimpleAsn1Writable for UtcTime {
         };
         push_two_digits(dest, year.try_into().unwrap())?;
         push_two_digits(dest, self.0.month().try_into().unwrap())?;
-        push_two_digits(dest, self.0.day().try_into().unwrap())?;
+        push_two_digits(dest, self.0.day())?;
 
-        push_two_digits(dest, self.0.hour().try_into().unwrap())?;
-        push_two_digits(dest, self.0.minute().try_into().unwrap())?;
-        push_two_digits(dest, self.0.second().try_into().unwrap())?;
+        push_two_digits(dest, self.0.hour())?;
+        push_two_digits(dest, self.0.minute())?;
+        push_two_digits(dest, self.0.second())?;
 
         dest.push_byte(b'Z')?;
 
@@ -785,19 +784,18 @@ impl SimpleAsn1Writable for UtcTime {
 }
 
 /// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
-/// `chrono::DateTime<Utc>`.
+/// `time::OffsetDateTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct GeneralizedTime(chrono::DateTime<chrono::Utc>);
+pub struct GeneralizedTime(time::OffsetDateTime);
 
 impl GeneralizedTime {
-    pub fn new(v: chrono::DateTime<chrono::Utc>) -> ParseResult<GeneralizedTime> {
-        if v.year() < 0 {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
-        Ok(GeneralizedTime(v))
+    pub fn new(v: time::OffsetDateTime) -> ParseResult<GeneralizedTime> {
+        Ok(GeneralizedTime(v.to_offset(time::UtcOffset::UTC)))
     }
 
-    pub fn as_chrono(&self) -> &chrono::DateTime<chrono::Utc> {
+    /// Returns the `time::OffsetDateTime` this value represents. The returned
+    /// value always has a UTC offset.
+    pub fn as_time(&self) -> &time::OffsetDateTime {
         &self.0
     }
 }
@@ -807,11 +805,19 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
     fn parse_data(data: &[u8]) -> ParseResult<GeneralizedTime> {
         let data = core::str::from_utf8(data)
             .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
-        if let Ok(v) = chrono::Utc.datetime_from_str(data, "%Y%m%d%H%M%SZ") {
-            return GeneralizedTime::new(v);
+        if let Ok(v) = time::PrimitiveDateTime::parse(
+            data,
+            time::macros::format_description!("[year][month][day][hour][minute][second]Z"),
+        ) {
+            return GeneralizedTime::new(v.assume_offset(time::UtcOffset::UTC));
         }
-        if let Ok(v) = chrono::DateTime::parse_from_str(data, "%Y%m%d%H%M%S%z") {
-            return GeneralizedTime::new(v.into());
+        if let Ok(v) = time::OffsetDateTime::parse(
+            data,
+            time::macros::format_description!(
+                "[year][month][day][hour][minute][second][offset_hour sign:mandatory][offset_minute]"
+            ),
+        ) {
+            return GeneralizedTime::new(v);
         }
 
         Err(ParseError::new(ParseErrorKind::InvalidValue))
@@ -823,11 +829,11 @@ impl SimpleAsn1Writable for GeneralizedTime {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         push_four_digits(dest, self.0.year().try_into().unwrap())?;
         push_two_digits(dest, self.0.month().try_into().unwrap())?;
-        push_two_digits(dest, self.0.day().try_into().unwrap())?;
+        push_two_digits(dest, self.0.day())?;
 
-        push_two_digits(dest, self.0.hour().try_into().unwrap())?;
-        push_two_digits(dest, self.0.minute().try_into().unwrap())?;
-        push_two_digits(dest, self.0.second().try_into().unwrap())?;
+        push_two_digits(dest, self.0.hour())?;
+        push_two_digits(dest, self.0.minute())?;
+        push_two_digits(dest, self.0.second())?;
 
         dest.push_byte(b'Z')?;
 
@@ -1313,18 +1319,12 @@ impl<'a, T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'a,
 
 /// `Implicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `IMPLICIT`. This will generally be used with `Option` or `Choice`.
-///
-/// Requires the `const-generics` feature and Rust 1.51 or greater. For users
-/// on older Rust versions, `Parser::read_optional_implicit_element` may be
-/// used.
-#[cfg(feature = "const-generics")]
 #[derive(PartialEq, Eq, Debug)]
 pub struct Implicit<'a, T, const TAG: u32> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
     pub fn new(v: T) -> Self {
         Implicit {
@@ -1338,14 +1338,12 @@ impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T, const TAG: u32> From<T> for Implicit<'a, T, { TAG }> {
     fn from(v: T) -> Self {
         Implicit::new(v)
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
     for Implicit<'a, T, { TAG }>
 {
@@ -1355,7 +1353,6 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<'a, T, { TAG }> {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
 
@@ -1366,18 +1363,12 @@ impl<'a, T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<
 
 /// `Explicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `EXPLICIT`. This will generally be used with `Option` or `Choice`.
-///
-/// Requires the `const-generics` feature and Rust 1.51 or greater. For users
-/// on older Rust versions, `Parser::read_optional_explicit_element` may be
-/// used.
-#[cfg(feature = "const-generics")]
 #[derive(PartialEq, Eq, Debug)]
 pub struct Explicit<'a, T, const TAG: u32> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
     pub fn new(v: T) -> Self {
         Explicit {
@@ -1391,14 +1382,12 @@ impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T, const TAG: u32> From<T> for Explicit<'a, T, { TAG }> {
     fn from(v: T) -> Self {
         Explicit::new(v)
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
@@ -1406,7 +1395,6 @@ impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explici
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
@@ -1417,13 +1405,10 @@ impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T,
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, Enumerated, GeneralizedTime, IA5String, ParseError,
-        ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
-        Tlv, UtcTime, Utf8String, VisibleString,
+        parse_single, BigInt, BigUint, Enumerated, Explicit, GeneralizedTime, IA5String, Implicit,
+        ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf,
+        SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
     };
-    #[cfg(feature = "const-generics")]
-    use crate::{Explicit, Implicit};
-    use chrono::{TimeZone, Utc};
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
@@ -1597,20 +1582,20 @@ mod tests {
     }
     #[test]
     fn test_utctime_new() {
-        assert!(UtcTime::new(chrono::Utc.ymd(1950, 1, 1).and_hms(12, 0, 0)).is_some());
-        assert!(UtcTime::new(chrono::Utc.ymd(2050, 1, 1).and_hms(12, 0, 0)).is_none());
+        assert!(UtcTime::new(time::macros::datetime!(1950-01-01 12:00:00 UTC)).is_some());
+        assert!(UtcTime::new(time::macros::datetime!(2050-01-01 12:00:00 UTC)).is_none());
     }
 
     #[test]
-    fn test_utctime_as_chrono() {
-        let t = Utc.ymd(1951, 5, 6).and_hms(23, 45, 0);
-        assert_eq!(UtcTime::new(t).unwrap().as_chrono(), &t);
+    fn test_utctime_as_time() {
+        let t = time::macros::datetime!(2010-01-02 03:04:05 UTC);
+        assert_eq!(UtcTime::new(t).unwrap().as_time(), &t);
     }
 
     #[test]
-    fn test_generalized_time_as_chrono() {
-        let t = Utc.ymd(1951, 5, 6).and_hms(23, 45, 0);
-        assert_eq!(GeneralizedTime::new(t).unwrap().as_chrono(), &t);
+    fn test_generalized_time_as_time() {
+        let t = time::macros::datetime!(2010-01-02 03:04:05 UTC);
+        assert_eq!(GeneralizedTime::new(t).unwrap().as_time(), &t);
     }
 
     #[test]
@@ -1619,13 +1604,11 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "const-generics")]
     fn test_implicit_as_inner() {
         assert_eq!(Implicit::<i32, 0>::new(12).as_inner(), &12);
     }
 
     #[test]
-    #[cfg(feature = "const-generics")]
     fn test_explicit_as_inner() {
         assert_eq!(Explicit::<i32, 0>::new(12).as_inner(), &12);
     }

@@ -9,14 +9,13 @@ description = "ASN.1 (DER) parser and writer for Rust."
 edition = "2018"
 
 [features]
-default = ["std", "derive", "const-generics"]
+default = ["std", "derive"]
 std = []
-const-generics = []
 derive = ["asn1_derive"]
 
 [dependencies]
-chrono = { version = "0.4.20", default-features = false, features = ["alloc"] }
 asn1_derive = { path = "asn1_derive/", version = "0.10.0", optional = true }
+time = { version = "0.3.4", default-features = false, features = ["parsing", "macros"] }
 
 [dev-dependencies]
 libc = "0.2.11"

@@ -191,18 +191,14 @@ pub fn write_single<T: Asn1Writable>(v: &T) -> WriteResult<Vec<u8>> {
 mod tests {
     use alloc::vec;
 
-    use chrono::{TimeZone, Utc};
-
     use super::{_insert_at_position, write, write_single, WriteBuf, Writer};
     use crate::types::Asn1Writable;
     use crate::{
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
-        GeneralizedTime, IA5String, ObjectIdentifier, OwnedBitString, PrintableString, Sequence,
-        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString,
-        UtcTime, Utf8String, VisibleString, WriteError,
+        Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OwnedBitString,
+        PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, SetOf,
+        SetOfWriter, Tlv, UniversalString, UtcTime, Utf8String, VisibleString, WriteError,
     };
-    #[cfg(feature = "const-generics")]
-    use crate::{Explicit, Implicit};
 
     fn assert_writes<T>(data: &[(T, &[u8])])
     where
@@ -449,15 +445,16 @@ mod tests {
     fn test_write_utctime() {
         assert_writes::<UtcTime>(&[
             (
-                UtcTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)).unwrap(),
+                UtcTime::new(time::macros::datetime!(1991-05-06 23:45:40 UTC)).unwrap(),
                 b"\x17\x0d910506234540Z",
             ),
             (
-                UtcTime::new(Utc.timestamp(0, 0)).unwrap(),
+                UtcTime::new(time::OffsetDateTime::from_unix_timestamp(0).unwrap()).unwrap(),
                 b"\x17\x0d700101000000Z",
             ),
             (
-                UtcTime::new(Utc.timestamp(1258325776, 0)).unwrap(),
+                UtcTime::new(time::OffsetDateTime::from_unix_timestamp(1258325776).unwrap())
+                    .unwrap(),
                 b"\x17\x0d091115225616Z",
             ),
         ]);
@@ -467,15 +464,19 @@ mod tests {
     fn test_write_generalizedtime() {
         assert_writes(&[
             (
-                GeneralizedTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)).unwrap(),
+                GeneralizedTime::new(time::macros::datetime!(1991-05-06 23:45:40 UTC)).unwrap(),
                 b"\x18\x0f19910506234540Z",
             ),
             (
-                GeneralizedTime::new(Utc.timestamp(0, 0)).unwrap(),
+                GeneralizedTime::new(time::OffsetDateTime::from_unix_timestamp(0).unwrap())
+                    .unwrap(),
                 b"\x18\x0f19700101000000Z",
             ),
             (
-                GeneralizedTime::new(Utc.timestamp(1258325776, 0)).unwrap(),
+                GeneralizedTime::new(
+                    time::OffsetDateTime::from_unix_timestamp(1258325776).unwrap(),
+                )
+                .unwrap(),
                 b"\x18\x0f20091115225616Z",
             ),
         ]);
@@ -585,7 +586,6 @@ mod tests {
 
     #[test]
     fn test_write_implicit() {
-        #[cfg(feature = "const-generics")]
         assert_writes::<Implicit<bool, 2>>(&[
             (Implicit::new(true), b"\x82\x01\xff"),
             (Implicit::new(false), b"\x82\x01\x00"),
@@ -626,7 +626,6 @@ mod tests {
 
     #[test]
     fn test_write_explicit() {
-        #[cfg(feature = "const-generics")]
         assert_writes::<Explicit<bool, 2>>(&[
             (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
             (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
