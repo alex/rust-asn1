@@ -1048,6 +1048,10 @@ mod tests {
                 b"\x17\x11910506164540+0730",
             ),
             (
+                Ok(UtcTime::new(Utc.ymd(1951, 5, 6).and_hms(23, 45, 0)).unwrap()),
+                b"\x17\x0f5105062345+0000",
+            ),
+            (
                 Ok(UtcTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)).unwrap()),
                 b"\x17\x0d910506234540Z",
             ),

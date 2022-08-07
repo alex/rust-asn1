@@ -1386,8 +1386,8 @@ impl<'a, T: Asn1Writable<'a>, const TAG: u32> SimpleAsn1Writable<'a> for Explici
 mod tests {
     use crate::{
         parse_single, BigInt, BigUint, Enumerated, GeneralizedTime, IA5String, ParseError,
-        ParseErrorKind, PrintableString, SequenceOf, SetOf, Tag, Tlv, UtcTime, Utf8String,
-        VisibleString,
+        ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
+        Tlv, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -1548,6 +1548,21 @@ mod tests {
         assert_ne!(hash(&s3), hash(&s4));
     }
 
+    #[test]
+    fn test_sequence_of_writer_clone() {
+        let s1 = SequenceOfWriter::new([1, 2, 3]);
+        let s2 = s1.clone();
+
+        assert!(s1 == s2);
+    }
+
+    #[test]
+    fn test_set_of_writer_clone() {
+        let s1 = SetOfWriter::new([1, 2, 3]);
+        let s2 = s1.clone();
+
+        assert!(s1 == s2);
+    }
     #[test]
     fn test_utctime_new() {
         assert!(UtcTime::new(chrono::Utc.ymd(1950, 1, 1).and_hms(12, 0, 0)).is_some());
