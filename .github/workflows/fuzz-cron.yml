@@ -1,6 +1,8 @@
 name: ClusterFuzzLite batch fuzzing
 on:
-  # We could also consider adding a cron to run regularly.
+  schedule:
+    # Run daily
+    - cron: "0 */24 * * *"
   push:
     branches:
       - main
