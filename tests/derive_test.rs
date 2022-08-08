@@ -4,7 +4,7 @@ use std::fmt;
 
 fn assert_roundtrips<
     'a,
-    T: asn1::Asn1Readable<'a> + asn1::Asn1Writable<'a> + PartialEq + fmt::Debug,
+    T: asn1::Asn1Readable<'a> + asn1::Asn1Writable + PartialEq + fmt::Debug,
 >(
     data: &[(asn1::ParseResult<T>, &'a [u8])],
 ) {

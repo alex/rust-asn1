@@ -36,24 +36,20 @@ impl Writer<'_> {
 
     /// Writes a single element to the output.
     #[inline]
-    pub fn write_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T) {
+    pub fn write_element<T: Asn1Writable>(&mut self, val: &T) {
         val.write(self);
     }
 
     /// This is an alias for `write_element::<Explicit<T, tag>>` for use when
     /// MSRV is <1.51.
-    pub fn write_explicit_element<'a, T: Asn1Writable<'a>>(&mut self, val: &T, tag: u32) {
+    pub fn write_explicit_element<T: Asn1Writable>(&mut self, val: &T, tag: u32) {
         let tag = crate::explicit_tag(tag);
         self.write_tlv(tag, |dest| Writer::new(dest).write_element(val));
     }
 
     /// This is an alias for `write_element::<Option<Explicit<T, tag>>>` for
     /// use when MSRV is <1.51.
-    pub fn write_optional_explicit_element<'a, T: Asn1Writable<'a>>(
-        &mut self,
-        val: &Option<T>,
-        tag: u32,
-    ) {
+    pub fn write_optional_explicit_element<T: Asn1Writable>(&mut self, val: &Option<T>, tag: u32) {
         if let Some(v) = val {
             let tag = crate::explicit_tag(tag);
             self.write_tlv(tag, |dest| Writer::new(dest).write_element(v));
@@ -62,14 +58,14 @@ impl Writer<'_> {
 
     /// This is an alias for `write_element::<Implicit<T, tag>>` for use when
     /// MSRV is <1.51.
-    pub fn write_implicit_element<'a, T: SimpleAsn1Writable<'a>>(&mut self, val: &T, tag: u32) {
+    pub fn write_implicit_element<T: SimpleAsn1Writable>(&mut self, val: &T, tag: u32) {
         let tag = crate::implicit_tag(tag, T::TAG);
         self.write_tlv(tag, |dest| val.write_data(dest));
     }
 
     /// This is an alias for `write_element::<Option<Implicit<T, tag>>>` for
     /// use when MSRV is <1.51.
-    pub fn write_optional_implicit_element<'a, T: SimpleAsn1Writable<'a>>(
+    pub fn write_optional_implicit_element<T: SimpleAsn1Writable>(
         &mut self,
         val: &Option<T>,
         tag: u32,
@@ -119,7 +115,7 @@ pub fn write<F: Fn(&mut Writer)>(f: F) -> Vec<u8> {
 /// Writes a single top-level ASN.1 element, returning the generated DER bytes.
 /// Most often this will be used where `T` is a type with
 /// `#[derive(asn1::Asn1Write)]`.
-pub fn write_single<'a, T: Asn1Writable<'a>>(v: &T) -> Vec<u8> {
+pub fn write_single<T: Asn1Writable>(v: &T) -> Vec<u8> {
     write(|w| {
         w.write_element(v);
     })
@@ -142,9 +138,9 @@ mod tests {
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
 
-    fn assert_writes<'a, T>(data: &[(T, &[u8])])
+    fn assert_writes<T>(data: &[(T, &[u8])])
     where
-        T: Asn1Writable<'a>,
+        T: Asn1Writable,
     {
         for (val, expected) in data {
             let result = write_single(val);
