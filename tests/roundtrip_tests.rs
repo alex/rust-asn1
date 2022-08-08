@@ -1,6 +1,6 @@
 fn assert_roundtrips<T>(i: T)
 where
-    for<'a> T: asn1::Asn1Writable<'a> + asn1::Asn1Readable<'a> + std::fmt::Debug + PartialEq,
+    for<'a> T: asn1::Asn1Writable + asn1::Asn1Readable<'a> + std::fmt::Debug + PartialEq,
 {
     let result = asn1::write_single::<T>(&i);
     let parsed = asn1::parse_single::<T>(&result).unwrap();

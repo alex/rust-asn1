@@ -52,13 +52,13 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    let (impl_lifetimes, ty_lifetimes, lifetime_name) = add_lifetime_if_none(input.generics);
+    let (impl_lifetimes, ty_lifetimes, _) = add_lifetime_if_none(input.generics);
 
     let expanded = match input.data {
         syn::Data::Struct(data) => {
             let write_block = generate_struct_write_block(&data);
             quote::quote! {
-                impl<#impl_lifetimes> asn1::SimpleAsn1Writable<#lifetime_name> for #name<#ty_lifetimes> {
+                impl<#impl_lifetimes> asn1::SimpleAsn1Writable for #name<#ty_lifetimes> {
                     const TAG: asn1::Tag = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
                     fn write_data(&self, dest: &mut Vec<u8>) {
                         #write_block
@@ -69,7 +69,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         syn::Data::Enum(data) => {
             let write_block = generate_enum_write_block(&name, &data);
             quote::quote! {
-                impl<#impl_lifetimes> asn1::Asn1Writable<#lifetime_name> for #name<#ty_lifetimes> {
+                impl<#impl_lifetimes> asn1::Asn1Writable for #name<#ty_lifetimes> {
                     fn write(&self, w: &mut asn1::Writer) {
                         #write_block
                     }
