@@ -33,14 +33,11 @@ struct Data<'a> {
 }
 
 fuzz_target!(|data: &[u8]| {
-    match asn1::parse_single::<Data>(data) {
-        Ok(parsed) => {
-            // I'd like to test that the result of `write_single` is the same
-            // as `data`, which should hold in general... but it doesn't hold
-            // for our UtcTime/GeneralizedTime types. Those types can parse
-            // several formats, but always serialize to the same one.
-            asn1::write_single(&parsed);
-        }
-        Err(_) => {}
-    };
+    if let Ok(parsed) = asn1::parse_single::<Data>(data) {
+        // I'd like to test that the result of `write_single` is the same
+        // as `data`, which should hold in general... but it doesn't hold
+        // for our UtcTime/GeneralizedTime types. Those types can parse
+        // several formats, but always serialize to the same one.
+        asn1::write_single(&parsed);
+    }
 });
