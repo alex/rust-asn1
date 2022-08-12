@@ -60,8 +60,10 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
             quote::quote! {
                 impl<#impl_lifetimes> asn1::SimpleAsn1Writable for #name<#ty_lifetimes> {
                     const TAG: asn1::Tag = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
-                    fn write_data(&self, dest: &mut Vec<u8>) {
+                    fn write_data(&self, dest: &mut Vec<u8>) -> asn1::WriteResult {
                         #write_block
+
+                        Ok(())
                     }
                 }
             }
@@ -70,7 +72,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
             let write_block = generate_enum_write_block(&name, &data);
             quote::quote! {
                 impl<#impl_lifetimes> asn1::Asn1Writable for #name<#ty_lifetimes> {
-                    fn write(&self, w: &mut asn1::Writer) {
+                    fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
                         #write_block
                     }
                 }
@@ -346,11 +348,11 @@ fn generate_write_element(
             let value = arg.value;
             if arg.required {
                 quote::quote_spanned! {f.span() =>
-                    w.write_explicit_element(#field_read, #value);
+                    w.write_explicit_element(#field_read, #value)?;
                 }
             } else {
                 quote::quote_spanned! {f.span() =>
-                    w.write_optional_explicit_element(#field_read, #value);
+                    w.write_optional_explicit_element(#field_read, #value)?;
                 }
             }
         }
@@ -358,16 +360,16 @@ fn generate_write_element(
             let value = arg.value;
             if arg.required {
                 quote::quote_spanned! {f.span() =>
-                    w.write_implicit_element(#field_read, #value);
+                    w.write_implicit_element(#field_read, #value)?;
                 }
             } else {
                 quote::quote_spanned! {f.span() =>
-                    w.write_optional_implicit_element(#field_read, #value);
+                    w.write_optional_implicit_element(#field_read, #value)?;
                 }
             }
         }
         OpType::Regular => quote::quote! {
-            w.write_element(#field_read);
+            w.write_element(#field_read)?;
         },
     }
 }

@@ -43,9 +43,10 @@
 //! # let s = 0u64;
 //! let result = asn1::write(|w| {
 //!     w.write_element(&asn1::SequenceWriter::new(&|w| {
-//!         w.write_element(&r);
-//!         w.write_element(&s);
-//!     }));
+//!         w.write_element(&r)?;
+//!         w.write_element(&s)?;
+//!         Ok(())
+//!     }))
 //! });
 //! ```
 //!
@@ -121,7 +122,7 @@ pub use crate::types::{
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};
-pub use crate::writer::{write, write_single, Writer};
+pub use crate::writer::{write, write_single, WriteError, WriteResult, Writer};
 
 #[cfg(feature = "derive")]
 pub use asn1_derive::{oid, Asn1Read, Asn1Write};

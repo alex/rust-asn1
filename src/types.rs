@@ -11,7 +11,7 @@ use chrono::{Datelike, TimeZone, Timelike};
 use crate::writer::Writer;
 use crate::{
     parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
-    ParseLocation, ParseResult, Parser, Tag,
+    ParseLocation, ParseResult, Parser, Tag, WriteResult,
 };
 
 /// Any type that can be parsed as DER ASN.1.
@@ -47,27 +47,27 @@ impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
 
 /// Any type that can be written as DER ASN.1.
 pub trait Asn1Writable: Sized {
-    fn write(&self, dest: &mut Writer);
+    fn write(&self, dest: &mut Writer) -> WriteResult;
 }
 
 // Types with a fixed-tag that can be written as DER ASN.1.
 pub trait SimpleAsn1Writable: Sized {
     const TAG: Tag;
 
-    fn write_data(&self, dest: &mut Vec<u8>);
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult;
 }
 
 impl<T: SimpleAsn1Writable> Asn1Writable for T {
     #[inline]
-    fn write(&self, w: &mut Writer) {
-        w.write_tlv(Self::TAG, move |dest| self.write_data(dest));
+    fn write(&self, w: &mut Writer) -> WriteResult {
+        w.write_tlv(Self::TAG, move |dest| self.write_data(dest))
     }
 }
 
 impl<T: SimpleAsn1Writable> SimpleAsn1Writable for &T {
     const TAG: Tag = T::TAG;
-    fn write_data(&self, dest: &mut Vec<u8>) {
-        T::write_data(self, dest);
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
+        T::write_data(self, dest)
     }
 }
 
@@ -115,8 +115,11 @@ impl<'a> Asn1Readable<'a> for Tlv<'a> {
 }
 impl<'a> Asn1Writable for Tlv<'a> {
     #[inline]
-    fn write(&self, w: &mut Writer) {
-        w.write_tlv(self.tag, move |dest| dest.extend_from_slice(self.data));
+    fn write(&self, w: &mut Writer) -> WriteResult {
+        w.write_tlv(self.tag, move |dest| {
+            dest.extend_from_slice(self.data);
+            Ok(())
+        })
     }
 }
 
@@ -139,7 +142,9 @@ impl SimpleAsn1Readable<'_> for Null {
 impl SimpleAsn1Writable for Null {
     const TAG: Tag = Tag::primitive(0x05);
     #[inline]
-    fn write_data(&self, _dest: &mut Vec<u8>) {}
+    fn write_data(&self, _dest: &mut Vec<u8>) -> WriteResult {
+        Ok(())
+    }
 }
 
 impl SimpleAsn1Readable<'_> for bool {
@@ -155,12 +160,13 @@ impl SimpleAsn1Readable<'_> for bool {
 
 impl SimpleAsn1Writable for bool {
     const TAG: Tag = Tag::primitive(0x1);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         if *self {
             dest.push(0xff);
         } else {
             dest.push(0x00);
         }
+        Ok(())
     }
 }
 
@@ -173,8 +179,9 @@ impl<'a> SimpleAsn1Readable<'a> for &'a [u8] {
 
 impl<'a> SimpleAsn1Writable for &'a [u8] {
     const TAG: Tag = Tag::primitive(0x04);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self);
+        Ok(())
     }
 }
 
@@ -244,8 +251,9 @@ impl<'a> SimpleAsn1Readable<'a> for PrintableString<'a> {
 
 impl<'a> SimpleAsn1Writable for PrintableString<'a> {
     const TAG: Tag = Tag::primitive(0x13);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.0.as_bytes());
+        Ok(())
     }
 }
 
@@ -293,8 +301,9 @@ impl<'a> SimpleAsn1Readable<'a> for IA5String<'a> {
 }
 impl<'a> SimpleAsn1Writable for IA5String<'a> {
     const TAG: Tag = Tag::primitive(0x16);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.0.as_bytes());
+        Ok(())
     }
 }
 
@@ -326,8 +335,9 @@ impl<'a> SimpleAsn1Readable<'a> for Utf8String<'a> {
 }
 impl<'a> SimpleAsn1Writable for Utf8String<'a> {
     const TAG: Tag = Tag::primitive(0x0c);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.0.as_bytes());
+        Ok(())
     }
 }
 
@@ -381,8 +391,9 @@ impl<'a> SimpleAsn1Readable<'a> for VisibleString<'a> {
 }
 impl<'a> SimpleAsn1Writable for VisibleString<'a> {
     const TAG: Tag = Tag::primitive(0x1a);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.0.as_bytes());
+        Ok(())
     }
 }
 
@@ -431,8 +442,9 @@ impl<'a> SimpleAsn1Readable<'a> for BMPString<'a> {
 }
 impl<'a> SimpleAsn1Writable for BMPString<'a> {
     const TAG: Tag = Tag::primitive(0x1e);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.as_utf16_be_bytes());
+        Ok(())
     }
 }
 
@@ -481,8 +493,9 @@ impl<'a> SimpleAsn1Readable<'a> for UniversalString<'a> {
 }
 impl<'a> SimpleAsn1Writable for UniversalString<'a> {
     const TAG: Tag = Tag::primitive(0x1c);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.as_utf32_be_bytes());
+        Ok(())
     }
 }
 
@@ -533,7 +546,7 @@ macro_rules! impl_asn1_element_for_int {
         }
         impl SimpleAsn1Writable for $t {
             const TAG: Tag = Tag::primitive(0x02);
-            fn write_data(&self, dest: &mut Vec<u8>) {
+            fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
                 let mut num_bytes = 1;
                 let mut v: $t = *self;
                 #[allow(unused_comparisons)]
@@ -546,6 +559,7 @@ macro_rules! impl_asn1_element_for_int {
                     let digit = self.checked_shr((i - 1) * 8).unwrap_or(0);
                     dest.push(digit as u8);
                 }
+                Ok(())
             }
         }
     };
@@ -590,8 +604,9 @@ impl<'a> SimpleAsn1Readable<'a> for BigUint<'a> {
 }
 impl<'a> SimpleAsn1Writable for BigUint<'a> {
     const TAG: Tag = Tag::primitive(0x02);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.data);
+        Ok(())
     }
 }
 
@@ -627,8 +642,9 @@ impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
 }
 impl<'a> SimpleAsn1Writable for BigInt<'a> {
     const TAG: Tag = Tag::primitive(0x02);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.data);
+        Ok(())
     }
 }
 
@@ -640,8 +656,9 @@ impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier {
 }
 impl SimpleAsn1Writable for ObjectIdentifier {
     const TAG: Tag = Tag::primitive(0x06);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.extend_from_slice(self.as_der());
+        Ok(())
     }
 }
 
@@ -657,9 +674,10 @@ impl<'a> SimpleAsn1Readable<'a> for BitString<'a> {
 }
 impl<'a> SimpleAsn1Writable for BitString<'a> {
     const TAG: Tag = Tag::primitive(0x03);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         dest.push(self.padding_bits());
         dest.extend_from_slice(self.as_bytes());
+        Ok(())
     }
 }
 impl<'a> SimpleAsn1Readable<'a> for OwnedBitString {
@@ -671,8 +689,8 @@ impl<'a> SimpleAsn1Readable<'a> for OwnedBitString {
 }
 impl SimpleAsn1Writable for OwnedBitString {
     const TAG: Tag = Tag::primitive(0x03);
-    fn write_data(&self, dest: &mut Vec<u8>) {
-        self.as_bitstring().write_data(dest);
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
+        self.as_bitstring().write_data(dest)
     }
 }
 
@@ -742,7 +760,7 @@ fn push_four_digits(dest: &mut Vec<u8>, val: u16) {
 
 impl SimpleAsn1Writable for UtcTime {
     const TAG: Tag = Tag::primitive(0x17);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         let year = if 1950 <= self.0.year() && self.0.year() < 2000 {
             self.0.year() - 1900
         } else {
@@ -758,6 +776,8 @@ impl SimpleAsn1Writable for UtcTime {
         push_two_digits(dest, self.0.second().try_into().unwrap());
 
         dest.push(b'Z');
+
+        Ok(())
     }
 }
 
@@ -797,7 +817,7 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
 
 impl SimpleAsn1Writable for GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         push_four_digits(dest, self.0.year().try_into().unwrap());
         push_two_digits(dest, self.0.month().try_into().unwrap());
         push_two_digits(dest, self.0.day().try_into().unwrap());
@@ -807,6 +827,8 @@ impl SimpleAsn1Writable for GeneralizedTime {
         push_two_digits(dest, self.0.second().try_into().unwrap());
 
         dest.push(b'Z');
+
+        Ok(())
     }
 }
 
@@ -835,8 +857,8 @@ impl<'a> SimpleAsn1Readable<'a> for Enumerated {
 impl SimpleAsn1Writable for Enumerated {
     const TAG: Tag = Tag::primitive(0xa);
 
-    fn write_data(&self, dest: &mut Vec<u8>) {
-        u32::write_data(&self.0, dest);
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
+        u32::write_data(&self.0, dest)
     }
 }
 
@@ -856,9 +878,11 @@ impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for Option<T> {
 
 impl<T: Asn1Writable> Asn1Writable for Option<T> {
     #[inline]
-    fn write(&self, w: &mut Writer) {
+    fn write(&self, w: &mut Writer) -> WriteResult {
         if let Some(v) = self {
-            w.write_element(v);
+            w.write_element(v)
+        } else {
+            Ok(())
         }
     }
 }
@@ -909,7 +933,7 @@ macro_rules! declare_choice {
                 $number: Asn1Writable,
             )*
         > Asn1Writable for $count<$($number,)*> {
-            fn write(&self, w: &mut Writer) {
+            fn write(&self, w: &mut Writer) -> WriteResult {
                 match self {
                     $(
                         $count::$name(v) => w.write_element(v),
@@ -958,20 +982,21 @@ impl<'a> SimpleAsn1Readable<'a> for Sequence<'a> {
 impl<'a> SimpleAsn1Writable for Sequence<'a> {
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
-    fn write_data(&self, data: &mut Vec<u8>) {
+    fn write_data(&self, data: &mut Vec<u8>) -> WriteResult {
         data.extend_from_slice(self.data);
+        Ok(())
     }
 }
 
 /// Writes an ASN.1 `SEQUENCE` using a callback that writes the inner
 /// elements.
 pub struct SequenceWriter<'a> {
-    f: &'a dyn Fn(&mut Writer),
+    f: &'a dyn Fn(&mut Writer) -> WriteResult,
 }
 
 impl<'a> SequenceWriter<'a> {
     #[inline]
-    pub fn new(f: &'a dyn Fn(&mut Writer)) -> Self {
+    pub fn new(f: &'a dyn Fn(&mut Writer) -> WriteResult) -> Self {
         SequenceWriter { f }
     }
 }
@@ -979,8 +1004,8 @@ impl<'a> SequenceWriter<'a> {
 impl<'a> SimpleAsn1Writable for SequenceWriter<'a> {
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
-    fn write_data(&self, dest: &mut Vec<u8>) {
-        (self.f)(&mut Writer::new(dest));
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
+        (self.f)(&mut Writer::new(dest))
     }
 }
 
@@ -1083,11 +1108,13 @@ impl<'a, T: Asn1Readable<'a>> Iterator for SequenceOf<'a, T> {
 
 impl<'a, T: Asn1Readable<'a> + Asn1Writable> SimpleAsn1Writable for SequenceOf<'a, T> {
     const TAG: Tag = Tag::constructed(0x10);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         let mut w = Writer::new(dest);
         for el in self.clone() {
-            w.write_element(&el);
+            w.write_element(&el)?;
         }
+
+        Ok(())
     }
 }
 
@@ -1109,11 +1136,13 @@ impl<'a, T: Asn1Writable, V: Borrow<[T]>> SequenceOfWriter<'a, T, V> {
 
 impl<'a, T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SequenceOfWriter<'a, T, V> {
     const TAG: Tag = Tag::constructed(0x10);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         let mut w = Writer::new(dest);
         for el in self.vals.borrow() {
-            w.write_element(el);
+            w.write_element(el)?;
         }
+
+        Ok(())
     }
 }
 
@@ -1215,13 +1244,15 @@ impl<'a, T: Asn1Readable<'a>> Iterator for SetOf<'a, T> {
 
 impl<'a, T: Asn1Readable<'a> + Asn1Writable> SimpleAsn1Writable for SetOf<'a, T> {
     const TAG: Tag = Tag::constructed(0x11);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         let mut w = Writer::new(dest);
         // We are known to be ordered correctly because that's an invariant for
         // `self`, so we don't need to sort here.
         for el in self.clone() {
-            w.write_element(&el);
+            w.write_element(&el)?;
         }
+
+        Ok(())
     }
 }
 
@@ -1244,14 +1275,14 @@ impl<'a, T: Asn1Writable, V: Borrow<[T]>> SetOfWriter<'a, T, V> {
 
 impl<'a, T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'a, T, V> {
     const TAG: Tag = Tag::constructed(0x11);
-    fn write_data(&self, dest: &mut Vec<u8>) {
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
         let vals = self.vals.borrow();
         if vals.is_empty() {
-            return;
+            return Ok(());
         } else if vals.len() == 1 {
             let mut w = Writer::new(dest);
-            w.write_element(&vals[0]);
-            return;
+            w.write_element(&vals[0])?;
+            return Ok(());
         }
 
         // Optimization: use the dest storage as scratch, then truncate.
@@ -1262,7 +1293,7 @@ impl<'a, T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'a,
 
         let mut pos = 0;
         for el in vals {
-            w.write_element(el);
+            w.write_element(el)?;
             let l = w.data.len();
             spans.push(pos..l);
             pos = l;
@@ -1271,6 +1302,8 @@ impl<'a, T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'a,
         for span in spans {
             dest.extend_from_slice(&data[span]);
         }
+
+        Ok(())
     }
 }
 
@@ -1322,8 +1355,8 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
 impl<'a, T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<'a, T, { TAG }> {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
 
-    fn write_data(&self, dest: &mut Vec<u8>) {
-        self.inner.write_data(dest);
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
+        self.inner.write_data(dest)
     }
 }
 
@@ -1372,8 +1405,8 @@ impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explici
 #[cfg(feature = "const-generics")]
 impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
-    fn write_data(&self, dest: &mut Vec<u8>) {
-        Writer::new(dest).write_element(&self.inner);
+    fn write_data(&self, dest: &mut Vec<u8>) -> WriteResult {
+        Writer::new(dest).write_element(&self.inner)
     }
 }
 

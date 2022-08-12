@@ -3,6 +3,18 @@ use crate::Tag;
 use alloc::vec;
 use alloc::vec::Vec;
 
+/// `WriteError` are returned when there is an error writing the ASN.1 data.
+///
+/// Note that `AllocationError` (and thus `WriteError` as a whole) is never
+/// produced, but its expected in the future that as Rust's support for
+/// fallible allocations improves that it will be.
+#[derive(PartialEq, Eq, Debug)]
+pub enum WriteError {
+    AllocationError,
+}
+
+pub type WriteResult<T = ()> = Result<T, WriteError>;
+
 fn _length_length(length: usize) -> u8 {
     let mut i = length;
     let mut num_bytes = 1;
@@ -36,31 +48,41 @@ impl Writer<'_> {
 
     /// Writes a single element to the output.
     #[inline]
-    pub fn write_element<T: Asn1Writable>(&mut self, val: &T) {
-        val.write(self);
+    pub fn write_element<T: Asn1Writable>(&mut self, val: &T) -> WriteResult {
+        val.write(self)
     }
 
     /// This is an alias for `write_element::<Explicit<T, tag>>` for use when
     /// MSRV is <1.51.
-    pub fn write_explicit_element<T: Asn1Writable>(&mut self, val: &T, tag: u32) {
+    pub fn write_explicit_element<T: Asn1Writable>(&mut self, val: &T, tag: u32) -> WriteResult {
         let tag = crate::explicit_tag(tag);
-        self.write_tlv(tag, |dest| Writer::new(dest).write_element(val));
+        self.write_tlv(tag, |dest| Writer::new(dest).write_element(val))
     }
 
     /// This is an alias for `write_element::<Option<Explicit<T, tag>>>` for
     /// use when MSRV is <1.51.
-    pub fn write_optional_explicit_element<T: Asn1Writable>(&mut self, val: &Option<T>, tag: u32) {
+    pub fn write_optional_explicit_element<T: Asn1Writable>(
+        &mut self,
+        val: &Option<T>,
+        tag: u32,
+    ) -> WriteResult {
         if let Some(v) = val {
             let tag = crate::explicit_tag(tag);
-            self.write_tlv(tag, |dest| Writer::new(dest).write_element(v));
+            self.write_tlv(tag, |dest| Writer::new(dest).write_element(v))
+        } else {
+            Ok(())
         }
     }
 
     /// This is an alias for `write_element::<Implicit<T, tag>>` for use when
     /// MSRV is <1.51.
-    pub fn write_implicit_element<T: SimpleAsn1Writable>(&mut self, val: &T, tag: u32) {
+    pub fn write_implicit_element<T: SimpleAsn1Writable>(
+        &mut self,
+        val: &T,
+        tag: u32,
+    ) -> WriteResult {
         let tag = crate::implicit_tag(tag, T::TAG);
-        self.write_tlv(tag, |dest| val.write_data(dest));
+        self.write_tlv(tag, |dest| val.write_data(dest))
     }
 
     /// This is an alias for `write_element::<Option<Implicit<T, tag>>>` for
@@ -69,10 +91,12 @@ impl Writer<'_> {
         &mut self,
         val: &Option<T>,
         tag: u32,
-    ) {
+    ) -> WriteResult {
         if let Some(v) = val {
             let tag = crate::implicit_tag(tag, T::TAG);
-            self.write_tlv(tag, |dest| v.write_data(dest));
+            self.write_tlv(tag, |dest| v.write_data(dest))
+        } else {
+            Ok(())
         }
     }
 
@@ -80,13 +104,17 @@ impl Writer<'_> {
     /// written to the `Vec` in the callback. The length portion of the
     /// TLV is automatically computed.
     #[inline]
-    pub fn write_tlv<F: FnOnce(&mut Vec<u8>)>(&mut self, tag: Tag, body: F) {
+    pub fn write_tlv<F: FnOnce(&mut Vec<u8>) -> WriteResult>(
+        &mut self,
+        tag: Tag,
+        body: F,
+    ) -> WriteResult {
         tag.write_bytes(self.data);
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
         self.data.push(0);
         let start_len = self.data.len();
-        body(self.data);
+        body(self.data)?;
         let added_len = self.data.len() - start_len;
         if added_len >= 128 {
             let n = _length_length(added_len);
@@ -99,26 +127,26 @@ impl Writer<'_> {
         } else {
             self.data[start_len - 1] = added_len as u8;
         }
+
+        Ok(())
     }
 }
 
 /// Constructs a writer and invokes a callback which writes ASN.1 elements into
 /// the writer, then returns the generated DER bytes.
 #[inline]
-pub fn write<F: Fn(&mut Writer)>(f: F) -> Vec<u8> {
+pub fn write<F: Fn(&mut Writer) -> WriteResult>(f: F) -> WriteResult<Vec<u8>> {
     let mut v = vec![];
     let mut w = Writer::new(&mut v);
-    f(&mut w);
-    v
+    f(&mut w)?;
+    Ok(v)
 }
 
 /// Writes a single top-level ASN.1 element, returning the generated DER bytes.
 /// Most often this will be used where `T` is a type with
 /// `#[derive(asn1::Asn1Write)]`.
-pub fn write_single<T: Asn1Writable>(v: &T) -> Vec<u8> {
-    write(|w| {
-        w.write_element(v);
-    })
+pub fn write_single<T: Asn1Writable>(v: &T) -> WriteResult<Vec<u8>> {
+    write(|w| w.write_element(v))
 }
 
 #[cfg(test)]
@@ -133,7 +161,7 @@ mod tests {
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
         GeneralizedTime, IA5String, ObjectIdentifier, OwnedBitString, PrintableString, Sequence,
         SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString,
-        UtcTime, Utf8String, VisibleString,
+        UtcTime, Utf8String, VisibleString, WriteError,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -143,7 +171,7 @@ mod tests {
         T: Asn1Writable,
     {
         for (val, expected) in data {
-            let result = write_single(val);
+            let result = write_single(val).unwrap();
             assert_eq!(&result, expected);
         }
     }
@@ -156,8 +184,16 @@ mod tests {
     }
 
     #[test]
+    fn test_write_error_eq() {
+        let e1 = WriteError::AllocationError;
+        let e2 = WriteError::AllocationError;
+
+        assert_eq!(e1, e2);
+    }
+
+    #[test]
     fn test_write_element() {
-        assert_eq!(write(|w| w.write_element(&())), b"\x05\x00");
+        assert_eq!(write(|w| w.write_element(&())).unwrap(), b"\x05\x00");
     }
 
     #[test]
@@ -420,7 +456,8 @@ mod tests {
         assert_eq!(
             write(|w| {
                 w.write_element(&SequenceWriter::new(&|w: &mut Writer| w.write_element(&())))
-            }),
+            })
+            .unwrap(),
             b"\x30\x02\x05\x00"
         );
         assert_eq!(
@@ -428,7 +465,8 @@ mod tests {
                 w.write_element(&SequenceWriter::new(&|w: &mut Writer| {
                     w.write_element(&true)
                 }))
-            }),
+            })
+            .unwrap(),
             b"\x30\x03\x01\x01\xff"
         );
 
@@ -457,7 +495,7 @@ mod tests {
         assert_writes::<SequenceOfWriter<SequenceWriter, &[SequenceWriter]>>(&[
             (SequenceOfWriter::new(&[]), b"\x30\x00"),
             (
-                SequenceOfWriter::new(&[SequenceWriter::new(&|_w| ())]),
+                SequenceOfWriter::new(&[SequenceWriter::new(&|_w| Ok(()))]),
                 b"\x30\x02\x30\x00",
             ),
             (
@@ -516,32 +554,34 @@ mod tests {
         ]);
 
         assert_eq!(
-            write(|w| { w.write_optional_implicit_element(&Some(true), 2) }),
+            write(|w| { w.write_optional_implicit_element(&Some(true), 2) }).unwrap(),
             b"\x82\x01\xff"
         );
         assert_eq!(
-            write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }),
+            write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }).unwrap(),
             b""
         );
 
         assert_eq!(
             write(|w| {
-                w.write_optional_implicit_element(&Some(SequenceWriter::new(&|_w| {})), 2)
-            }),
+                w.write_optional_implicit_element(&Some(SequenceWriter::new(&|_w| Ok(()))), 2)
+            })
+            .unwrap(),
             b"\xa2\x00"
         );
         assert_eq!(
-            write(|w| { w.write_optional_explicit_element::<SequenceWriter>(&None, 2) }),
+            write(|w| { w.write_optional_explicit_element::<SequenceWriter>(&None, 2) }).unwrap(),
             b""
         );
 
         assert_eq!(
-            write(|w| { w.write_implicit_element(&true, 2) }),
+            write(|w| { w.write_implicit_element(&true, 2) }).unwrap(),
             b"\x82\x01\xff"
         );
 
         assert_eq!(
-            write(|w| { w.write_implicit_element(&SequenceWriter::new(&|_w| {}), 2) }),
+            write(|w| { w.write_implicit_element(&SequenceWriter::new(&|_w| { Ok(()) }), 2) })
+                .unwrap(),
             b"\xa2\x00"
         );
     }
@@ -555,16 +595,16 @@ mod tests {
         ]);
 
         assert_eq!(
-            write(|w| { w.write_optional_explicit_element(&Some(true), 2) }),
+            write(|w| { w.write_optional_explicit_element(&Some(true), 2) }).unwrap(),
             b"\xa2\x03\x01\x01\xff"
         );
         assert_eq!(
-            write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }),
+            write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }).unwrap(),
             b""
         );
 
         assert_eq!(
-            write(|w| { w.write_explicit_element(&true, 2) }),
+            write(|w| { w.write_explicit_element(&true, 2) }).unwrap(),
             b"\xa2\x03\x01\x01\xff"
         );
     }

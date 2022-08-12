@@ -38,6 +38,6 @@ fuzz_target!(|data: &[u8]| {
         // as `data`, which should hold in general... but it doesn't hold
         // for our UtcTime/GeneralizedTime types. Those types can parse
         // several formats, but always serialize to the same one.
-        asn1::write_single(&parsed);
+        let _ = asn1::write_single(&parsed);
     }
 });
