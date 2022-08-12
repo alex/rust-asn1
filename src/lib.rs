@@ -122,7 +122,7 @@ pub use crate::types::{
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};
-pub use crate::writer::{write, write_single, WriteError, WriteResult, Writer};
+pub use crate::writer::{write, write_single, WriteBuf, WriteError, WriteResult, Writer};
 
 #[cfg(feature = "derive")]
 pub use asn1_derive::{oid, Asn1Read, Asn1Write};

@@ -1,6 +1,6 @@
 use crate::base128;
 use crate::parser::{ParseError, ParseErrorKind, ParseResult};
-use alloc::vec::Vec;
+use crate::writer::{WriteBuf, WriteResult};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum TagClass {
@@ -103,7 +103,7 @@ impl Tag {
         )
     }
 
-    pub(crate) fn write_bytes(&self, dest: &mut Vec<u8>) {
+    pub(crate) fn write_bytes(&self, dest: &mut WriteBuf) -> WriteResult {
         let mut b = ((self.class as u8) << 6)
             | if self.constructed {
                 CONSTRUCTED as u8
@@ -112,15 +112,19 @@ impl Tag {
             };
         if self.value >= 0x1f {
             b |= 0x1f;
-            dest.push(b);
+            dest.push_byte(b)?;
             let len = base128::base128_length(self.value);
             let orig_len = dest.len();
-            dest.resize(dest.len() + len, 0);
-            base128::write_base128_int(&mut dest[orig_len..], self.value);
+            for _ in 0..len {
+                dest.push_byte(0)?;
+            }
+            base128::write_base128_int(&mut dest.as_mut_slice()[orig_len..], self.value);
         } else {
             b |= self.value as u8;
-            dest.push(b);
+            dest.push_byte(b)?;
         }
+
+        Ok(())
     }
 
     pub(crate) const fn is_constructed(&self) -> bool {

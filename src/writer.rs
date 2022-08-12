@@ -15,6 +15,42 @@ pub enum WriteError {
 
 pub type WriteResult<T = ()> = Result<T, WriteError>;
 
+pub struct WriteBuf(Vec<u8>);
+
+impl WriteBuf {
+    #[inline]
+    pub(crate) fn new(data: Vec<u8>) -> WriteBuf {
+        WriteBuf(data)
+    }
+
+    #[inline]
+    pub(crate) fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    #[inline]
+    pub(crate) fn as_slice(&self) -> &[u8] {
+        self.0.as_slice()
+    }
+
+    #[inline]
+    pub(crate) fn as_mut_slice(&mut self) -> &mut [u8] {
+        self.0.as_mut_slice()
+    }
+
+    #[inline]
+    pub fn push_byte(&mut self, b: u8) -> WriteResult {
+        self.0.push(b);
+        Ok(())
+    }
+
+    #[inline]
+    pub fn push_slice(&mut self, data: &[u8]) -> WriteResult {
+        self.0.extend_from_slice(data);
+        Ok(())
+    }
+}
+
 fn _length_length(length: usize) -> u8 {
     let mut i = length;
     let mut num_bytes = 1;
@@ -24,26 +60,28 @@ fn _length_length(length: usize) -> u8 {
     }
     num_bytes
 }
-fn _insert_at_position(vec: &mut Vec<u8>, pos: usize, data: &[u8]) {
+fn _insert_at_position(buf: &mut WriteBuf, pos: usize, data: &[u8]) -> WriteResult {
     for _ in 0..data.len() {
-        vec.push(0);
+        buf.push_byte(0)?;
     }
-    let src_range = pos..vec.len() - data.len();
-    vec.copy_within(src_range, pos + data.len());
-    vec[pos..pos + data.len()].copy_from_slice(data);
+    let src_range = pos..buf.len() - data.len();
+    buf.as_mut_slice().copy_within(src_range, pos + data.len());
+    buf.as_mut_slice()[pos..pos + data.len()].copy_from_slice(data);
+
+    Ok(())
 }
 
 /// Encapsulates an ongoing write. For almost all use-cases the correct
 /// entrypoint is [`write()`] or [`write_single()`].
 pub struct Writer<'a> {
-    pub(crate) data: &'a mut Vec<u8>,
+    pub(crate) buf: &'a mut WriteBuf,
 }
 
 impl Writer<'_> {
     #[inline]
     #[doc(hidden)]
-    pub fn new(data: &mut Vec<u8>) -> Writer {
-        Writer { data }
+    pub fn new(buf: &mut WriteBuf) -> Writer {
+        Writer { buf }
     }
 
     /// Writes a single element to the output.
@@ -104,28 +142,28 @@ impl Writer<'_> {
     /// written to the `Vec` in the callback. The length portion of the
     /// TLV is automatically computed.
     #[inline]
-    pub fn write_tlv<F: FnOnce(&mut Vec<u8>) -> WriteResult>(
+    pub fn write_tlv<F: FnOnce(&mut WriteBuf) -> WriteResult>(
         &mut self,
         tag: Tag,
         body: F,
     ) -> WriteResult {
-        tag.write_bytes(self.data);
+        tag.write_bytes(self.buf)?;
         // Push a 0-byte placeholder for the length. Needing only a single byte
         // for the element is probably the most common case.
-        self.data.push(0);
-        let start_len = self.data.len();
-        body(self.data)?;
-        let added_len = self.data.len() - start_len;
+        self.buf.push_byte(0)?;
+        let start_len = self.buf.len();
+        body(self.buf)?;
+        let added_len = self.buf.len() - start_len;
         if added_len >= 128 {
             let n = _length_length(added_len);
-            self.data[start_len - 1] = 0x80 | n;
+            self.buf.as_mut_slice()[start_len - 1] = 0x80 | n;
             let mut length_buf = [0u8; 8];
             for (pos, i) in (1..=n).rev().enumerate() {
                 length_buf[pos] = (added_len >> ((i - 1) * 8)) as u8;
             }
-            _insert_at_position(self.data, start_len, &length_buf[..n as usize]);
+            _insert_at_position(self.buf, start_len, &length_buf[..n as usize])?;
         } else {
-            self.data[start_len - 1] = added_len as u8;
+            self.buf.as_mut_slice()[start_len - 1] = added_len as u8;
         }
 
         Ok(())
@@ -136,10 +174,10 @@ impl Writer<'_> {
 /// the writer, then returns the generated DER bytes.
 #[inline]
 pub fn write<F: Fn(&mut Writer) -> WriteResult>(f: F) -> WriteResult<Vec<u8>> {
-    let mut v = vec![];
+    let mut v = WriteBuf::new(vec![]);
     let mut w = Writer::new(&mut v);
     f(&mut w)?;
-    Ok(v)
+    Ok(v.0)
 }
 
 /// Writes a single top-level ASN.1 element, returning the generated DER bytes.
@@ -155,7 +193,7 @@ mod tests {
 
     use chrono::{TimeZone, Utc};
 
-    use super::{_insert_at_position, write, write_single, Writer};
+    use super::{_insert_at_position, write, write_single, WriteBuf, Writer};
     use crate::types::Asn1Writable;
     use crate::{
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
@@ -178,9 +216,9 @@ mod tests {
 
     #[test]
     fn test_insert_at_position() {
-        let mut v = vec![1, 2, 3, 4];
-        _insert_at_position(&mut v, 2, &[5, 6]);
-        assert_eq!(&v, &[1, 2, 5, 6, 3, 4]);
+        let mut v = WriteBuf::new(vec![1, 2, 3, 4]);
+        _insert_at_position(&mut v, 2, &[5, 6]).unwrap();
+        assert_eq!(v.as_slice(), &[1, 2, 5, 6, 3, 4]);
     }
 
     #[test]

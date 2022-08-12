@@ -60,7 +60,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
             quote::quote! {
                 impl<#impl_lifetimes> asn1::SimpleAsn1Writable for #name<#ty_lifetimes> {
                     const TAG: asn1::Tag = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
-                    fn write_data(&self, dest: &mut Vec<u8>) -> asn1::WriteResult {
+                    fn write_data(&self, dest: &mut asn1::WriteBuf) -> asn1::WriteResult {
                         #write_block
 
                         Ok(())
