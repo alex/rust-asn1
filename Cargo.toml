@@ -12,6 +12,7 @@ edition = "2018"
 default = ["std", "derive", "const-generics"]
 std = []
 const-generics = []
+fallible-allocations = []
 derive = ["asn1_derive"]
 
 [dependencies]

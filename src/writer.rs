@@ -5,9 +5,10 @@ use alloc::vec::Vec;
 
 /// `WriteError` are returned when there is an error writing the ASN.1 data.
 ///
-/// Note that `AllocationError` (and thus `WriteError` as a whole) is never
-/// produced, but its expected in the future that as Rust's support for
-/// fallible allocations improves that it will be.
+/// Note that `AllocationError` (and thus `WriteError` as a whole) is only
+/// produced when the `fallible-allocations` feature is used. It's expected
+/// that in the future that as this crate's MSRV increases and Rust's support
+/// for fallible allocations improves that this will be the default.
 #[derive(PartialEq, Eq, Debug)]
 pub enum WriteError {
     AllocationError,
@@ -40,12 +41,22 @@ impl WriteBuf {
 
     #[inline]
     pub fn push_byte(&mut self, b: u8) -> WriteResult {
+        #[cfg(feature = "fallible-allocattions")]
+        self.0
+            .try_reserve(1)
+            .map_err(|_| WriteError::AllocationError)?;
+
         self.0.push(b);
         Ok(())
     }
 
     #[inline]
     pub fn push_slice(&mut self, data: &[u8]) -> WriteResult {
+        #[cfg(feature = "fallible-allocattions")]
+        self.0
+            .try_reserve(data.len())
+            .map_err(|_| WriteError::AllocationError)?;
+
         self.0.extend_from_slice(data);
         Ok(())
     }
