@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 /// `WriteError` are returned when there is an error writing the ASN.1 data.
 ///
 /// Note that `AllocationError` (and thus `WriteError` as a whole) is only
-/// produced when the `fallible-allocations` feature is used. Its expected
+/// produced when the `fallible-allocations` feature is used. It's expected
 /// that in the future that as this crate's MSRV increases and Rust's support
 /// for fallible allocations improves that this will be the default.
 #[derive(PartialEq, Eq, Debug)]
