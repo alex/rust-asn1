@@ -1,5 +1,6 @@
 name: ClusterFuzzLite batch fuzzing
 on:
+  workflow_dispatch:
   schedule:
     # Run daily
     - cron: "0 */24 * * *"
