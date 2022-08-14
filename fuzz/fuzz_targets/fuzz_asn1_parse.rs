@@ -1,7 +1,7 @@
 #![no_main]
 use libfuzzer_sys::fuzz_target;
 
-#[derive(asn1::Asn1Read, asn1::Asn1Write)]
+#[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq)]
 struct Data<'a> {
     f1: (),
     f2: bool,
@@ -38,6 +38,8 @@ fuzz_target!(|data: &[u8]| {
         // as `data`, which should hold in general... but it doesn't hold
         // for our UtcTime/GeneralizedTime types. Those types can parse
         // several formats, but always serialize to the same one.
-        let _ = asn1::write_single(&parsed);
+        let written = asn1::write_single(&parsed).unwrap();
+        let reparsed = asn1::parse_single::<Data>(&written).unwrap();
+        assert!(parsed == reparsed);
     }
 });

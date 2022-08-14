@@ -1286,6 +1286,10 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x11-1\n110723459+1002",
             ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x0d0 1204000060Z",
+            ),
         ]);
     }
 

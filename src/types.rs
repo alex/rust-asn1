@@ -791,7 +791,9 @@ pub struct GeneralizedTime(chrono::DateTime<chrono::Utc>);
 
 impl GeneralizedTime {
     pub fn new(v: chrono::DateTime<chrono::Utc>) -> ParseResult<GeneralizedTime> {
-        if v.year() < 0 {
+        // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes
+        // them as nanoseconds == 1000000.
+        if v.year() < 0 || v.nanosecond() >= 1_000_000 {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
         Ok(GeneralizedTime(v))
