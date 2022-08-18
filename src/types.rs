@@ -693,6 +693,94 @@ impl SimpleAsn1Writable for OwnedBitString {
     }
 }
 
+fn read_digit(data: &mut &[u8]) -> ParseResult<u8> {
+    if data.is_empty() || !data[0].is_ascii_digit() {
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+    }
+    let result = Ok(data[0] - b'0');
+    *data = &data[1..];
+    result
+}
+
+fn read_2_digits(data: &mut &[u8]) -> ParseResult<u8> {
+    Ok(read_digit(data)? * 10 + read_digit(data)?)
+}
+
+fn read_4_digits(data: &mut &[u8]) -> ParseResult<u16> {
+    Ok(u16::from(read_digit(data)?) * 1000
+        + u16::from(read_digit(data)?) * 100
+        + u16::from(read_digit(data)?) * 10
+        + u16::from(read_digit(data)?))
+}
+
+fn validate_date(year: u16, month: u8, day: u8) -> ParseResult<()> {
+    if day < 1 {
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+    }
+    let days_in_month = match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 {
+                29
+            } else {
+                28
+            }
+        }
+        _ => return Err(ParseError::new(ParseErrorKind::InvalidValue)),
+    };
+    if day > days_in_month {
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+    }
+
+    Ok(())
+}
+
+fn read_tz_and_finish(data: &mut &[u8]) -> ParseResult<chrono::FixedOffset> {
+    if data.is_empty() {
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+    }
+    let tz = data[0];
+    *data = &data[1..];
+    let tz = if tz == b'Z' {
+        chrono::FixedOffset::east(0)
+    } else if tz == b'+' || tz == b'-' {
+        let offset_sign = if tz == b'+' { 1i32 } else { -1 };
+        let offset_hours = read_2_digits(data)?;
+        let offset_minutes = read_2_digits(data)?;
+        if offset_hours > 23 || offset_minutes > 59 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
+        }
+        chrono::FixedOffset::east(
+            offset_sign * (i32::from(offset_hours) * 3600 + i32::from(offset_minutes) * 60),
+        )
+    } else {
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+    };
+
+    if !data.is_empty() {
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+    }
+
+    Ok(tz)
+}
+
+fn push_two_digits(dest: &mut WriteBuf, val: u8) -> WriteResult {
+    dest.push_byte(b'0' + ((val / 10) % 10))?;
+    dest.push_byte(b'0' + (val % 10))?;
+
+    Ok(())
+}
+
+fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
+    dest.push_byte(b'0' + ((val / 1000) % 10) as u8)?;
+    dest.push_byte(b'0' + ((val / 100) % 10) as u8)?;
+    dest.push_byte(b'0' + ((val / 10) % 10) as u8)?;
+    dest.push_byte(b'0' + (val % 10) as u8)?;
+
+    Ok(())
+}
+
 /// Used for parsing and writing ASN.1 `UTC TIME` values. Wraps a
 /// `chrono::DateTime<Utc>`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
@@ -713,52 +801,38 @@ impl UtcTime {
 
 impl SimpleAsn1Readable<'_> for UtcTime {
     const TAG: Tag = Tag::primitive(0x17);
-    fn parse_data(data: &[u8]) -> ParseResult<Self> {
-        let data = core::str::from_utf8(data)
-            .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
-
+    fn parse_data(mut data: &[u8]) -> ParseResult<Self> {
         // UTCTime comes in 4 different formats: with and without seconds, and
-        // with a fixed offset or UTC. We choose which to parse as based on the
-        // input length.
-        let mut dt = match data.len() {
-            17 => chrono::DateTime::parse_from_str(data, "%y%m%d%H%M%S%z").map(|dt| dt.into()),
-            15 => chrono::DateTime::parse_from_str(data, "%y%m%d%H%M%z").map(|dt| dt.into()),
-            13 => chrono::Utc.datetime_from_str(data, "%y%m%d%H%M%SZ"),
-            11 => chrono::Utc.datetime_from_str(data, "%y%m%d%H%MZ"),
-            _ => return Err(ParseError::new(ParseErrorKind::InvalidValue)),
-        }
-        .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
-        // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes them as
-        // nanoseconds == 1000000.
-        if dt.nanosecond() >= 1_000_000 {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
+        // with a fixed offset or UTC.
+        let year = u16::from(read_2_digits(&mut data)?);
+        let month = read_2_digits(&mut data)?;
+        let day = read_2_digits(&mut data)?;
         // UTCTime only encodes times prior to 2050. We use the X.509 mapping of two-digit
         // year ordinals to full year:
         // https://tools.ietf.org/html/rfc5280#section-4.1.2.5.1
-        if dt.year() >= 2050 {
-            dt = chrono::Utc
-                .ymd(dt.year() - 100, dt.month(), dt.day())
-                .and_hms(dt.hour(), dt.minute(), dt.second());
+        let year = if year >= 50 { 1900 + year } else { 2000 + year };
+        validate_date(year, month, day)?;
+
+        let hour = read_2_digits(&mut data)?;
+        let minute = read_2_digits(&mut data)?;
+        let second = if !data.is_empty() && data[0].is_ascii_digit() {
+            read_2_digits(&mut data)?
+        } else {
+            0
+        };
+        if hour > 23 || minute > 59 || second > 59 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        Ok(UtcTime(dt))
+
+        let tz = read_tz_and_finish(&mut data)?;
+
+        UtcTime::new(
+            tz.ymd(year.into(), month.into(), day.into())
+                .and_hms(hour.into(), minute.into(), second.into())
+                .into(),
+        )
+        .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
-}
-
-fn push_two_digits(dest: &mut WriteBuf, val: u8) -> WriteResult {
-    dest.push_byte(b'0' + ((val / 10) % 10))?;
-    dest.push_byte(b'0' + (val % 10))?;
-
-    Ok(())
-}
-
-fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
-    dest.push_byte(b'0' + ((val / 1000) % 10) as u8)?;
-    dest.push_byte(b'0' + ((val / 100) % 10) as u8)?;
-    dest.push_byte(b'0' + ((val / 10) % 10) as u8)?;
-    dest.push_byte(b'0' + (val % 10) as u8)?;
-
-    Ok(())
 }
 
 impl SimpleAsn1Writable for UtcTime {
@@ -806,17 +880,27 @@ impl GeneralizedTime {
 
 impl SimpleAsn1Readable<'_> for GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
-    fn parse_data(data: &[u8]) -> ParseResult<GeneralizedTime> {
-        let data = core::str::from_utf8(data)
-            .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
-        if let Ok(v) = chrono::Utc.datetime_from_str(data, "%Y%m%d%H%M%SZ") {
-            return GeneralizedTime::new(v);
-        }
-        if let Ok(v) = chrono::DateTime::parse_from_str(data, "%Y%m%d%H%M%S%z") {
-            return GeneralizedTime::new(v.into());
+    fn parse_data(mut data: &[u8]) -> ParseResult<GeneralizedTime> {
+        let year = read_4_digits(&mut data)?;
+        let month = read_2_digits(&mut data)?;
+        let day = read_2_digits(&mut data)?;
+
+        validate_date(year, month, day)?;
+
+        let hour = read_2_digits(&mut data)?;
+        let minute = read_2_digits(&mut data)?;
+        let second = read_2_digits(&mut data)?;
+        if hour > 23 || minute > 59 || second > 59 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
 
-        Err(ParseError::new(ParseErrorKind::InvalidValue))
+        let tz = read_tz_and_finish(&mut data)?;
+
+        GeneralizedTime::new(
+            tz.ymd(year.into(), month.into(), day.into())
+                .and_hms(hour.into(), minute.into(), second.into())
+                .into(),
+        )
     }
 }
 
