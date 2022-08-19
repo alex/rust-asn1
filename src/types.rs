@@ -1610,6 +1610,14 @@ mod tests {
     }
 
     #[test]
+    fn test_generalized_time_new() {
+        let t = Utc.ymd(2015, 6, 30).and_hms_nano(23, 59, 59, 1_000_000_000);
+        assert!(GeneralizedTime::new(t).is_err());
+        let t = Utc.ymd(2015, 6, 30).and_hms_nano(23, 59, 59, 0);
+        assert!(GeneralizedTime::new(t).is_ok());
+    }
+
+    #[test]
     fn test_generalized_time_as_chrono() {
         let t = Utc.ymd(1951, 5, 6).and_hms(23, 45, 0);
         assert_eq!(GeneralizedTime::new(t).unwrap().as_chrono(), &t);

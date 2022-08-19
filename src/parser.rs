@@ -1198,6 +1198,27 @@ mod tests {
                 b"\x18\x1320100102030405-0607",
             ),
             (
+                Ok(GeneralizedTime::new(
+                    FixedOffset::west(6 * 60 * 60 + 7 * 60)
+                        .ymd(2010, 6, 2)
+                        .and_hms(3, 4, 5)
+                        .into(),
+                )
+                .unwrap()),
+                b"\x18\x1320100602030405-0607",
+            ),
+            (
+                // 29th of February (Leap Year)
+                Ok(GeneralizedTime::new(
+                    FixedOffset::west(6 * 60 * 60 + 7 * 60)
+                        .ymd(2000, 2, 29)
+                        .and_hms(3, 4, 5)
+                        .into(),
+                )
+                .unwrap()),
+                b"\x18\x1320000229030405-0607",
+            ),
+            (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x0e20100102030405",
             ),
@@ -1264,6 +1285,36 @@ mod tests {
             (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x0f201001020304-10Z",
+            ),
+            (
+                // 31st of June
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1320100631030405-0607",
+            ),
+            (
+                // 30th of February (Leap Year)
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1320000230030405-0607",
+            ),
+            (
+                // 29th of February (non-Leap Year)
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1319000229030405-0607",
+            ),
+            (
+                // Invalid timezone-offset hours
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1319000228030405-3007",
+            ),
+            (
+                // Invalid timezone-offset minutes
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1319000228030405-2367",
+            ),
+            (
+                // Trailing data
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1419000228030405-2367 ",
             ),
             // Tests for fractional seconds, which we currently don't support
             (
