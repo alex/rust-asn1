@@ -1167,6 +1167,12 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x17\x1018102813516+0730",
             ),
+            (
+                // 2049 year with a negative UTC-offset, so actually a 2050
+                // date. UTCTime doesn't support those.
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x17\x0f4912311047-2026",
+            ),
         ]);
     }
 
@@ -1314,7 +1320,7 @@ mod tests {
             (
                 // Trailing data
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
-                b"\x18\x1419000228030405-2367 ",
+                b"\x18\x1419000228030405-2357 ",
             ),
             // Tests for fractional seconds, which we currently don't support
             (
