@@ -527,7 +527,7 @@ macro_rules! impl_asn1_element_for_int {
 
                 // If we've got something like \x00\xff trim off the first \x00, since it's just
                 // there to not mark the value as a negative.
-                if data.len() == mem::size_of::<Self>() + 1 && data[0] == 0 {
+                if !$signed && data.len() == mem::size_of::<Self>() + 1 && data[0] == 0 {
                     data = &data[1..];
                 }
                 if data.len() > mem::size_of::<Self>() {
