@@ -673,6 +673,10 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x02\x00",
             ),
+            (
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
+                b"\x02\x09\x00\xD0\x07\x04\x00\x03\x31\x31\x00",
+            ),
         ])
     }
 
