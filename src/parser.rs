@@ -9,6 +9,10 @@ pub enum ParseErrorKind {
     /// Something about the tag was invalid. This refers to a syntax error,
     /// not a tag's value being unexpected.
     InvalidTag,
+    /// Something about the length was invalid. This can mean either a invalid
+    /// encoding, or that a TLV was longer than 65535, which is the maximum
+    /// length that rust-asn1 supports.
+    InvalidLength,
     /// An unexpected tag was encountered.
     UnexpectedTag { actual: Tag },
     /// There was not enough data available to complete parsing.
@@ -112,6 +116,7 @@ impl fmt::Display for ParseError {
         match self.kind {
             ParseErrorKind::InvalidValue => write!(f, "invalid value"),
             ParseErrorKind::InvalidTag => write!(f, "invalid tag"),
+            ParseErrorKind::InvalidLength => write!(f, "invalid length"),
             ParseErrorKind::UnexpectedTag { actual } => {
                 write!(f, "unexpected tag (got {:?})", actual)
             }
@@ -201,34 +206,29 @@ impl<'a> Parser<'a> {
     }
 
     fn read_length(&mut self) -> ParseResult<usize> {
-        let b = self.read_u8()?;
-        if b & 0x80 == 0 {
-            return Ok(b as usize);
-        }
-        let num_bytes = b & 0x7f;
-        // Indefinite length form is not valid DER
-        if num_bytes == 0 {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
-
-        let mut length = 0;
-        for _ in 0..num_bytes {
-            let b = self.read_u8()?;
-            if length > (usize::max_value() >> 8) {
-                return Err(ParseError::new(ParseErrorKind::IntegerOverflow));
+        match self.read_u8()? {
+            n if (n & 0x80) == 0 => Ok(usize::from(n)),
+            0x81 => {
+                let length = usize::from(self.read_u8()?);
+                // Do not allow values <0x80 to be encoded using the long form
+                if length < 0x80 {
+                    return Err(ParseError::new(ParseErrorKind::InvalidLength));
+                }
+                Ok(length)
             }
-            length <<= 8;
-            length |= b as usize;
-            // Disallow leading 0s
-            if length == 0 {
-                return Err(ParseError::new(ParseErrorKind::InvalidValue));
+            0x82 => {
+                let length = usize::from(self.read_u8()?) << 8 | usize::from(self.read_u8()?);
+                // Enforce that we're not using long form for values <0x80,
+                // and that the first byte of the length is not zero (i.e.
+                // that we're minimally encoded)
+                if length < 0x100 {
+                    return Err(ParseError::new(ParseErrorKind::InvalidLength));
+                }
+                Ok(length)
             }
+            // We only support two-byte lengths
+            _ => Err(ParseError::new(ParseErrorKind::InvalidLength)),
         }
-        // Do not allow values <0x80 to be encoded using the long form
-        if length < 0x80 {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
-        Ok(length)
     }
 
     #[inline]
@@ -403,6 +403,10 @@ mod tests {
             (
                 ParseError::new(ParseErrorKind::InvalidTag),
                 "ASN.1 parsing error: invalid tag"
+            ),
+            (
+                ParseError::new(ParseErrorKind::InvalidLength),
+                "ASN.1 parsing error: invalid length"
             ),
             (
                 ParseError::new(ParseErrorKind::IntegerOverflow),
@@ -619,15 +623,16 @@ mod tests {
                 Ok(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
                 b"\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
             ),
-            (Err(ParseError::new(ParseErrorKind::InvalidValue)), b"\x04\x80"),
-            (Err(ParseError::new(ParseErrorKind::InvalidValue)), b"\x04\x81\x00"),
-            (Err(ParseError::new(ParseErrorKind::InvalidValue)), b"\x04\x81\x01\x09"),
+            (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x80"),
+            (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x81\x00"),
+            (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x81\x01\x09"),
+            (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x82\x00\x80"),
             (
-                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
+                Err(ParseError::new(ParseErrorKind::InvalidLength)),
                 b"\x04\x89\x01\x01\x01\x01\x01\x01\x01\x01\x01"
             ),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04\x03\x01\x02"),
-            (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04\x83\xff\xff\xff\xff\xff\xff"),
+            (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04\x82\xff\xff\xff\xff\xff\xff"),
         ]);
     }
 
