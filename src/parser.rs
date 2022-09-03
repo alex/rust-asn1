@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_parse_error_debug() {
-        for (e, expected) in [
+        for (e, expected) in &[
             (
                 ParseError::new(ParseErrorKind::InvalidValue),
                 "ParseError { kind: InvalidValue }",
@@ -386,16 +386,14 @@ mod tests {
                     .add_location(ParseLocation::Field("Abc::123")),
                 "ParseError { kind: InvalidValue, location: [\"Abc::123\", 12] }",
             ),
-        ]
-        .iter()
-        {
-            assert_eq!(&format!("{:?}", e), expected)
+        ] {
+            assert_eq!(&format!("{:?}", e), expected);
         }
     }
 
     #[test]
     fn test_parse_error_display() {
-        for (e, expected) in [
+        for (e, expected) in &[
             (
                 ParseError::new(ParseErrorKind::InvalidValue),
                 "ASN.1 parsing error: invalid value",
@@ -442,9 +440,8 @@ mod tests {
                 "ASN.1 parsing error: unexpected tag (got Tag { value: 12, constructed: false, class: Universal })",
             ),
         ]
-        .iter()
         {
-            assert_eq!(&format!("{}", e), expected)
+            assert_eq!(&format!("{}", e), expected);
         }
     }
 
@@ -682,7 +679,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
                 b"\x02\x09\x00\xD0\x07\x04\x00\x03\x31\x31\x00",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -742,7 +739,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x02\x00",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -759,7 +756,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x02\x00",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -776,7 +773,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x02\x01\x80",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -866,7 +863,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x06\x02\x2a\x86",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -954,7 +951,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x16\x03ab\xff",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -966,7 +963,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x0c\x01\xff",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -978,7 +975,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x1a\x01\n",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -1349,7 +1346,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::ExtraData)),
                 b"\x30\x06\x02\x01\x01\x02\x01\x02\x00",
             ),
-        ])
+        ]);
     }
 
     #[test]
@@ -1396,7 +1393,7 @@ mod tests {
                     Ok(result)
                 })
             },
-        )
+        );
     }
 
     #[test]
@@ -1415,7 +1412,7 @@ mod tests {
                 ),
             ],
             |p| Ok(p.read_element::<SequenceOf<i64>>()?.collect()),
-        )
+        );
     }
 
     #[test]
@@ -1446,7 +1443,7 @@ mod tests {
                 ),
             ],
             |p| Ok(p.read_element::<SetOf<u64>>()?.collect()),
-        )
+        );
     }
 
     #[test]

@@ -29,7 +29,7 @@ fn test_struct_no_fields() {
             Err(asn1::ParseError::new(asn1::ParseErrorKind::ExtraData)),
             b"\x30\x01\x00",
         ),
-    ])
+    ]);
 }
 
 #[test]
@@ -284,7 +284,7 @@ fn test_default_bool() {
                 .add_location(asn1::ParseLocation::Field("DefaultField::a"))),
             b"\x30\x03\x01\x01\x00",
         ),
-    ])
+    ]);
 }
 
 #[test]

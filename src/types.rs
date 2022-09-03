@@ -115,10 +115,7 @@ impl<'a> Asn1Readable<'a> for Tlv<'a> {
 impl<'a> Asn1Writable for Tlv<'a> {
     #[inline]
     fn write(&self, w: &mut Writer) -> WriteResult {
-        w.write_tlv(self.tag, move |dest| {
-            dest.push_slice(self.data)?;
-            Ok(())
-        })
+        w.write_tlv(self.tag, move |dest| dest.push_slice(self.data))
     }
 }
 
@@ -161,11 +158,10 @@ impl SimpleAsn1Writable for bool {
     const TAG: Tag = Tag::primitive(0x1);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         if *self {
-            dest.push_byte(0xff)?;
+            dest.push_byte(0xff)
         } else {
-            dest.push_byte(0x00)?;
+            dest.push_byte(0x00)
         }
-        Ok(())
     }
 }
 
@@ -179,8 +175,7 @@ impl<'a> SimpleAsn1Readable<'a> for &'a [u8] {
 impl<'a> SimpleAsn1Writable for &'a [u8] {
     const TAG: Tag = Tag::primitive(0x04);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self)?;
-        Ok(())
+        dest.push_slice(self)
     }
 }
 
@@ -251,8 +246,7 @@ impl<'a> SimpleAsn1Readable<'a> for PrintableString<'a> {
 impl<'a> SimpleAsn1Writable for PrintableString<'a> {
     const TAG: Tag = Tag::primitive(0x13);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.0.as_bytes())?;
-        Ok(())
+        dest.push_slice(self.0.as_bytes())
     }
 }
 
@@ -301,8 +295,7 @@ impl<'a> SimpleAsn1Readable<'a> for IA5String<'a> {
 impl<'a> SimpleAsn1Writable for IA5String<'a> {
     const TAG: Tag = Tag::primitive(0x16);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.0.as_bytes())?;
-        Ok(())
+        dest.push_slice(self.0.as_bytes())
     }
 }
 
@@ -335,8 +328,7 @@ impl<'a> SimpleAsn1Readable<'a> for Utf8String<'a> {
 impl<'a> SimpleAsn1Writable for Utf8String<'a> {
     const TAG: Tag = Tag::primitive(0x0c);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.0.as_bytes())?;
-        Ok(())
+        dest.push_slice(self.0.as_bytes())
     }
 }
 
@@ -391,8 +383,7 @@ impl<'a> SimpleAsn1Readable<'a> for VisibleString<'a> {
 impl<'a> SimpleAsn1Writable for VisibleString<'a> {
     const TAG: Tag = Tag::primitive(0x1a);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.0.as_bytes())?;
-        Ok(())
+        dest.push_slice(self.0.as_bytes())
     }
 }
 
@@ -442,8 +433,7 @@ impl<'a> SimpleAsn1Readable<'a> for BMPString<'a> {
 impl<'a> SimpleAsn1Writable for BMPString<'a> {
     const TAG: Tag = Tag::primitive(0x1e);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.as_utf16_be_bytes())?;
-        Ok(())
+        dest.push_slice(self.as_utf16_be_bytes())
     }
 }
 
@@ -493,8 +483,7 @@ impl<'a> SimpleAsn1Readable<'a> for UniversalString<'a> {
 impl<'a> SimpleAsn1Writable for UniversalString<'a> {
     const TAG: Tag = Tag::primitive(0x1c);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.as_utf32_be_bytes())?;
-        Ok(())
+        dest.push_slice(self.as_utf32_be_bytes())
     }
 }
 
@@ -604,8 +593,7 @@ impl<'a> SimpleAsn1Readable<'a> for BigUint<'a> {
 impl<'a> SimpleAsn1Writable for BigUint<'a> {
     const TAG: Tag = Tag::primitive(0x02);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.data)?;
-        Ok(())
+        dest.push_slice(self.data)
     }
 }
 
@@ -642,8 +630,7 @@ impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
 impl<'a> SimpleAsn1Writable for BigInt<'a> {
     const TAG: Tag = Tag::primitive(0x02);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.data)?;
-        Ok(())
+        dest.push_slice(self.data)
     }
 }
 
@@ -656,8 +643,7 @@ impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier {
 impl SimpleAsn1Writable for ObjectIdentifier {
     const TAG: Tag = Tag::primitive(0x06);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.as_der())?;
-        Ok(())
+        dest.push_slice(self.as_der())
     }
 }
 
@@ -675,8 +661,7 @@ impl<'a> SimpleAsn1Writable for BitString<'a> {
     const TAG: Tag = Tag::primitive(0x03);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_byte(self.padding_bits())?;
-        dest.push_slice(self.as_bytes())?;
-        Ok(())
+        dest.push_slice(self.as_bytes())
     }
 }
 impl<'a> SimpleAsn1Readable<'a> for OwnedBitString {
@@ -757,18 +742,14 @@ fn read_tz_and_finish(data: &mut &[u8]) -> ParseResult<()> {
 
 fn push_two_digits(dest: &mut WriteBuf, val: u8) -> WriteResult {
     dest.push_byte(b'0' + ((val / 10) % 10))?;
-    dest.push_byte(b'0' + (val % 10))?;
-
-    Ok(())
+    dest.push_byte(b'0' + (val % 10))
 }
 
 fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
     dest.push_byte(b'0' + ((val / 1000) % 10) as u8)?;
     dest.push_byte(b'0' + ((val / 100) % 10) as u8)?;
     dest.push_byte(b'0' + ((val / 10) % 10) as u8)?;
-    dest.push_byte(b'0' + (val % 10) as u8)?;
-
-    Ok(())
+    dest.push_byte(b'0' + (val % 10) as u8)
 }
 
 /// Used for parsing and writing ASN.1 `UTC TIME` values. Wraps a
@@ -836,9 +817,7 @@ impl SimpleAsn1Writable for UtcTime {
         push_two_digits(dest, self.0.minute().try_into().unwrap())?;
         push_two_digits(dest, self.0.second().try_into().unwrap())?;
 
-        dest.push_byte(b'Z')?;
-
-        Ok(())
+        dest.push_byte(b'Z')
     }
 }
 
@@ -899,9 +878,7 @@ impl SimpleAsn1Writable for GeneralizedTime {
         push_two_digits(dest, self.0.minute().try_into().unwrap())?;
         push_two_digits(dest, self.0.second().try_into().unwrap())?;
 
-        dest.push_byte(b'Z')?;
-
-        Ok(())
+        dest.push_byte(b'Z')
     }
 }
 
@@ -1056,8 +1033,7 @@ impl<'a> SimpleAsn1Writable for Sequence<'a> {
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
     fn write_data(&self, data: &mut WriteBuf) -> WriteResult {
-        data.push_slice(self.data)?;
-        Ok(())
+        data.push_slice(self.data)
     }
 }
 
