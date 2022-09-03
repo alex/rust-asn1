@@ -330,7 +330,7 @@ mod tests {
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
     use alloc::vec;
-    use chrono::{FixedOffset, TimeZone, Utc};
+    use chrono::{TimeZone, Utc};
     use core::fmt;
 
     #[test]
@@ -1037,27 +1037,15 @@ mod tests {
     fn test_parse_utctime() {
         assert_parses::<UtcTime>(&[
             (
-                Ok(UtcTime::new(
-                    FixedOffset::west(7 * 60 * 60)
-                        .ymd(1991, 5, 6)
-                        .and_hms(16, 45, 40)
-                        .into(),
-                )
-                .unwrap()),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x17\x11910506164540-0700",
             ),
             (
-                Ok(UtcTime::new(
-                    FixedOffset::east(7 * 60 * 60 + 30 * 60)
-                        .ymd(1991, 5, 6)
-                        .and_hms(16, 45, 40)
-                        .into(),
-                )
-                .unwrap()),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x17\x11910506164540+0730",
             ),
             (
-                Ok(UtcTime::new(Utc.ymd(1951, 5, 6).and_hms(23, 45, 0)).unwrap()),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x17\x0f5105062345+0000",
             ),
             (
@@ -1065,11 +1053,11 @@ mod tests {
                 b"\x17\x0d910506234540Z",
             ),
             (
-                Ok(UtcTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 0)).unwrap()),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x17\x0b9105062345Z",
             ),
             (
-                Ok(UtcTime::new(Utc.ymd(1951, 5, 6).and_hms(23, 45, 0)).unwrap()),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x17\x0b5105062345Z",
             ),
             (
@@ -1193,45 +1181,21 @@ mod tests {
                 b"\x18\x0f20100102030405Z",
             ),
             (
-                Ok(GeneralizedTime::new(
-                    FixedOffset::east(6 * 60 * 60 + 7 * 60)
-                        .ymd(2010, 1, 2)
-                        .and_hms(3, 4, 5)
-                        .into(),
-                )
-                .unwrap()),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x1320100102030405+0607",
             ),
             (
-                Ok(GeneralizedTime::new(
-                    FixedOffset::west(6 * 60 * 60 + 7 * 60)
-                        .ymd(2010, 1, 2)
-                        .and_hms(3, 4, 5)
-                        .into(),
-                )
-                .unwrap()),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x1320100102030405-0607",
             ),
             (
-                Ok(GeneralizedTime::new(
-                    FixedOffset::west(6 * 60 * 60 + 7 * 60)
-                        .ymd(2010, 6, 2)
-                        .and_hms(3, 4, 5)
-                        .into(),
-                )
-                .unwrap()),
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x1320100602030405-0607",
             ),
             (
                 // 29th of February (Leap Year)
-                Ok(GeneralizedTime::new(
-                    FixedOffset::west(6 * 60 * 60 + 7 * 60)
-                        .ymd(2000, 2, 29)
-                        .and_hms(3, 4, 5)
-                        .into(),
-                )
-                .unwrap()),
-                b"\x18\x1320000229030405-0607",
+                Ok(GeneralizedTime::new(Utc.ymd(2000, 2, 29).and_hms(3, 4, 5)).unwrap()),
+                b"\x18\x0f20000229030405Z",
             ),
             (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
@@ -1329,7 +1293,7 @@ mod tests {
             (
                 // Trailing data
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
-                b"\x18\x1419000228030405-2357 ",
+                b"\x18\x1019000228030405Z ",
             ),
             // Tests for fractional seconds, which we currently don't support
             (

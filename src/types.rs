@@ -693,13 +693,21 @@ impl SimpleAsn1Writable for OwnedBitString {
     }
 }
 
-fn read_digit(data: &mut &[u8]) -> ParseResult<u8> {
-    if data.is_empty() || !data[0].is_ascii_digit() {
+fn read_byte(data: &mut &[u8]) -> ParseResult<u8> {
+    if data.is_empty() {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
-    let result = Ok(data[0] - b'0');
+    let result = Ok(data[0]);
     *data = &data[1..];
     result
+}
+
+fn read_digit(data: &mut &[u8]) -> ParseResult<u8> {
+    let b = read_byte(data)?;
+    if !b.is_ascii_digit() {
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+    }
+    Ok(b - b'0')
 }
 
 fn read_2_digits(data: &mut &[u8]) -> ParseResult<u8> {
@@ -736,33 +744,15 @@ fn validate_date(year: u16, month: u8, day: u8) -> ParseResult<()> {
     Ok(())
 }
 
-fn read_tz_and_finish(data: &mut &[u8]) -> ParseResult<chrono::FixedOffset> {
-    if data.is_empty() {
+fn read_tz_and_finish(data: &mut &[u8]) -> ParseResult<()> {
+    if read_byte(data)? != b'Z' {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
-    let tz = data[0];
-    *data = &data[1..];
-    let tz = if tz == b'Z' {
-        chrono::FixedOffset::east(0)
-    } else if tz == b'+' || tz == b'-' {
-        let offset_sign = if tz == b'+' { 1i32 } else { -1 };
-        let offset_hours = read_2_digits(data)?;
-        let offset_minutes = read_2_digits(data)?;
-        if offset_hours > 23 || offset_minutes > 59 {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
-        chrono::FixedOffset::east(
-            offset_sign * (i32::from(offset_hours) * 3600 + i32::from(offset_minutes) * 60),
-        )
-    } else {
-        return Err(ParseError::new(ParseErrorKind::InvalidValue));
-    };
 
     if !data.is_empty() {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
-
-    Ok(tz)
+    Ok(())
 }
 
 fn push_two_digits(dest: &mut WriteBuf, val: u8) -> WriteResult {
@@ -802,8 +792,6 @@ impl UtcTime {
 impl SimpleAsn1Readable<'_> for UtcTime {
     const TAG: Tag = Tag::primitive(0x17);
     fn parse_data(mut data: &[u8]) -> ParseResult<Self> {
-        // UTCTime comes in 4 different formats: with and without seconds, and
-        // with a fixed offset or UTC.
         let year = u16::from(read_2_digits(&mut data)?);
         let month = read_2_digits(&mut data)?;
         let day = read_2_digits(&mut data)?;
@@ -815,21 +803,17 @@ impl SimpleAsn1Readable<'_> for UtcTime {
 
         let hour = read_2_digits(&mut data)?;
         let minute = read_2_digits(&mut data)?;
-        let second = if !data.is_empty() && data[0].is_ascii_digit() {
-            read_2_digits(&mut data)?
-        } else {
-            0
-        };
+        let second = read_2_digits(&mut data)?;
         if hour > 23 || minute > 59 || second > 59 {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
 
-        let tz = read_tz_and_finish(&mut data)?;
+        read_tz_and_finish(&mut data)?;
 
         UtcTime::new(
-            tz.ymd(year.into(), month.into(), day.into())
-                .and_hms(hour.into(), minute.into(), second.into())
-                .into(),
+            chrono::Utc
+                .ymd(year.into(), month.into(), day.into())
+                .and_hms(hour.into(), minute.into(), second.into()),
         )
         .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
@@ -894,12 +878,12 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
 
-        let tz = read_tz_and_finish(&mut data)?;
+        read_tz_and_finish(&mut data)?;
 
         GeneralizedTime::new(
-            tz.ymd(year.into(), month.into(), day.into())
-                .and_hms(hour.into(), minute.into(), second.into())
-                .into(),
+            chrono::Utc
+                .ymd(year.into(), month.into(), day.into())
+                .and_hms(hour.into(), minute.into(), second.into()),
         )
     }
 }
