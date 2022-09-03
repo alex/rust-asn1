@@ -24,7 +24,7 @@ impl Tag {
     /// remaining bytes from the input or an error.
     pub fn from_bytes(mut data: &[u8]) -> ParseResult<(Tag, &[u8])> {
         let tag = match data.first() {
-            Some(&b) => b as u32,
+            Some(&b) => u32::from(b),
             None => return Err(ParseError::new(ParseErrorKind::ShortData)),
         };
         data = &data[1..];
@@ -88,7 +88,7 @@ impl Tag {
     /// Returns the tag's representation (including tag class and constructed
     /// bits) as a `u8` if the `value` component fits in a short form
     /// (value < 31) or `None` if this is a long-form tag.
-    pub fn as_u8(&self) -> Option<u8> {
+    pub fn as_u8(self) -> Option<u8> {
         if self.value >= 0x1f {
             return None;
         }
@@ -103,7 +103,7 @@ impl Tag {
         )
     }
 
-    pub(crate) fn write_bytes(&self, dest: &mut WriteBuf) -> WriteResult {
+    pub(crate) fn write_bytes(self, dest: &mut WriteBuf) -> WriteResult {
         let mut b = ((self.class as u8) << 6)
             | if self.constructed {
                 CONSTRUCTED as u8
@@ -127,7 +127,7 @@ impl Tag {
         Ok(())
     }
 
-    pub(crate) const fn is_constructed(&self) -> bool {
+    pub(crate) const fn is_constructed(self) -> bool {
         self.constructed
     }
 }
