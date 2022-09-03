@@ -41,7 +41,7 @@ pub enum ParseLocation {
 #[derive(PartialEq, Eq)]
 pub struct ParseError {
     kind: ParseErrorKind,
-    parse_locations: [Option<ParseLocation>; 8],
+    parse_locations: [Option<ParseLocation>; 4],
     parse_depth: u8,
 }
 
@@ -49,7 +49,7 @@ impl ParseError {
     pub fn new(kind: ParseErrorKind) -> ParseError {
         ParseError {
             kind,
-            parse_locations: [None, None, None, None, None, None, None, None],
+            parse_locations: [None, None, None, None],
             parse_depth: 0,
         }
     }
