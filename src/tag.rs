@@ -17,29 +17,29 @@ pub struct Tag {
     class: TagClass,
 }
 
-pub(crate) const CONSTRUCTED: u32 = 0x20;
+pub(crate) const CONSTRUCTED: u8 = 0x20;
 
 impl Tag {
     /// Parses a `Tag` from bytes and returns either the `Tag` and the
     /// remaining bytes from the input or an error.
     pub fn from_bytes(mut data: &[u8]) -> ParseResult<(Tag, &[u8])> {
         let tag = match data.first() {
-            Some(&b) => u32::from(b),
+            Some(&b) => b,
             None => return Err(ParseError::new(ParseErrorKind::ShortData)),
         };
         data = &data[1..];
-        let mut value = tag & 0x1f;
+        let mut value = u32::from(tag & 0x1f);
         let constructed = tag & CONSTRUCTED == CONSTRUCTED;
 
         let tag_class_bits = tag >> 6;
-        let class = if tag_class_bits == TagClass::Universal as u32 {
+        let class = if tag_class_bits == TagClass::Universal as u8 {
             TagClass::Universal
-        } else if tag_class_bits == TagClass::Application as u32 {
+        } else if tag_class_bits == TagClass::Application as u8 {
             TagClass::Application
-        } else if tag_class_bits == TagClass::ContextSpecific as u32 {
+        } else if tag_class_bits == TagClass::ContextSpecific as u8 {
             TagClass::ContextSpecific
         } else {
-            assert!(tag_class_bits == TagClass::Private as u32);
+            assert!(tag_class_bits == TagClass::Private as u8);
             TagClass::Private
         };
 
@@ -94,22 +94,13 @@ impl Tag {
         }
         Some(
             ((self.class as u8) << 6)
-                | if self.constructed {
-                    CONSTRUCTED as u8
-                } else {
-                    0
-                }
+                | if self.constructed { CONSTRUCTED } else { 0 }
                 | (self.value as u8),
         )
     }
 
     pub(crate) fn write_bytes(self, dest: &mut WriteBuf) -> WriteResult {
-        let mut b = ((self.class as u8) << 6)
-            | if self.constructed {
-                CONSTRUCTED as u8
-            } else {
-                0
-            };
+        let mut b = ((self.class as u8) << 6) | if self.constructed { CONSTRUCTED } else { 0 };
         if self.value >= 0x1f {
             b |= 0x1f;
             dest.push_byte(b)?;
@@ -139,8 +130,8 @@ mod tests {
     #[test]
     fn test_constructed() {
         for i in 0..31 {
-            let tag = Tag::constructed(i);
-            assert_eq!(tag.as_u8(), Some((CONSTRUCTED | i) as u8));
+            let tag = Tag::constructed(u32::from(i));
+            assert_eq!(tag.as_u8(), Some(CONSTRUCTED | i));
             assert!(tag.is_constructed());
         }
     }
