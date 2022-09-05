@@ -2,14 +2,19 @@ use crate::parser::{ParseError, ParseErrorKind, ParseResult};
 
 pub(crate) fn read_base128_int(mut data: &[u8]) -> ParseResult<(u32, &[u8])> {
     let mut ret = 0u32;
-    for _ in 0..4 {
+    for i in 0..4 {
         let b = match data.first() {
-            Some(b) => b,
+            Some(b) => *b,
             None => return Err(ParseError::new(ParseErrorKind::InvalidValue)),
         };
         data = &data[1..];
         ret <<= 7;
         ret |= u32::from(b & 0x7f);
+        // Integers must be minimally encoded. `i == 0 && 0x80` would mean
+        // that the first byte had a value of 0, which is non-minimal.
+        if i == 0 && b == 0x80 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
+        }
         if b & 0x80 == 0 {
             return Ok((ret, data));
         }

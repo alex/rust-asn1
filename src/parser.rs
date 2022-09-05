@@ -573,6 +573,11 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidTag)),
                 b"\x1f\x1e\x00",
             ),
+            (
+                // base128 integer with leading 0
+                Err(ParseError::new(ParseErrorKind::InvalidTag)),
+                b"\xff\x80\x84\x01\x01\xa9",
+            ),
         ]);
     }
 
