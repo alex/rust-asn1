@@ -46,11 +46,11 @@ enum Data<'a> {
     #[explicit(9)]
     SequenceOf(asn1::SequenceOf<'a, i64>),
     #[explicit(10)]
-    Struct(StructData),
+    Struct(StructData<'a>),
 }
 
 #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq)]
-struct StructData {
+struct StructData<'a> {
     f1: Option<()>,
     f2: asn1::Choice2<bool, i64>,
 
@@ -70,6 +70,9 @@ struct StructData {
     f7: asn1::Implicit<u32, 7>,
     #[cfg(feature = "const-generics")]
     f8: asn1::Explicit<u32, 8>,
+
+    #[explicit(9)]
+    f9: Option<asn1::Tlv<'a>>,
 }
 
 fuzz_target!(|data: &[u8]| {
