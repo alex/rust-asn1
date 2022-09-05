@@ -2,59 +2,74 @@
 use libfuzzer_sys::fuzz_target;
 
 #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq)]
-struct Data<'a> {
-    f1: (),
-    f2: bool,
+enum Data<'a> {
+    Null(()),
+    Bool(bool),
 
-    f3: i8,
-    f4: u8,
-    f5: i64,
-    f6: u64,
-    f7: asn1::BigUint<'a>,
-    f8: asn1::BigInt<'a>,
+    OctetString(&'a [u8]),
+    PrintableString(asn1::PrintableString<'a>),
+    BMPString(asn1::BMPString<'a>),
+    UniversalString(asn1::UniversalString<'a>),
+    IA5String(asn1::IA5String<'a>),
+    Utf8String(asn1::Utf8String<'a>),
+    VisibleString(asn1::VisibleString<'a>),
 
-    f9: &'a [u8],
+    ObjectIdentifier(asn1::ObjectIdentifier),
 
-    f10: asn1::PrintableString<'a>,
-    f11: asn1::BMPString<'a>,
-    f12: asn1::UniversalString<'a>,
-    f13: asn1::IA5String<'a>,
-    f14: asn1::Utf8String<'a>,
-    f15: asn1::VisibleString<'a>,
+    UtcTime(asn1::UtcTime),
+    GeneralizedTime(asn1::GeneralizedTime),
 
-    f16: asn1::BitString<'a>,
-    f17: asn1::OwnedBitString,
+    Enumerated(asn1::Enumerated),
 
-    f18: asn1::ObjectIdentifier,
+    SetOf(asn1::SetOf<'a, i64>),
 
-    f19: asn1::UtcTime,
-    f20: asn1::GeneralizedTime,
+    #[explicit(0)]
+    I8(i8),
+    #[explicit(1)]
+    U8(u8),
+    #[explicit(2)]
+    I64(i64),
+    #[explicit(3)]
+    U64(u64),
+    #[explicit(4)]
+    BigInt(asn1::BigInt<'a>),
+    #[explicit(5)]
+    BigUint(asn1::BigUint<'a>),
 
-    f21: asn1::Enumerated,
+    #[explicit(6)]
+    BitString(asn1::BitString<'a>),
+    #[explicit(7)]
+    OwnedBitString(asn1::OwnedBitString),
 
-    f22: Option<()>,
-    f23: asn1::Choice2<bool, i64>,
+    #[explicit(8)]
+    Sequence(asn1::Sequence<'a>),
+    #[explicit(9)]
+    SequenceOf(asn1::SequenceOf<'a, i64>),
+    #[explicit(10)]
+    Struct(StructData),
+}
 
-    f24: asn1::Sequence<'a>,
-    f25: asn1::SequenceOf<'a, i64>,
-    f26: asn1::SetOf<'a, i64>,
+#[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq)]
+struct StructData {
+    f1: Option<()>,
+    f2: asn1::Choice2<bool, i64>,
 
     #[implicit(3)]
-    f27: Option<u32>,
+    f3: Option<u32>,
     #[implicit(4)]
-    f28: Option<u32>,
+    f4: Option<u32>,
 
-    #[implicit(3)]
+    #[implicit(5)]
     #[default(7)]
-    f29: i32,
-    #[implicit(4)]
+    f5: i32,
+    #[implicit(6)]
     #[default(8)]
-    f30: i32,
+    f6: i32,
 
     #[cfg(feature = "const-generics")]
-    f31: asn1::Implicit<u32, 3>,
+    f7: asn1::Implicit<u32, 7>,
     #[cfg(feature = "const-generics")]
-    f32: asn1::Explicit<u32, 3>,
+    f8: asn1::Explicit<u32, 8>,
 }
 
 fuzz_target!(|data: &[u8]| {
