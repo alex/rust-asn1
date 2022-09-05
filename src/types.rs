@@ -593,7 +593,7 @@ impl<'a> SimpleAsn1Readable<'a> for BigUint<'a> {
 impl<'a> SimpleAsn1Writable for BigUint<'a> {
     const TAG: Tag = Tag::primitive(0x02);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.data)
+        dest.push_slice(self.as_bytes())
     }
 }
 
@@ -630,7 +630,7 @@ impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
 impl<'a> SimpleAsn1Writable for BigInt<'a> {
     const TAG: Tag = Tag::primitive(0x02);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        dest.push_slice(self.data)
+        dest.push_slice(self.as_bytes())
     }
 }
 
@@ -908,7 +908,7 @@ impl SimpleAsn1Writable for Enumerated {
     const TAG: Tag = Tag::primitive(0xa);
 
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        u32::write_data(&self.0, dest)
+        u32::write_data(&self.value(), dest)
     }
 }
 
