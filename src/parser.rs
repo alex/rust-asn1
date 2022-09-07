@@ -10,7 +10,7 @@ pub enum ParseErrorKind {
     /// not a tag's value being unexpected.
     InvalidTag,
     /// Something about the length was invalid. This can mean either a invalid
-    /// encoding, or that a TLV was longer than 65535, which is the maximum
+    /// encoding, or that a TLV was longer than 4GB, which is the maximum
     /// length that rust-asn1 supports.
     InvalidLength,
     /// An unexpected tag was encountered.
@@ -222,6 +222,27 @@ impl<'a> Parser<'a> {
                 // and that the first byte of the length is not zero (i.e.
                 // that we're minimally encoded)
                 if length < 0x100 {
+                    return Err(ParseError::new(ParseErrorKind::InvalidLength));
+                }
+                Ok(length)
+            }
+            0x83 => {
+                let length = usize::from(self.read_u8()?) << 16
+                    | usize::from(self.read_u8()?) << 8
+                    | usize::from(self.read_u8()?);
+                // Same thing as the 0x82 case
+                if length < 0x10000 {
+                    return Err(ParseError::new(ParseErrorKind::InvalidLength));
+                }
+                Ok(length)
+            }
+            0x84 => {
+                let length = usize::from(self.read_u8()?) << 24
+                    | usize::from(self.read_u8()?) << 16
+                    | usize::from(self.read_u8()?) << 8
+                    | usize::from(self.read_u8()?);
+                // Same thing as the 0x82 case
+                if length < 0x1000000 {
                     return Err(ParseError::new(ParseErrorKind::InvalidLength));
                 }
                 Ok(length)
@@ -618,12 +639,23 @@ mod tests {
 
     #[test]
     fn test_parse_octet_string() {
+        let long_value = vec![b'a'; 70_000];
+        let really_long_value = vec![b'a'; 20_000_000];
+
         assert_parses::<&[u8]>(&[
             (Ok(b""), b"\x04\x00"),
             (Ok(b"\x01\x02\x03"), b"\x04\x03\x01\x02\x03"),
             (
                 Ok(b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
                 b"\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ),
+            (
+                Ok(long_value.as_slice()),
+                [b"\x04\x83\x01\x11\x70", long_value.as_slice()].concat().as_slice()
+            ),
+            (
+                Ok(really_long_value.as_slice()),
+                [b"\x04\x84\x01\x31\x2d\x00", really_long_value.as_slice()].concat().as_slice()
             ),
             (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x80"),
             (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x81\x00"),
@@ -635,6 +667,10 @@ mod tests {
             ),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04\x03\x01\x02"),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b"\x04\x82\xff\xff\xff\xff\xff\xff"),
+            // 3 byte length form with leading 0.
+            (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x83\x00\xff\xff"),
+            // 4 byte length form with leading 0.
+            (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x84\x00\xff\xff\xff"),
         ]);
     }
 
