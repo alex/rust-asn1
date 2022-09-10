@@ -66,10 +66,8 @@ struct StructData<'a> {
     #[default(8)]
     f6: i32,
 
-    #[cfg(feature = "const-generics")]
-    f7: asn1::Implicit<u32, 7>,
-    #[cfg(feature = "const-generics")]
-    f8: asn1::Explicit<u32, 8>,
+    f7: asn1::Implicit<'a, u32, 7>,
+    f8: asn1::Explicit<'a, u32, 8>,
 
     #[explicit(9)]
     f9: Option<asn1::Tlv<'a>>,
