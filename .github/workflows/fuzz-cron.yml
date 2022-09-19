@@ -32,6 +32,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           fuzz-seconds: 3600
           mode: 'batch'
+          parallel-fuzzing: true
           sanitizer: ${{ matrix.sanitizer }}
 
   coverage:
