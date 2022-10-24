@@ -214,6 +214,7 @@ mod tests {
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
+    use alloc::vec::Vec;
 
     fn assert_writes<T>(data: &[(T, &[u8])])
     where

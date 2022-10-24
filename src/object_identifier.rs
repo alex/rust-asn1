@@ -114,6 +114,7 @@ impl fmt::Display for ObjectIdentifier {
 #[cfg(test)]
 mod tests {
     use super::MAX_OID_LENGTH;
+    use crate::alloc::string::ToString;
     use crate::{ObjectIdentifier, ParseError, ParseErrorKind};
 
     #[test]

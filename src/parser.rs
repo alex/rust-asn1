@@ -350,7 +350,7 @@ mod tests {
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
-    use alloc::vec;
+    use alloc::{format, vec};
     use chrono::{TimeZone, Utc};
     use core::fmt;
 

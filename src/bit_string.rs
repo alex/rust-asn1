@@ -65,6 +65,7 @@ impl OwnedBitString {
 #[cfg(test)]
 mod tests {
     use crate::{BitString, OwnedBitString};
+    use alloc::vec;
 
     #[test]
     fn test_bitstring_new() {
