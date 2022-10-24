@@ -1469,9 +1469,13 @@ mod tests {
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
+    use alloc::vec;
+    use alloc::vec::Vec;
     use chrono::{TimeZone, Utc};
+    #[cfg(feature = "std")]
+    use core::hash::{Hash, Hasher};
+    #[cfg(feature = "std")]
     use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
 
     #[test]
     fn test_printable_string_new() {
@@ -1582,6 +1586,7 @@ mod tests {
         assert!(!seq2.is_empty());
     }
 
+    #[cfg(feature = "std")]
     fn hash<T: Hash>(v: &T) -> u64 {
         let mut h = DefaultHasher::new();
         v.hash(&mut h);
@@ -1589,40 +1594,64 @@ mod tests {
     }
 
     #[test]
-    fn test_set_of_eq_hash() {
+    fn test_set_of_eq() {
         let s1 = SetOf::<bool>::new(b"");
         let s2 = SetOf::<bool>::new(b"");
         let s3 = SetOf::<bool>::new(b"\x01\x01\x00");
         let s4 = SetOf::<bool>::new(b"\x01\x01\xff");
 
         assert!(s1 == s2);
-        assert_eq!(hash(&s1), hash(&s2));
 
         assert!(s2 != s3);
-        assert_ne!(hash(&s2), hash(&s3));
 
         assert!(s3 == s3);
 
         assert!(s3 != s4);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_set_of_hash() {
+        let s1 = SetOf::<bool>::new(b"");
+        let s2 = SetOf::<bool>::new(b"");
+        let s3 = SetOf::<bool>::new(b"\x01\x01\x00");
+        let s4 = SetOf::<bool>::new(b"\x01\x01\xff");
+
+        assert_eq!(hash(&s1), hash(&s2));
+
+        assert_ne!(hash(&s2), hash(&s3));
+
         assert_ne!(hash(&s3), hash(&s4));
     }
 
     #[test]
-    fn test_sequence_of_eq_hash() {
+    fn test_sequence_of_eq() {
         let s1 = SequenceOf::<bool>::new(b"").unwrap();
         let s2 = SequenceOf::<bool>::new(b"").unwrap();
         let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00").unwrap();
         let s4 = SequenceOf::<bool>::new(b"\x01\x01\xff").unwrap();
 
         assert!(s1 == s2);
-        assert_eq!(hash(&s1), hash(&s2));
 
         assert!(s2 != s3);
-        assert_ne!(hash(&s2), hash(&s3));
 
         assert!(s3 == s3);
 
         assert!(s3 != s4);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_sequence_of_hash() {
+        let s1 = SequenceOf::<bool>::new(b"").unwrap();
+        let s2 = SequenceOf::<bool>::new(b"").unwrap();
+        let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00").unwrap();
+        let s4 = SequenceOf::<bool>::new(b"\x01\x01\xff").unwrap();
+
+        assert_eq!(hash(&s1), hash(&s2));
+
+        assert_ne!(hash(&s2), hash(&s3));
+
         assert_ne!(hash(&s3), hash(&s4));
     }
 

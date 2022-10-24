@@ -96,7 +96,7 @@ jobs:
       - run: cargo test ${{ matrix.RUST.FLAGS }}
         if: "${{ !matrix.RUST.SKIP_TESTS }}"
 
-      - run: cargo check ${{ matrix.RUST.FLAGS }}
+      - run: cargo check --tests ${{ matrix.RUST.FLAGS }}
 
   coverage:
     runs-on: ubuntu-latest
