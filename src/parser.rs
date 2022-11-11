@@ -344,9 +344,9 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
-        GeneralizedTime, IA5String, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
-        ParseLocation, ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv,
-        UniversalString, UtcTime, Utf8String, VisibleString,
+        GeneralizedTime, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBitString,
+        ParseError, ParseErrorKind, ParseLocation, ParseResult, PrintableString, Sequence,
+        SequenceOf, SetOf, Tag, Tlv, UniversalString, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -672,6 +672,26 @@ mod tests {
             // 4 byte length form with leading 0.
             (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x84\x00\xff\xff\xff"),
         ]);
+    }
+
+    #[test]
+    fn test_octet_string_encoded() {
+        assert_parses::<OctetStringEncoded<bool>>(&[
+            (Ok(OctetStringEncoded::new(true)), b"\x04\x03\x01\x01\xff"),
+            (Ok(OctetStringEncoded::new(false)), b"\x04\x03\x01\x01\x00"),
+            (
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: Tag::primitive(0x03),
+                })),
+                b"\x03\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: Tag::primitive(0x02),
+                })),
+                b"\x04\x02\x02\x00",
+            ),
+        ])
     }
 
     #[test]
