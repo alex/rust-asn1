@@ -179,6 +179,39 @@ impl<'a> SimpleAsn1Writable for &'a [u8] {
     }
 }
 
+/// Represents values that are encoded as an `OCTET STRING` containing an
+/// encoded TLV, of type `T`.
+#[derive(PartialEq, Debug)]
+pub struct OctetStringEncoded<T>(T);
+
+impl<T> OctetStringEncoded<T> {
+    pub fn new(v: T) -> OctetStringEncoded<T> {
+        OctetStringEncoded(v)
+    }
+
+    pub fn get(&self) -> &T {
+        &self.0
+    }
+
+    pub fn into_inner(self) -> T {
+        self.0
+    }
+}
+
+impl<'a, T: Asn1Readable<'a>> SimpleAsn1Readable<'a> for OctetStringEncoded<T> {
+    const TAG: Tag = Tag::primitive(0x04);
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        Ok(OctetStringEncoded::new(parse_single(data)?))
+    }
+}
+
+impl<T: Asn1Writable> SimpleAsn1Writable for OctetStringEncoded<T> {
+    const TAG: Tag = Tag::primitive(0x04);
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        self.0.write(&mut Writer::new(dest))
+    }
+}
+
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `PrintableString`.  A `PrintableString` contains an `&str`
 /// with only valid characers.
@@ -1463,9 +1496,9 @@ impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T,
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, Enumerated, GeneralizedTime, IA5String, ParseError,
-        ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
-        Tlv, UtcTime, Utf8String, VisibleString,
+        parse_single, BigInt, BigUint, Enumerated, GeneralizedTime, IA5String, OctetStringEncoded,
+        ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf,
+        SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
@@ -1476,6 +1509,12 @@ mod tests {
     use core::hash::{Hash, Hasher};
     #[cfg(feature = "std")]
     use std::collections::hash_map::DefaultHasher;
+
+    #[test]
+    fn test_octet_string_encoded() {
+        assert_eq!(OctetStringEncoded::new(12).get(), &12);
+        assert_eq!(OctetStringEncoded::new(12).into_inner(), 12);
+    }
 
     #[test]
     fn test_printable_string_new() {
