@@ -1107,7 +1107,7 @@ mod tests {
                 b"\x17\x0f5105062345+0000",
             ),
             (
-                Ok(UtcTime::new(Utc.ymd(1991, 5, 6).and_hms(23, 45, 40)).unwrap()),
+                Ok(UtcTime::new(Utc.with_ymd_and_hms(1991, 5, 6, 23, 45, 40).unwrap()).unwrap()),
                 b"\x17\x0d910506234540Z",
             ),
             (
@@ -1235,7 +1235,10 @@ mod tests {
     fn test_generalizedtime() {
         assert_parses::<GeneralizedTime>(&[
             (
-                Ok(GeneralizedTime::new(Utc.ymd(2010, 1, 2).and_hms(3, 4, 5)).unwrap()),
+                Ok(
+                    GeneralizedTime::new(Utc.with_ymd_and_hms(2010, 1, 2, 3, 4, 5).unwrap())
+                        .unwrap(),
+                ),
                 b"\x18\x0f20100102030405Z",
             ),
             (
@@ -1252,7 +1255,10 @@ mod tests {
             ),
             (
                 // 29th of February (Leap Year)
-                Ok(GeneralizedTime::new(Utc.ymd(2000, 2, 29).and_hms(3, 4, 5)).unwrap()),
+                Ok(
+                    GeneralizedTime::new(Utc.with_ymd_and_hms(2000, 2, 29, 3, 4, 5).unwrap())
+                        .unwrap(),
+                ),
                 b"\x18\x0f20000229030405Z",
             ),
             (
