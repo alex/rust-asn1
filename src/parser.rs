@@ -28,6 +28,9 @@ pub enum ParseErrorKind {
     /// OID value is longer than the maximum size rust-asn1 can store. This is
     /// a limitation of rust-asn1.
     OidTooLong,
+    /// A `DEFINED BY` value received an value for which there was no known
+    /// variant.
+    UnknownDefinedBy,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -129,6 +132,7 @@ impl fmt::Display for ParseError {
                 f,
                 "OBJECT IDENTIFIER was too large to be stored in rust-asn1's buffer"
             ),
+            ParseErrorKind::UnknownDefinedBy => write!(f, "DEFINED BY with unknown value"),
         }
     }
 }
@@ -447,6 +451,10 @@ mod tests {
             (
                 ParseError::new(ParseErrorKind::OidTooLong),
                 "ASN.1 parsing error: OBJECT IDENTIFIER was too large to be stored in rust-asn1's buffer"
+            ),
+            (
+                ParseError::new(ParseErrorKind::UnknownDefinedBy),
+                "ASN.1 parsing error: DEFINED BY with unknown value"
             ),
             (
                 ParseError::new(ParseErrorKind::ShortData)

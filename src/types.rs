@@ -65,6 +65,15 @@ pub trait SimpleAsn1Writable: Sized {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult;
 }
 
+pub trait Asn1DefinedByReadable<'a, T: Asn1Readable<'a>>: Sized {
+    fn parse(item: T, parser: &mut Parser<'a>) -> ParseResult<Self>;
+}
+
+pub trait Asn1DefinedByWritable<T: Asn1Writable>: Sized {
+    fn item(&self) -> &T;
+    fn write(&self, dest: &mut Writer) -> WriteResult;
+}
+
 impl<T: SimpleAsn1Writable> Asn1Writable for T {
     #[inline]
     fn write(&self, w: &mut Writer) -> WriteResult {
@@ -1520,6 +1529,15 @@ impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T,
     const TAG: Tag = crate::explicit_tag(TAG);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         Writer::new(dest).write_element(&self.inner)
+    }
+}
+
+#[derive(PartialEq, Eq, Debug)]
+pub struct DefinedByMarker<T>(core::marker::PhantomData<T>);
+
+impl<T> DefinedByMarker<T> {
+    pub fn marker() -> DefinedByMarker<T> {
+        DefinedByMarker(core::marker::PhantomData)
     }
 }
 

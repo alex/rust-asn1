@@ -122,17 +122,18 @@ pub use crate::parser::{
 };
 pub use crate::tag::Tag;
 pub use crate::types::{
-    Asn1Readable, Asn1Writable, BMPString, BigInt, BigUint, Choice1, Choice2, Choice3, Enumerated,
-    GeneralizedTime, IA5String, Null, OctetStringEncoded, PrintableString, Sequence, SequenceOf,
-    SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable,
-    Tlv, UniversalString, UtcTime, Utf8String, VisibleString,
+    Asn1DefinedByReadable, Asn1DefinedByWritable, Asn1Readable, Asn1Writable, BMPString, BigInt,
+    BigUint, Choice1, Choice2, Choice3, DefinedByMarker, Enumerated, GeneralizedTime, IA5String,
+    Null, OctetStringEncoded, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
+    SequenceWriter, SetOf, SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv,
+    UniversalString, UtcTime, Utf8String, VisibleString,
 };
 #[cfg(feature = "const-generics")]
 pub use crate::types::{Explicit, Implicit};
 pub use crate::writer::{write, write_single, WriteBuf, WriteError, WriteResult, Writer};
 
 #[cfg(feature = "derive")]
-pub use asn1_derive::{oid, Asn1Read, Asn1Write};
+pub use asn1_derive::{oid, Asn1DefinedByRead, Asn1DefinedByWrite, Asn1Read, Asn1Write};
 
 /// Decodes an `OPTIONAL` ASN.1 value which has a `DEFAULT`. Generaly called
 /// immediately after [`Parser::read_element`].
@@ -170,4 +171,31 @@ pub const fn implicit_tag(tag: u32, inner_tag: Tag) -> Tag {
 #[doc(hidden)]
 pub const fn explicit_tag(tag: u32) -> Tag {
     Tag::new(tag, tag::TagClass::ContextSpecific, true)
+}
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+#[doc(hidden)]
+pub fn read_defined_by<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>>(
+    v: (T, DefinedByMarker<T>),
+    p: &mut Parser<'a>,
+) -> ParseResult<U> {
+    U::parse(v.0, p)
+}
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+#[doc(hidden)]
+pub fn write_defined_by<T: Asn1Writable, U: Asn1DefinedByWritable<T>>(
+    v: &U,
+    w: &mut Writer,
+) -> WriteResult {
+    v.write(w)
+}
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+#[doc(hidden)]
+pub fn writable_defined_by_item<T: Asn1Writable, U: Asn1DefinedByWritable<T>>(v: &U) -> &T {
+    v.item()
 }
