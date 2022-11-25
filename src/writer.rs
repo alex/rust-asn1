@@ -200,6 +200,7 @@ pub fn write_single<T: Asn1Writable>(v: &T) -> WriteResult<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
     use alloc::vec;
 
     use chrono::{TimeZone, Utc};
@@ -708,6 +709,14 @@ mod tests {
                 parse_single::<Tlv>(b"\x1f\x1f\x00").unwrap(),
                 b"\x1f\x1f\x00",
             ),
+        ]);
+    }
+
+    #[test]
+    fn test_write_box() {
+        assert_writes(&[
+            (Box::new(12u8), b"\x02\x01\x0c"),
+            (Box::new(0), b"\x02\x01\x00"),
         ]);
     }
 }

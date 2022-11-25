@@ -350,6 +350,7 @@ mod tests {
     };
     #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
+    use alloc::boxed::Box;
     use alloc::{format, vec};
     use chrono::{TimeZone, Utc};
     use core::fmt;
@@ -1777,5 +1778,13 @@ mod tests {
             ],
             |p| p.read_explicit_element::<bool>(2),
         );
+    }
+
+    #[test]
+    fn test_parse_box() {
+        assert_parses::<Box<u8>>(&[
+            (Ok(Box::new(12u8)), b"\x02\x01\x0c"),
+            (Ok(Box::new(0)), b"\x02\x01\x00"),
+        ]);
     }
 }

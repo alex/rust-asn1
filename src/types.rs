@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use alloc::vec;
 use core::borrow::Borrow;
 use core::convert::TryInto;
@@ -44,6 +45,14 @@ impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
     }
 }
 
+impl<'a, T: SimpleAsn1Readable<'a>> SimpleAsn1Readable<'a> for Box<T> {
+    const TAG: Tag = T::TAG;
+
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        Ok(Box::new(T::parse_data(data)?))
+    }
+}
+
 /// Any type that can be written as DER ASN.1.
 pub trait Asn1Writable: Sized {
     fn write(&self, dest: &mut Writer) -> WriteResult;
@@ -64,6 +73,13 @@ impl<T: SimpleAsn1Writable> Asn1Writable for T {
 }
 
 impl<T: SimpleAsn1Writable> SimpleAsn1Writable for &T {
+    const TAG: Tag = T::TAG;
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        T::write_data(self, dest)
+    }
+}
+
+impl<T: SimpleAsn1Writable> SimpleAsn1Writable for Box<T> {
     const TAG: Tag = T::TAG;
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         T::write_data(self, dest)
