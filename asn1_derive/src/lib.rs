@@ -5,7 +5,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::token::Comma;
 
-#[proc_macro_derive(Asn1Read, attributes(explicit, implicit, default))]
+#[proc_macro_derive(Asn1Read, attributes(explicit, implicit, default, defined_by))]
 pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -19,7 +19,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                 impl<#impl_lifetimes> asn1::SimpleAsn1Readable<#lifetime_name> for #name<#ty_lifetimes> {
                     const TAG: asn1::Tag = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
                     fn parse_data(data: &#lifetime_name [u8]) -> asn1::ParseResult<Self> {
-                        asn1::parse(data, |p| #read_block)
+                        asn1::parse(data, |p| { #read_block })
                     }
                 }
             }
@@ -47,7 +47,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     proc_macro::TokenStream::from(expanded)
 }
 
-#[proc_macro_derive(Asn1Write, attributes(explicit, implicit, default))]
+#[proc_macro_derive(Asn1Write, attributes(explicit, implicit, default, defined_by))]
 pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -84,6 +84,111 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     proc_macro::TokenStream::from(expanded)
 }
 
+#[proc_macro_derive(Asn1DefinedByRead, attributes(defined_by))]
+pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+
+    let name = input.ident;
+    let (impl_lifetimes, ty_lifetimes, lifetime_name) = add_lifetime_if_none(input.generics);
+
+    let read_block = match &input.data {
+        syn::Data::Enum(data) => data.variants.iter().map(|variant| {
+            match &variant.fields {
+                syn::Fields::Unnamed(fields) => {
+                    assert_eq!(fields.unnamed.len(), 1);
+                }
+                _ => panic!("enum elements must have a single field"),
+            };
+            let ident = &variant.ident;
+            let defined_by = variant
+                .attrs
+                .iter()
+                .find_map(|a| {
+                    if a.path.is_ident("defined_by") {
+                        Some(a.parse_args::<syn::Ident>().unwrap())
+                    } else {
+                        None
+                    }
+                })
+                .expect("Variant must have #[defined_by]");
+            quote::quote! {
+                if item == #defined_by {
+                    return Ok(#name::#ident(parser.read_element()?));
+                }
+            }
+        }),
+        _ => panic!("Only support for enums"),
+    };
+    proc_macro::TokenStream::from(quote::quote! {
+        impl<#impl_lifetimes> asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier> for #name<#ty_lifetimes> {
+            fn parse(item: asn1::ObjectIdentifier, parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
+                #(#read_block)*
+
+                Err(asn1::ParseError::new(asn1::ParseErrorKind::UnknownDefinedBy))
+            }
+        }
+    })
+}
+
+#[proc_macro_derive(Asn1DefinedByWrite, attributes(default, defined_by))]
+pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+
+    let name = input.ident;
+    let lifetimes = find_lifetimes(input.generics);
+
+    let mut write_blocks = vec![];
+    let mut item_blocks = vec![];
+    match &input.data {
+        syn::Data::Enum(data) => {
+            for variant in &data.variants {
+                match &variant.fields {
+                    syn::Fields::Unnamed(fields) => {
+                        assert_eq!(fields.unnamed.len(), 1);
+                    }
+                    _ => panic!("enum elements must have a single field"),
+                };
+                let ident = &variant.ident;
+                let defined_by = variant
+                    .attrs
+                    .iter()
+                    .find_map(|a| {
+                        if a.path.is_ident("defined_by") {
+                            Some(a.parse_args::<syn::Ident>().unwrap())
+                        } else {
+                            None
+                        }
+                    })
+                    .expect("Variant must have #[defined_by]");
+
+                write_blocks.push(quote::quote! {
+                    #name::#ident(value) => w.write_element(value),
+                });
+                item_blocks.push(quote::quote! {
+                    #name::#ident(_) => &#defined_by,
+                });
+            }
+        }
+        _ => panic!("Only support for enums"),
+    }
+
+    proc_macro::TokenStream::from(quote::quote! {
+        impl<#lifetimes> asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier> for #name<#lifetimes> {
+            fn item(&self) -> &asn1::ObjectIdentifier {
+                match self {
+                    #(#item_blocks)*
+                }
+            }
+
+            fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
+                match self {
+                    #(#write_blocks)*
+                }
+            }
+        }
+    })
+}
+
 fn find_lifetimes(mut generics: syn::Generics) -> Punctuated<syn::Lifetime, Comma> {
     let mut lifetimes = Punctuated::new();
     for param in &mut generics.params {
@@ -117,6 +222,7 @@ enum OpType {
     Regular,
     Explicit(OpTypeArgs),
     Implicit(OpTypeArgs),
+    DefinedBy(syn::Ident),
 }
 
 struct OpTypeArgs {
@@ -157,6 +263,8 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
         } else if attr.path.is_ident("default") {
             assert!(default.is_none(), "Can't specify #[default] more than once");
             default = Some(attr.parse_args::<syn::Lit>().unwrap());
+        } else if attr.path.is_ident("defined_by") {
+            op_type = OpType::DefinedBy(attr.parse_args::<syn::Ident>().unwrap());
         }
     }
 
@@ -167,6 +275,7 @@ fn generate_read_element(
     struct_name: &syn::Ident,
     f: &syn::Field,
     f_name: &str,
+    is_defined_by_marker: bool,
 ) -> proc_macro2::TokenStream {
     let (read_type, default) = extract_field_properties(&f.attrs);
 
@@ -199,8 +308,21 @@ fn generate_read_element(
                 }
             }
         }
-        OpType::Regular => quote::quote! {
-            p.read_element()#add_error_location?
+        OpType::Regular => {
+            if is_defined_by_marker {
+                let f = syn::Ident::new(f_name, proc_macro2::Span::call_site());
+                quote::quote! {{
+                    #f = (p.read_element()#add_error_location?, asn1::DefinedByMarker::marker());
+                    asn1::DefinedByMarker::marker()
+                }}
+            } else {
+                quote::quote! {
+                    p.read_element()#add_error_location?
+                }
+            }
+        }
+        OpType::DefinedBy(ident) => quote::quote! {
+            asn1::read_defined_by(#ident, p)#add_error_location?
         },
     };
     if let Some(default) = default {
@@ -217,16 +339,43 @@ fn generate_struct_read_block(
 ) -> proc_macro2::TokenStream {
     match data.fields {
         syn::Fields::Named(ref fields) => {
+            let defined_by_markers = fields
+                .named
+                .iter()
+                .filter_map(|f| {
+                    let (op_type, _) = extract_field_properties(&f.attrs);
+                    match op_type {
+                        OpType::DefinedBy(ident) => Some(ident),
+                        _ => None,
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            let defined_by_markers_definitions = defined_by_markers.iter().map(|f| {
+                quote::quote! {
+                    let #f;
+                }
+            });
+
             let recurse = fields.named.iter().map(|f| {
                 let name = &f.ident;
-                let read_op =
-                    generate_read_element(struct_name, f, &format!("{}", name.as_ref().unwrap()));
+                let is_defined_by_marker = name
+                    .as_ref()
+                    .map_or(false, |n| defined_by_markers.contains(n));
+                let read_op = generate_read_element(
+                    struct_name,
+                    f,
+                    &format!("{}", name.as_ref().unwrap()),
+                    is_defined_by_marker,
+                );
                 quote::quote_spanned! {f.span() =>
                     #name: #read_op,
                 }
             });
 
             quote::quote! {
+                #(#defined_by_markers_definitions)*
+
                 Ok(Self {
                     #(#recurse)*
                 })
@@ -234,7 +383,7 @@ fn generate_struct_read_block(
         }
         syn::Fields::Unnamed(ref fields) => {
             let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                let read_op = generate_read_element(struct_name, f, &format!("{}", i));
+                let read_op = generate_read_element(struct_name, f, &format!("{}", i), false);
                 quote::quote_spanned! {f.span() =>
                     #read_op,
                 }
@@ -322,6 +471,7 @@ fn generate_enum_read_block(
                     }
                 });
             }
+            OpType::DefinedBy(_) => panic!("Can't use #[defined_by] in an Asn1Read on an enum"),
         };
     }
 
@@ -337,6 +487,7 @@ fn generate_enum_read_block(
 fn generate_write_element(
     f: &syn::Field,
     mut field_read: proc_macro2::TokenStream,
+    defined_by_marker_origin: Option<proc_macro2::TokenStream>,
 ) -> proc_macro2::TokenStream {
     let (write_type, default) = extract_field_properties(&f.attrs);
 
@@ -371,8 +522,19 @@ fn generate_write_element(
                 }
             }
         }
-        OpType::Regular => quote::quote! {
-            w.write_element(#field_read)?;
+        OpType::Regular => {
+            if let Some(defined_by_marker_read) = defined_by_marker_origin {
+                quote::quote! {
+                    w.write_element(asn1::writable_defined_by_item(#defined_by_marker_read))?;
+                }
+            } else {
+                quote::quote! {
+                    w.write_element(#field_read)?;
+                }
+            }
+        }
+        OpType::DefinedBy(_) => quote::quote! {
+            asn1::write_defined_by(#field_read, &mut w)?;
         },
     }
 }
@@ -380,9 +542,26 @@ fn generate_write_element(
 fn generate_struct_write_block(data: &syn::DataStruct) -> proc_macro2::TokenStream {
     match data.fields {
         syn::Fields::Named(ref fields) => {
+            let defined_by_markers = fields
+                .named
+                .iter()
+                .filter_map(|f| {
+                    let (op_type, _) = extract_field_properties(&f.attrs);
+                    match op_type {
+                        OpType::DefinedBy(ident) => Some((ident, &f.ident)),
+                        _ => None,
+                    }
+                })
+                .collect::<std::collections::hash_map::HashMap<_, _>>();
+
             let recurse = fields.named.iter().map(|f| {
                 let name = &f.ident;
-                generate_write_element(f, quote::quote! { &self.#name })
+                let defined_by_marker_origin = name.as_ref().and_then(|n| {
+                    defined_by_markers.get(n).map(|v| {
+                        quote::quote! { &self.#v }
+                    })
+                });
+                generate_write_element(f, quote::quote! { &self.#name }, defined_by_marker_origin)
             });
 
             quote::quote! {
@@ -393,7 +572,7 @@ fn generate_struct_write_block(data: &syn::DataStruct) -> proc_macro2::TokenStre
         syn::Fields::Unnamed(ref fields) => {
             let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
                 let index = syn::Index::from(i);
-                generate_write_element(f, quote::quote! { &self.#index })
+                generate_write_element(f, quote::quote! { &self.#index }, None)
             });
 
             quote::quote! {
@@ -437,6 +616,7 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
                     #name::#ident(value) => w.write_implicit_element(&value, #tag),
                 }
             }
+            OpType::DefinedBy(_) => panic!("Can't use #[defined_by] in an Asn1Write on an enum"),
         }
     });
     quote::quote! {
