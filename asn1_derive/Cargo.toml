@@ -1,6 +1,6 @@
 [package]
 name = "asn1_derive"
-version = "0.12.3"
+version = "0.13.0"
 authors = ["Alex Gaynor <alex.gaynor@gmail.com>"]
 repository = "https://github.com/alex/rust-asn1"
 license = "BSD-3-Clause"
