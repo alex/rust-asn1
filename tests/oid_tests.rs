@@ -1,5 +1,3 @@
-#![cfg(feature = "derive")]
-
 #[test]
 fn test_oid_value() {
     assert_eq!(

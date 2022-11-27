@@ -54,7 +54,7 @@
 //!
 //! When built with the `derive` feature (enabled by default), these can also
 //! be expressed as Rust structs:
-//! ```text
+//! ```
 //! #[derive(asn1::Asn1Read, asn1::Asn1Write)]
 //! struct Signature {
 //!     r: u64,
@@ -72,7 +72,7 @@
 //! with struct members of those types. However on Rust < 1.51.0, this is not
 //! possible, since they require const generics. Instead, the `#[implicit]`
 //! and `#[explicit]` attributes may be used:
-//! ```text
+//! ```
 //! #[derive(asn1::Asn1Read, asn1::Asn1Write)]
 //! struct SomeSequence<'a> {
 //!     #[implicit(0)]
@@ -88,7 +88,7 @@
 //!
 //! These derives may also be used with `enum`s to generate `CHOICE`
 //! implementations.
-//! ```text
+//! ```
 //! #[derive(asn1::Asn1Read, asn1::Asn1Write)]
 //! enum Time {
 //!     UTCTime(asn1::UtcTime),
@@ -97,6 +97,37 @@
 //! ```
 //!
 //! All variants must have a single un-named field.
+//!
+//! ## DEFINED BY
+//!
+//! rust-asn1 also provides utilities for more easily handling the case of
+//! `ANY DEFINED BY` in an ASN.1 structure. For example, given the following
+//! ASN.1;
+//!
+//! ```text
+//! MySequence ::= SEQUENCE {
+//!     contentType OBJECT IDENTIFIER,
+//!     content ANY DEFINED BY contentType
+//! }
+//!```
+//!
+//! This can be represented by:
+//!
+//! ```
+//! # const SOME_OID_CONSTANT: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
+//! #[derive(asn1::Asn1Read, asn1::Asn1Write)]
+//! struct MySequence {
+//!     content_type: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
+//!     #[defined_by(content_type)]
+//!     content: Content,
+//! }
+//!
+//! #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite)]
+//! enum Content {
+//!     #[defined_by(SOME_OID_CONSTANT)]
+//!     SomeVariant(i32),
+//! }
+//! ```
 //!
 //! # Fallible allocations
 //!
@@ -132,7 +163,6 @@ pub use crate::types::{
 pub use crate::types::{Explicit, Implicit};
 pub use crate::writer::{write, write_single, WriteBuf, WriteError, WriteResult, Writer};
 
-#[cfg(feature = "derive")]
 pub use asn1_derive::{oid, Asn1DefinedByRead, Asn1DefinedByWrite, Asn1Read, Asn1Write};
 
 /// Decodes an `OPTIONAL` ASN.1 value which has a `DEFAULT`. Generaly called

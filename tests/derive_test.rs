@@ -1,5 +1,3 @@
-#![cfg(feature = "derive")]
-
 use std::fmt;
 
 fn assert_roundtrips<

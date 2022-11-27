@@ -49,7 +49,7 @@ jobs:
         RUST:
           # MSRV
           - VERSION: "1.47.0"
-            FLAGS: "--no-default-features --features std,derive"
+            FLAGS: "--no-default-features --features std"
           # MSRV for the fallible-allocations features
           - VERSION: "1.57.0"
             FLAGS: "--features fallible-allocations"
