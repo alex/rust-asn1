@@ -163,7 +163,6 @@ pub use crate::types::{
 pub use crate::types::{Explicit, Implicit};
 pub use crate::writer::{write, write_single, WriteBuf, WriteError, WriteResult, Writer};
 
-#[cfg(feature = "derive")]
 pub use asn1_derive::{oid, Asn1DefinedByRead, Asn1DefinedByWrite, Asn1Read, Asn1Write};
 
 /// Decodes an `OPTIONAL` ASN.1 value which has a `DEFAULT`. Generaly called
