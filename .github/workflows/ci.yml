@@ -38,9 +38,10 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo fmt --all --manifest-path=asn1_derive/Cargo.toml -- --check
 
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo clippy --all-targets --manifest-path=asn1_derive/Cargo.toml -- -D warnings
-      - run: cargo clippy --all-targets --all-features -- -D warnings
+      # --allow clippy::uninlined_format_args is needed because resolving it requires MSRV of 1.65
+      - run: cargo clippy --all-targets -- -D warnings --allow clippy::uninlined_format_args
+      - run: cargo clippy --all-targets --manifest-path=asn1_derive/Cargo.toml -- -D warnings --allow clippy::uninlined_format_args
+      - run: cargo clippy --all-targets --all-features -- -D warnings --allow clippy::uninlined_format_args
 
   ci:
     runs-on: ubuntu-latest
