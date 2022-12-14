@@ -16,7 +16,7 @@ jobs:
         RUST:
           - nightly
     steps:
-      - uses: actions/checkout@v3.1.0
+      - uses: actions/checkout@v3.2.0
         with:
           persist-credentials: false
 
@@ -76,7 +76,7 @@ jobs:
             FLAGS: "-Z minimal-versions"
 
     steps:
-      - uses: actions/checkout@v3.1.0
+      - uses: actions/checkout@v3.2.0
         with:
           persist-credentials: false
 
@@ -102,7 +102,7 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3.1.0
+      - uses: actions/checkout@v3.2.0
         with:
           persist-credentials: false
 
