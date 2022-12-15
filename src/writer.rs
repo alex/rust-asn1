@@ -1,7 +1,7 @@
 use crate::types::{Asn1Writable, SimpleAsn1Writable};
 use crate::Tag;
-use alloc::vec;
 use alloc::vec::Vec;
+use alloc::{fmt, vec};
 
 /// `WriteError` are returned when there is an error writing the ASN.1 data.
 ///
@@ -13,6 +13,17 @@ use alloc::vec::Vec;
 pub enum WriteError {
     AllocationError,
 }
+
+impl fmt::Display for WriteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WriteError::AllocationError => write!(f, "allocation error"),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for WriteError {}
 
 pub type WriteResult<T = ()> = Result<T, WriteError>;
 
