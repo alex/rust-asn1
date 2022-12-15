@@ -730,4 +730,9 @@ mod tests {
             (Box::new(0), b"\x02\x01\x00"),
         ]);
     }
+
+    #[test]
+    fn test_write_error_display() {
+        assert_eq!(&WriteError::AllocationError.to_string(), "allocation error");
+    }
 }
