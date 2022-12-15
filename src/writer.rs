@@ -733,6 +733,7 @@ mod tests {
 
     #[test]
     fn test_write_error_display() {
+        use alloc::string::ToString;
         assert_eq!(&WriteError::AllocationError.to_string(), "allocation error");
     }
 }
