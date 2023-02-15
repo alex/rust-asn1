@@ -20,7 +20,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@25dc93b901a87e864900a8aec6c12e9aa794c0c3
+      - uses: dtolnay/rust-toolchain@0a1713a447f74360b294fd86bc56dc23af3a9d3e
         with:
           toolchain: ${{ matrix.RUST }}
           components: rustfmt, clippy
@@ -80,7 +80,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@25dc93b901a87e864900a8aec6c12e9aa794c0c3
+      - uses: dtolnay/rust-toolchain@0a1713a447f74360b294fd86bc56dc23af3a9d3e
         with:
           toolchain: ${{ matrix.RUST.VERSION }}
 
@@ -106,7 +106,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@25dc93b901a87e864900a8aec6c12e9aa794c0c3
+      - uses: dtolnay/rust-toolchain@0a1713a447f74360b294fd86bc56dc23af3a9d3e
         with:
           toolchain: nightly
           components: llvm-tools-preview
