@@ -151,7 +151,7 @@ pub use crate::object_identifier::ObjectIdentifier;
 pub use crate::parser::{
     parse, parse_single, ParseError, ParseErrorKind, ParseLocation, ParseResult, Parser,
 };
-pub use crate::tag::Tag;
+pub use crate::tag::{Tag, TagClass};
 pub use crate::types::{
     Asn1DefinedByReadable, Asn1DefinedByWritable, Asn1Readable, Asn1Writable, BMPString, BigInt,
     BigUint, Choice1, Choice2, Choice3, DateTime, DefinedByMarker, Enumerated, Explicit,
@@ -187,9 +187,17 @@ pub fn to_optional_default<'a, T: PartialEq>(v: &'a T, default: &'a T) -> Option
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub const fn implicit_tag(tag: u32, inner_tag: Tag) -> Tag {
+    const CONTEXT_SPECIFIC_INDEX: u8 = 2u8;
+    implicit_tag_class::<CONTEXT_SPECIFIC_INDEX>(tag, inner_tag)
+}
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+#[doc(hidden)]
+pub const fn implicit_tag_class<const TAG_CLASS: u8>(tag: u32, inner_tag: Tag) -> Tag {
     Tag::new(
         tag,
-        tag::TagClass::ContextSpecific,
+        TagClass::from_u8(TAG_CLASS),
         inner_tag.is_constructed(),
     )
 }
@@ -197,8 +205,16 @@ pub const fn implicit_tag(tag: u32, inner_tag: Tag) -> Tag {
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
+pub const fn explicit_tag_class<const TAG_CLASS: u8>(tag: u32) -> Tag {
+    Tag::new(tag, TagClass::from_u8(TAG_CLASS), true)
+}
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+#[doc(hidden)]
 pub const fn explicit_tag(tag: u32) -> Tag {
-    Tag::new(tag, tag::TagClass::ContextSpecific, true)
+    const CONTEXT_SPECIFIC_INDEX: u8 = 2u8;
+    explicit_tag_class::<CONTEXT_SPECIFIC_INDEX>(tag)
 }
 
 /// This API is public so that it may be used from macros, but should not be
