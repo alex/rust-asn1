@@ -1600,7 +1600,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_implicit() {
+    fn test_parse_implicit_w_const_generics() {
         assert_parses::<Implicit<bool, 2>>(&[
             (Ok(Implicit::new(true)), b"\x82\x01\xff"),
             (Ok(Implicit::new(false)), b"\x82\x01\x00"),
@@ -1634,7 +1634,10 @@ mod tests {
             ),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
         ]);
+    }
 
+    #[test]
+    fn test_parse_implicit_wo_const_generics() {
         assert_parses_cb(
             &[
                 (Ok(Some(true)), b"\x82\x01\xff"),
