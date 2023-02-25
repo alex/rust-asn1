@@ -709,12 +709,27 @@ mod tests {
     }
 
     #[test]
-    fn test_write_explicit() {
+    fn test_write_explicit_with_const_generics() {
         assert_writes::<Explicit<bool, 2>>(&[
             (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
             (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
         ]);
 
+        const CONTEXT_SPECIFIC: u8 = TagClass::ContextSpecific as u8;
+        assert_writes::<Explicit<bool, 2, CONTEXT_SPECIFIC>>(&[
+            (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
+            (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
+        ]);
+
+        const APPLICATION: u8 = TagClass::Application as u8;
+        assert_writes::<Explicit<bool, 2, APPLICATION>>(&[
+            (Explicit::new(true), b"\x62\x03\x01\x01\xff"),
+            (Explicit::new(false), b"\x62\x03\x01\x01\x00"),
+        ]);
+    }
+
+    #[test]
+    fn test_write_explicit_without_const_generics() {
         assert_eq!(
             write(|w| { w.write_optional_explicit_element(&Some(true), 2) }).unwrap(),
             b"\xa2\x03\x01\x01\xff"

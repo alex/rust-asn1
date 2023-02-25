@@ -1505,12 +1505,17 @@ impl<'a, T: SimpleAsn1Writable, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1W
 /// `Explicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `EXPLICIT`. This will generally be used with `Option` or `Choice`.
 #[derive(PartialEq, Eq, Debug)]
-pub struct Explicit<'a, T, const TAG: u32> {
+pub struct Explicit<
+    'a,
+    T,
+    const TAG: u32,
+    const TAG_CLASS: u8 = { TagClass::ContextSpecific as u8 },
+> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
 }
 
-impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
+impl<'a, T, const TAG: u32, const TAG_CLASS: u8> Explicit<'a, T, { TAG }, { TAG_CLASS }> {
     pub fn new(v: T) -> Self {
         Explicit {
             inner: v,
@@ -1523,21 +1528,27 @@ impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
     }
 }
 
-impl<'a, T, const TAG: u32> From<T> for Explicit<'a, T, { TAG }> {
+impl<'a, T, const TAG: u32, const TAG_CLASS: u8> From<T>
+    for Explicit<'a, T, { TAG }, { TAG_CLASS }>
+{
     fn from(v: T) -> Self {
         Explicit::new(v)
     }
 }
 
-impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
-    const TAG: Tag = crate::explicit_tag(TAG);
+impl<'a, T: Asn1Readable<'a>, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Readable<'a>
+    for Explicit<'a, T, { TAG }, { TAG_CLASS }>
+{
+    const TAG: Tag = crate::explicit_tag_class::<TAG_CLASS>(TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Explicit::new(parse(data, Parser::read_element::<T>)?))
     }
 }
 
-impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T, { TAG }> {
-    const TAG: Tag = crate::explicit_tag(TAG);
+impl<'a, T: Asn1Writable, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Writable
+    for Explicit<'a, T, { TAG }, { TAG_CLASS }>
+{
+    const TAG: Tag = crate::explicit_tag_class::<TAG_CLASS>(TAG);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         Writer::new(dest).write_element(&self.inner)
     }
