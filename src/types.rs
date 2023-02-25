@@ -9,7 +9,7 @@ use core::mem;
 use crate::writer::Writer;
 use crate::{
     parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
-    ParseLocation, ParseResult, Parser, Tag, WriteBuf, WriteResult,
+    ParseLocation, ParseResult, Parser, Tag, TagClass, WriteBuf, WriteResult,
 };
 
 /// Any type that can be parsed as DER ASN.1.
@@ -1453,12 +1453,17 @@ impl<'a, T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'a,
 /// `Implicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `IMPLICIT`. This will generally be used with `Option` or `Choice`.
 #[derive(PartialEq, Eq, Debug)]
-pub struct Implicit<'a, T, const TAG: u32> {
+pub struct Implicit<
+    'a,
+    T,
+    const TAG: u32,
+    const TAG_CLASS: u8 = { TagClass::ContextSpecific as u8 },
+> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
 }
 
-impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
+impl<'a, T, const TAG: u32, const TAG_CLASS: u8> Implicit<'a, T, { TAG }, { TAG_CLASS }> {
     pub fn new(v: T) -> Self {
         Implicit {
             inner: v,
@@ -1471,24 +1476,27 @@ impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
     }
 }
 
-impl<'a, T, const TAG: u32> From<T> for Implicit<'a, T, { TAG }> {
+impl<'a, T, const TAG: u32, const TAG_CLASS: u8> From<T>
+    for Implicit<'a, T, { TAG }, { TAG_CLASS }>
+{
     fn from(v: T) -> Self {
         Implicit::new(v)
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
-    for Implicit<'a, T, { TAG }>
+impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Readable<'a>
+    for Implicit<'a, T, { TAG }, { TAG_CLASS }>
 {
-    const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
+    const TAG: Tag = crate::implicit_tag_class::<TAG_CLASS>(TAG, T::TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Implicit::new(T::parse_data(data)?))
     }
 }
 
-impl<'a, T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<'a, T, { TAG }> {
-    const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
-
+impl<'a, T: SimpleAsn1Writable, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Writable
+    for Implicit<'a, T, { TAG }, { TAG_CLASS }>
+{
+    const TAG: Tag = crate::implicit_tag_class::<TAG_CLASS>(TAG, T::TAG);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         self.inner.write_data(dest)
     }

@@ -640,12 +640,31 @@ mod tests {
     }
 
     #[test]
-    fn test_write_implicit() {
+    fn test_write_implicit_with_const_generics() {
         assert_writes::<Implicit<bool, 2>>(&[
             (Implicit::new(true), b"\x82\x01\xff"),
             (Implicit::new(false), b"\x82\x01\x00"),
         ]);
 
+        const CONTEXT_SPECIFIC: u8 = TagClass::ContextSpecific as u8;
+        assert_writes::<Implicit<bool, 2, CONTEXT_SPECIFIC>>(&[
+            (Implicit::new(true), b"\x82\x01\xff"),
+            (Implicit::new(false), b"\x82\x01\x00"),
+        ]);
+        assert_writes::<Implicit<i32, 2, CONTEXT_SPECIFIC>>(&[
+            (Implicit::new(3i32), b"\x82\x01\x03"),
+            (Implicit::new(15i32), b"\x82\x01\x0f"),
+        ]);
+
+        const APPLICATION: u8 = TagClass::Application as u8;
+        assert_writes::<Implicit<i32, 2, APPLICATION>>(&[
+            (Implicit::new(3i32), b"\x42\x01\x03"),
+            (Implicit::new(15i32), b"\x42\x01\x0f"),
+        ]);
+    }
+
+    #[test]
+    fn test_write_implicit_without_const_generics() {
         assert_eq!(
             write(|w| { w.write_optional_implicit_element(&Some(true), 2) }).unwrap(),
             b"\x82\x01\xff"
