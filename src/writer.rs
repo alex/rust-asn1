@@ -1,5 +1,5 @@
 use crate::types::{Asn1Writable, SimpleAsn1Writable};
-use crate::Tag;
+use crate::{Tag, TagClass};
 use alloc::vec::Vec;
 use alloc::{fmt, vec};
 
@@ -142,6 +142,28 @@ impl Writer<'_> {
         tag: u32,
     ) -> WriteResult {
         let tag = crate::implicit_tag(tag, T::TAG);
+        self.write_tlv(tag, |dest| val.write_data(dest))
+    }
+
+    /// This is an alias for `write_element::<Implicit<T, tag, tag_class>>` for use when
+    /// MSRV is <1.51.
+    pub fn write_implicit_application_element<T: SimpleAsn1Writable>(
+        &mut self,
+        val: &T,
+        tag: u32,
+    ) -> WriteResult {
+        let tag = crate::implicit_tag_class::<{ TagClass::Application as u8 }>(tag, T::TAG);
+        self.write_tlv(tag, |dest| val.write_data(dest))
+    }
+
+    /// This is an alias for `write_element::<Implicit<T, tag, tag_class>>` for use when
+    /// MSRV is <1.51.
+    pub fn write_implicit_context_specific_element<T: SimpleAsn1Writable>(
+        &mut self,
+        val: &T,
+        tag: u32,
+    ) -> WriteResult {
+        let tag = crate::implicit_tag_class::<{ TagClass::ContextSpecific as u8 }>(tag, T::TAG);
         self.write_tlv(tag, |dest| val.write_data(dest))
     }
 
@@ -654,6 +676,16 @@ mod tests {
             write(|w| { w.write_implicit_element(&SequenceWriter::new(&|_w| { Ok(()) }), 2) })
                 .unwrap(),
             b"\xa2\x00"
+        );
+
+        assert_eq!(
+            write(|w| { w.write_implicit_application_element(&3i32, 3) }).unwrap(),
+            b"\x43\x01\x03"
+        );
+
+        assert_eq!(
+            write(|w| { w.write_implicit_context_specific_element(&3i32, 3) }).unwrap(),
+            b"\x83\x01\x03"
         );
     }
 
