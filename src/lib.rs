@@ -187,8 +187,8 @@ pub fn to_optional_default<'a, T: PartialEq>(v: &'a T, default: &'a T) -> Option
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub const fn implicit_tag(tag: u32, inner_tag: Tag) -> Tag {
-    const CONTEXT_SPECIFIC_INDEX: u8 = 2u8;
-    implicit_tag_class::<CONTEXT_SPECIFIC_INDEX>(tag, inner_tag)
+    const CONTEXT_SPECIFIC: u8 = TagClass::ContextSpecific as u8;
+    implicit_tag_class::<CONTEXT_SPECIFIC>(tag, inner_tag)
 }
 
 /// This API is public so that it may be used from macros, but should not be
@@ -213,8 +213,8 @@ pub const fn explicit_tag_class<const TAG_CLASS: u8>(tag: u32) -> Tag {
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub const fn explicit_tag(tag: u32) -> Tag {
-    const CONTEXT_SPECIFIC_INDEX: u8 = 2u8;
-    explicit_tag_class::<CONTEXT_SPECIFIC_INDEX>(tag)
+    const CONTEXT_SPECIFIC: u8 = TagClass::ContextSpecific as u8;
+    explicit_tag_class::<CONTEXT_SPECIFIC>(tag)
 }
 
 /// This API is public so that it may be used from macros, but should not be
