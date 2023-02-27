@@ -557,6 +557,34 @@ fn test_required_explicit() {
 }
 
 #[test]
+fn test_required_explicit_application() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct RequiredExplicit {
+        #[explicit(0, 1, required)]
+        value: u8,
+    }
+
+    assert_roundtrips::<RequiredExplicit>(&[
+        (
+            Ok(RequiredExplicit { value: 8 }),
+            b"\x30\x05\x60\x03\x02\x01\x08",
+        ),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::ShortData)
+                .add_location(asn1::ParseLocation::Field("RequiredExplicit::value"))),
+            b"\x30\x00",
+        ),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
+                actual: asn1::Tag::primitive(11),
+            })
+            .add_location(asn1::ParseLocation::Field("RequiredExplicit::value"))),
+            b"\x30\x03\x0b\x01\x00",
+        ),
+    ]);
+}
+
+#[test]
 fn test_defined_by() {
     const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
     const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 5);

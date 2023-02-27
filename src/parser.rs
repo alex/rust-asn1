@@ -299,6 +299,22 @@ impl<'a> Parser<'a> {
         parse_single(tlv.data())
     }
 
+    /// This is an alias for `read_element::<Explicit<T, tag, 1>>` for use when
+    /// MSRV is < 1.51.
+    pub fn read_explicit_element_application<T: Asn1Readable<'a>>(
+        &mut self,
+        tag: u32,
+    ) -> ParseResult<T> {
+        let expected_tag = crate::explicit_tag_class::<{ TagClass::Application as u8 }>(tag);
+        let tlv = self.read_tlv()?;
+        if tlv.tag != expected_tag {
+            return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                actual: tlv.tag,
+            }));
+        }
+        parse_single(tlv.data())
+    }
+
     /// This is an alias for `read_element::<Option<Explicit<T, tag>>>` for use
     /// when MSRV is <1.51.
     pub fn read_optional_explicit_element<T: Asn1Readable<'a>>(
@@ -306,6 +322,20 @@ impl<'a> Parser<'a> {
         tag: u32,
     ) -> ParseResult<Option<T>> {
         let expected_tag = crate::explicit_tag(tag);
+        if self.peek_tag() != Some(expected_tag) {
+            return Ok(None);
+        }
+        let tlv = self.read_tlv()?;
+        Ok(Some(parse_single::<T>(tlv.data())?))
+    }
+
+    /// This is an alias for `read_element::<Option<Explicit<T, tag, 1>>>` for use
+    /// when MSRV is <1.51.
+    pub fn read_optional_explicit_element_application<T: Asn1Readable<'a>>(
+        &mut self,
+        tag: u32,
+    ) -> ParseResult<Option<T>> {
+        let expected_tag = crate::explicit_tag_class::<{ TagClass::Application as u8 }>(tag);
         if self.peek_tag() != Some(expected_tag) {
             return Ok(None);
         }

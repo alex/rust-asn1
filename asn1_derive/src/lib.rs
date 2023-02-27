@@ -299,20 +299,36 @@ fn generate_read_element(
     let mut read_op = match read_type {
         OpType::Explicit(arg) => {
             let value = arg.value;
-            if arg.required {
-                quote::quote! {
-                    p.read_explicit_element(#value)#add_error_location?
+            let tag_class = tag_class_from_literal(&arg.tagclass);
+            match tag_class {
+                TagClass::Application => {
+                    if arg.required {
+                        quote::quote! {
+                            p.read_explicit_element_application(#value)#add_error_location?
+                        }
+                    } else {
+                        quote::quote! {
+                            p.read_optional_explicit_element_application(#value)#add_error_location?
+                        }
+                    }
                 }
-            } else {
-                quote::quote! {
-                    p.read_optional_explicit_element(#value)#add_error_location?
+                _ => {
+                    if arg.required {
+                        quote::quote! {
+                            p.read_explicit_element(#value)#add_error_location?
+                        }
+                    } else {
+                        quote::quote! {
+                            p.read_optional_explicit_element(#value)#add_error_location?
+                        }
+                    }
                 }
             }
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
-            let tag_class_num = tag_class_from_literal(&arg.tagclass);
-            match tag_class_num {
+            let tag_class = tag_class_from_literal(&arg.tagclass);
+            match tag_class {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote! {
@@ -529,20 +545,36 @@ fn generate_write_element(
     match write_type {
         OpType::Explicit(arg) => {
             let value = arg.value;
-            if arg.required {
-                quote::quote_spanned! {f.span() =>
-                    w.write_explicit_element(#field_read, #value)?;
+            let tag_class = tag_class_from_literal(&arg.tagclass);
+            match tag_class {
+                TagClass::Application => {
+                    if arg.required {
+                        quote::quote_spanned! {f.span() =>
+                            w.write_explicit_element_application(#field_read, #value)?;
+                        }
+                    } else {
+                        quote::quote_spanned! {f.span() =>
+                            w.write_optional_explicit_element_application(#field_read, #value)?;
+                        }
+                    }
                 }
-            } else {
-                quote::quote_spanned! {f.span() =>
-                    w.write_optional_explicit_element(#field_read, #value)?;
+                _ => {
+                    if arg.required {
+                        quote::quote_spanned! {f.span() =>
+                            w.write_explicit_element(#field_read, #value)?;
+                        }
+                    } else {
+                        quote::quote_spanned! {f.span() =>
+                            w.write_optional_explicit_element(#field_read, #value)?;
+                        }
+                    }
                 }
             }
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
-            let tag_class_num = tag_class_from_literal(&arg.tagclass);
-            match tag_class_num {
+            let tag_class = tag_class_from_literal(&arg.tagclass);
+            match tag_class {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote_spanned! {f.span() =>
