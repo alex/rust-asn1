@@ -1600,10 +1600,32 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_implicit_w_const_generics() {
+    fn test_parse_implicit_with_const_generics() {
         assert_parses::<Implicit<bool, 2>>(&[
             (Ok(Implicit::new(true)), b"\x82\x01\xff"),
             (Ok(Implicit::new(false)), b"\x82\x01\x00"),
+            (
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: Tag::primitive(0x01),
+                })),
+                b"\x01\x01\xff",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                    actual: Tag::primitive(0x02),
+                })),
+                b"\x02\x01\xff",
+            ),
+        ]);
+        const CONTEXT_SPECIFIC: u8 = TagClass::ContextSpecific as u8;
+        assert_parses::<Implicit<bool, 2, { CONTEXT_SPECIFIC }>>(&[
+            (Ok(Implicit::new(true)), b"\x82\x01\xff"),
+            (Ok(Implicit::new(false)), b"\x82\x01\x00"),
+        ]);
+        const APPLICATION: u8 = TagClass::Application as u8;
+        assert_parses::<Implicit<bool, 2, { APPLICATION }>>(&[
+            (Ok(Implicit::new(true)), b"\x42\x01\xff"),
+            (Ok(Implicit::new(false)), b"\x42\x01\x00"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
                     actual: Tag::primitive(0x01),
@@ -1637,7 +1659,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_implicit_wo_const_generics() {
+    fn test_parse_implicit_without_const_generics() {
         assert_parses_cb(
             &[
                 (Ok(Some(true)), b"\x82\x01\xff"),
