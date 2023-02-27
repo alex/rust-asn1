@@ -1,3 +1,4 @@
+use asn1::{Implicit, TagClass, Utf8String};
 use std::fmt;
 
 fn assert_roundtrips<
@@ -433,7 +434,7 @@ fn test_error_parse_location() {
 fn test_required_implicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct RequiredImplicit {
-        #[implicit(0, required)]
+        #[implicit(0, 0, required)]
         value: u8,
     }
 
@@ -455,10 +456,83 @@ fn test_required_implicit() {
 }
 
 #[test]
+fn test_implicit_struct() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct InitiateSession<'a> {
+        #[implicit(10, 1, required)]
+        a: &'a [u8],
+        #[implicit(11, 1, required)]
+        b: &'a [u8],
+        #[implicit(31, 1)]
+        c: Option<asn1::Utf8String<'a>>,
+        #[implicit(32, 1)]
+        d: Option<&'a [u8]>,
+    }
+
+    let a: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+    let b: Vec<u8> = vec![1, 2, 3, 4, 5, 6, 7, 8];
+    let c = "Hallo Yasin";
+    let d: Vec<u8> = vec![1, 2];
+
+    let session = InitiateSession {
+        a: &a,
+        b: &b,
+        c: Some(Utf8String::new(c)),
+        d: Some(&d),
+    };
+
+    const TAG_NUMBER: u32 = 0u32;
+    const TAG_CLASS: u8 = TagClass::Application as u8;
+    let implicit_application_sequence =
+        Implicit::<InitiateSession, TAG_NUMBER, TAG_CLASS>::new(session);
+
+    let bytes =
+        asn1::write_single::<Implicit<InitiateSession, 0, 1>>(&implicit_application_sequence)
+            .unwrap();
+    let expected_bytes: Vec<u8> = vec![
+        0x60, 0x27, // session itself
+        0x4a, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, // a
+        0x4b, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, // b
+        0x5f, 0x1f, 0x0b, 0x48, 0x61, 0x6c, 0x6c, 0x6f, 0x20, 0x59, 0x61, 0x73, 0x69, 0x6e,
+        0x5f, // c
+        0x20, 0x02, 0x01, 0x02, // d
+    ];
+    assert_roundtrips::<Implicit<InitiateSession, 0, 1>>(&[(
+        Ok(implicit_application_sequence),
+        &expected_bytes,
+    )]);
+}
+
+#[test]
+fn test_required_implicit_application() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct RequiredImplicit {
+        #[implicit(2, 1, required)]
+        value: u8,
+    }
+
+    assert_roundtrips::<RequiredImplicit>(&[
+        (Ok(RequiredImplicit { value: 8 }), b"\x30\x03\x42\x01\x08"),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::ShortData)
+                .add_location(asn1::ParseLocation::Field("RequiredImplicit::value"))),
+            b"\x30\x00",
+        ),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag {
+                actual: asn1::Tag::primitive(11),
+            })
+            .add_location(asn1::ParseLocation::Field("RequiredImplicit::value"))),
+            b"\x30\x03\x0b\x01\x00",
+        ),
+    ]);
+}
+
+#[test]
 fn test_required_explicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct RequiredExplicit {
-        #[explicit(0, required)]
+        #[explicit(0, 0, required)]
         value: u8,
     }
 

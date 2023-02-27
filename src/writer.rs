@@ -182,6 +182,21 @@ impl Writer<'_> {
         }
     }
 
+    /// This is an alias for `write_element::<Option<Implicit<T, tag, 1>>>` for
+    /// use when MSRV is <1.51.
+    pub fn write_optional_implicit_application_element<T: SimpleAsn1Writable>(
+        &mut self,
+        val: &Option<T>,
+        tag: u32,
+    ) -> WriteResult {
+        if let Some(v) = val {
+            let tag = crate::implicit_tag_class::<{ TagClass::Application as u8 }>(tag, T::TAG);
+            self.write_tlv(tag, |dest| v.write_data(dest))
+        } else {
+            Ok(())
+        }
+    }
+
     /// Writes a TLV with the specified tag where the value is any bytes
     /// written to the `Vec` in the callback. The length portion of the
     /// TLV is automatically computed.

@@ -1,5 +1,5 @@
 use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
-use crate::Tag;
+use crate::{Tag, TagClass};
 use core::fmt;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -326,6 +326,23 @@ impl<'a> Parser<'a> {
         T::parse_data(tlv.data())
     }
 
+    /// This is an alias for `read_element::<Implicit<T, tag, 1>>` for use when
+    /// MSRV is <1.51.
+    pub fn read_implicit_element_application<T: SimpleAsn1Readable<'a>>(
+        &mut self,
+        tag: u32,
+    ) -> ParseResult<T> {
+        let expected_tag =
+            crate::implicit_tag_class::<{ TagClass::Application as u8 }>(tag, T::TAG);
+        let tlv = self.read_tlv()?;
+        if tlv.tag != expected_tag {
+            return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                actual: tlv.tag,
+            }));
+        }
+        T::parse_data(tlv.data())
+    }
+
     /// This is an alias for `read_element::<Option<Implicit<T, tag>>>` for use
     /// when MSRV is <1.51.
     pub fn read_optional_implicit_element<T: SimpleAsn1Readable<'a>>(
@@ -333,6 +350,21 @@ impl<'a> Parser<'a> {
         tag: u32,
     ) -> ParseResult<Option<T>> {
         let expected_tag = crate::implicit_tag(tag, T::TAG);
+        if self.peek_tag() != Some(expected_tag) {
+            return Ok(None);
+        }
+        let tlv = self.read_tlv()?;
+        Ok(Some(T::parse_data(tlv.data())?))
+    }
+
+    /// This is an alias for `read_element::<Option<Implicit<T, tag, 1>>>` for use
+    /// when MSRV is <1.51.
+    pub fn read_optional_implicit_element_application<T: SimpleAsn1Readable<'a>>(
+        &mut self,
+        tag: u32,
+    ) -> ParseResult<Option<T>> {
+        let expected_tag =
+            crate::implicit_tag_class::<{ TagClass::Application as u8 }>(tag, T::TAG);
         if self.peek_tag() != Some(expected_tag) {
             return Ok(None);
         }

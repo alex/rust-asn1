@@ -227,20 +227,33 @@ enum OpType {
 
 struct OpTypeArgs {
     value: proc_macro2::Literal,
+    tagclass: proc_macro2::Literal,
     required: bool,
 }
 
 impl syn::parse::Parse for OpTypeArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let value = input.parse::<proc_macro2::Literal>()?;
-        let required = if input.lookahead1().peek(syn::Token![,]) {
+        let (tagclass, required) = if input.lookahead1().peek(syn::Token![,]) {
             input.parse::<syn::Token![,]>()?;
-            assert_eq!(input.parse::<syn::Ident>()?, "required");
-            true
+            let other_value_literal = input.parse::<proc_macro2::Literal>()?;
+            let required = if input.lookahead1().peek(syn::Token![,]) {
+                input.parse::<syn::Token![,]>()?;
+                assert_eq!(input.parse::<syn::Ident>()?, "required");
+                true
+            } else {
+                false
+            };
+            (other_value_literal, required)
         } else {
-            false
+            (proc_macro2::Literal::u8_suffixed(0), false)
         };
-        Ok(OpTypeArgs { value, required })
+
+        Ok(OpTypeArgs {
+            value,
+            tagclass,
+            required,
+        })
     }
 }
 
@@ -298,13 +311,29 @@ fn generate_read_element(
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
-            if arg.required {
-                quote::quote! {
-                    p.read_implicit_element(#value)#add_error_location?
+            let tag_class_num = tag_class_from_literal(&arg.tagclass);
+            match tag_class_num {
+                TagClass::Application => {
+                    if arg.required {
+                        quote::quote! {
+                            p.read_implicit_element_application(#value)#add_error_location?
+                        }
+                    } else {
+                        quote::quote! {
+                            p.read_optional_implicit_element_application(#value)#add_error_location?
+                        }
+                    }
                 }
-            } else {
-                quote::quote! {
-                    p.read_optional_implicit_element(#value)#add_error_location?
+                _ => {
+                    if arg.required {
+                        quote::quote! {
+                            p.read_implicit_element(#value)#add_error_location?
+                        }
+                    } else {
+                        quote::quote! {
+                            p.read_optional_implicit_element(#value)#add_error_location?
+                        }
+                    }
                 }
             }
         }
@@ -512,13 +541,29 @@ fn generate_write_element(
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
-            if arg.required {
-                quote::quote_spanned! {f.span() =>
-                    w.write_implicit_element(#field_read, #value)?;
+            let tag_class_num = tag_class_from_literal(&arg.tagclass);
+            match tag_class_num {
+                TagClass::Application => {
+                    if arg.required {
+                        quote::quote_spanned! {f.span() =>
+                            w.write_implicit_application_element(#field_read, #value)?;
+                        }
+                    } else {
+                        quote::quote_spanned! {f.span() =>
+                            w.write_optional_implicit_application_element(#field_read, #value)?;
+                        }
+                    }
                 }
-            } else {
-                quote::quote_spanned! {f.span() =>
-                    w.write_optional_implicit_element(#field_read, #value)?;
+                _ => {
+                    if arg.required {
+                        quote::quote_spanned! {f.span() =>
+                            w.write_implicit_element(#field_read, #value)?;
+                        }
+                    } else {
+                        quote::quote_spanned! {f.span() =>
+                            w.write_optional_implicit_element(#field_read, #value)?;
+                        }
+                    }
                 }
             }
         }
@@ -536,6 +581,22 @@ fn generate_write_element(
         OpType::DefinedBy(_) => quote::quote! {
             asn1::write_defined_by(#field_read, &mut w)?;
         },
+    }
+}
+
+enum TagClass {
+    Universal,
+    Application,
+    ContextSpecific,
+    Private,
+}
+
+fn tag_class_from_literal(literal: &proc_macro2::Literal) -> TagClass {
+    match literal.to_string().parse::<u8>().unwrap_or(0) {
+        0 => TagClass::Universal,
+        1 => TagClass::Application,
+        2 => TagClass::ContextSpecific,
+        _ => TagClass::Private,
     }
 }
 
