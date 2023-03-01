@@ -16,7 +16,8 @@ impl TagClass {
             0 => TagClass::Universal,
             1 => TagClass::Application,
             2 => TagClass::ContextSpecific,
-            _ => TagClass::Private,
+            3 => TagClass::Private,
+            _ => panic!("No matching tag class bits")
         }
     }
 }
@@ -43,16 +44,7 @@ impl Tag {
         let constructed = tag & CONSTRUCTED == CONSTRUCTED;
 
         let tag_class_bits = tag >> 6;
-        let class = if tag_class_bits == TagClass::Universal as u8 {
-            TagClass::Universal
-        } else if tag_class_bits == TagClass::Application as u8 {
-            TagClass::Application
-        } else if tag_class_bits == TagClass::ContextSpecific as u8 {
-            TagClass::ContextSpecific
-        } else {
-            assert!(tag_class_bits == TagClass::Private as u8);
-            TagClass::Private
-        };
+        let class = TagClass::from_u8(tag_class_bits);
 
         // Long form tag
         if value == 0x1f {
@@ -139,13 +131,35 @@ mod tests {
     use super::{Tag, TagClass, CONSTRUCTED};
 
     #[test]
-    fn test_class_from_u8() {
+    fn test_tagclass_from_u8() {
         assert_eq!(TagClass::from_u8(0), TagClass::Universal);
         assert_eq!(TagClass::from_u8(1), TagClass::Application);
         assert_eq!(TagClass::from_u8(2), TagClass::ContextSpecific);
-        for i in 3..7 {
-            assert_eq!(TagClass::from_u8(i), TagClass::Private);
-        }
+        assert_eq!(TagClass::from_u8(3), TagClass::Private);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_tagclass_from_u8_given_4_should_panic() {
+        TagClass::from_u8(4);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_tagclass_from_u8_given_5_should_panic() {
+        TagClass::from_u8(5);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_tagclass_from_u8_given_6_should_panic() {
+        TagClass::from_u8(6);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_tagclass_from_u8_given_7_should_panic() {
+        TagClass::from_u8(7);
     }
 
     #[test]
