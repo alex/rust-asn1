@@ -1,5 +1,5 @@
 use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
-use crate::{Tag, TagClass};
+use crate::Tag;
 use core::fmt;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -305,7 +305,7 @@ impl<'a> Parser<'a> {
         &mut self,
         tag: u32,
     ) -> ParseResult<T> {
-        let expected_tag = crate::explicit_tag_class::<{ TagClass::Application as u8 }>(tag);
+        let expected_tag = crate::explicit_tag_application(tag);
         let tlv = self.read_tlv()?;
         if tlv.tag != expected_tag {
             return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
@@ -335,7 +335,7 @@ impl<'a> Parser<'a> {
         &mut self,
         tag: u32,
     ) -> ParseResult<Option<T>> {
-        let expected_tag = crate::explicit_tag_class::<{ TagClass::Application as u8 }>(tag);
+        let expected_tag = crate::explicit_tag_application(tag);
         if self.peek_tag() != Some(expected_tag) {
             return Ok(None);
         }
@@ -363,7 +363,7 @@ impl<'a> Parser<'a> {
         tag: u32,
     ) -> ParseResult<T> {
         let expected_tag =
-            crate::implicit_tag_class::<{ TagClass::Application as u8 }>(tag, T::TAG);
+            crate::implicit_tag_application(tag, T::TAG);
         let tlv = self.read_tlv()?;
         if tlv.tag != expected_tag {
             return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
@@ -394,7 +394,7 @@ impl<'a> Parser<'a> {
         tag: u32,
     ) -> ParseResult<Option<T>> {
         let expected_tag =
-            crate::implicit_tag_class::<{ TagClass::Application as u8 }>(tag, T::TAG);
+            crate::implicit_tag_application(tag, T::TAG);
         if self.peek_tag() != Some(expected_tag) {
             return Ok(None);
         }

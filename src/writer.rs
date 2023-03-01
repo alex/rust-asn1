@@ -126,7 +126,7 @@ impl Writer<'_> {
         val: &T,
         tag: u32,
     ) -> WriteResult {
-        let tag = crate::explicit_tag_class::<{ TagClass::Application as u8 }>(tag);
+        let tag = crate::explicit_tag_application(tag);
         self.write_tlv(tag, |dest| Writer::new(dest).write_element(val))
     }
 
@@ -153,7 +153,7 @@ impl Writer<'_> {
         tag: u32,
     ) -> WriteResult {
         if let Some(v) = val {
-            let tag = crate::explicit_tag_class::<{ TagClass::Application as u8 }>(tag);
+            let tag = crate::explicit_tag_application(tag);
             self.write_tlv(tag, |dest| Writer::new(dest).write_element(v))
         } else {
             Ok(())
@@ -178,7 +178,7 @@ impl Writer<'_> {
         val: &T,
         tag: u32,
     ) -> WriteResult {
-        let tag = crate::implicit_tag_class::<{ TagClass::Application as u8 }>(tag, T::TAG);
+        let tag = crate::implicit_tag_application(tag, T::TAG);
         self.write_tlv(tag, |dest| val.write_data(dest))
     }
 
@@ -189,7 +189,7 @@ impl Writer<'_> {
         val: &T,
         tag: u32,
     ) -> WriteResult {
-        let tag = crate::implicit_tag_class::<{ TagClass::ContextSpecific as u8 }>(tag, T::TAG);
+        let tag = crate::implicit_tag_context_specific(tag, T::TAG);
         self.write_tlv(tag, |dest| val.write_data(dest))
     }
 
@@ -216,7 +216,7 @@ impl Writer<'_> {
         tag: u32,
     ) -> WriteResult {
         if let Some(v) = val {
-            let tag = crate::implicit_tag_class::<{ TagClass::Application as u8 }>(tag, T::TAG);
+            let tag = crate::implicit_tag_application(tag, T::TAG);
             self.write_tlv(tag, |dest| v.write_data(dest))
         } else {
             Ok(())
