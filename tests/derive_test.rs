@@ -434,7 +434,7 @@ fn test_error_parse_location() {
 fn test_required_implicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct RequiredImplicit {
-        #[implicit(0, 0, required)]
+        #[implicit(0, required)]
         value: u8,
     }
 
@@ -459,13 +459,13 @@ fn test_required_implicit() {
 fn test_implicit_struct() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
     struct InitiateSession<'a> {
-        #[implicit(10, 1, required)]
+        #[implicit(10, required, application)]
         a: &'a [u8],
-        #[implicit(11, 1, required)]
+        #[implicit(11, required, application)]
         b: &'a [u8],
-        #[implicit(31, 1)]
+        #[implicit(31, application)]
         c: Option<asn1::Utf8String<'a>>,
-        #[implicit(32, 1)]
+        #[implicit(32, application)]
         d: Option<&'a [u8]>,
     }
 
@@ -485,7 +485,7 @@ fn test_implicit_struct() {
     const TAG_CLASS: u8 = TagClass::Application as u8;
     let implicit_application_sequence =
         Implicit::<InitiateSession, TAG_NUMBER, TAG_CLASS>::new(session);
-    let expected_bytes: Vec<u8> = vec![
+        let expected_bytes: Vec<u8> = vec![
         0x60, 0x27, // session itself
         0x4a, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, // a
         0x4b, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, // b
@@ -503,7 +503,7 @@ fn test_implicit_struct() {
 fn test_required_implicit_application() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct RequiredImplicit {
-        #[implicit(2, 1, required)]
+        #[implicit(2, required, application)]
         value: u8,
     }
 
@@ -528,7 +528,7 @@ fn test_required_implicit_application() {
 fn test_required_explicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct RequiredExplicit {
-        #[explicit(0, 0, required)]
+        #[explicit(0, required)]
         value: u8,
     }
 
@@ -556,7 +556,7 @@ fn test_required_explicit() {
 fn test_required_explicit_application() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct RequiredExplicit {
-        #[explicit(0, 1, required)]
+        #[explicit(0, required, application)]
         value: u8,
     }
 

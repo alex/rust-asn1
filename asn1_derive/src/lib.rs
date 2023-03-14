@@ -227,8 +227,8 @@ enum OpType {
 
 struct OpTypeArgs {
     value: proc_macro2::Literal,
-    tagclass: proc_macro2::Literal,
     required: bool,
+    tagclass: TagClass,
 }
 
 impl syn::parse::Parse for OpTypeArgs {
@@ -236,17 +236,30 @@ impl syn::parse::Parse for OpTypeArgs {
         let value = input.parse::<proc_macro2::Literal>()?;
         let (tagclass, required) = if input.lookahead1().peek(syn::Token![,]) {
             input.parse::<syn::Token![,]>()?;
-            let other_value_literal = input.parse::<proc_macro2::Literal>()?;
-            let required = if input.lookahead1().peek(syn::Token![,]) {
-                input.parse::<syn::Token![,]>()?;
-                assert_eq!(input.parse::<syn::Ident>()?, "required");
-                true
-            } else {
-                false
+
+            let (required, mut tagclass) = match input.parse::<syn::Ident>()?.to_string().as_str(){
+                "required" => (true, TagClass::Universal),
+                "application" => (false, TagClass::Application),
+                "private" => (false, TagClass::Private),
+                "context" => (false, TagClass::ContextSpecific),
+                "universal" => (false, TagClass::Universal),
+                _ => panic!("Expected one of the following: required, application, private, context, universal")
             };
-            (other_value_literal, required)
+
+            if input.lookahead1().peek(syn::Token![,]) {
+                input.parse::<syn::Token![,]>()?;
+                tagclass = match input.parse::<syn::Ident>()?.to_string().as_str(){
+                    "application" => TagClass::Application,
+                    "private" => TagClass::Private,
+                    "context" => TagClass::ContextSpecific,
+                    "universal" => TagClass::Universal,
+                    _ => panic!("Could not parse ident: Expected: application, private, context or universal")
+                };
+            };
+
+            (tagclass, required)
         } else {
-            (proc_macro2::Literal::u8_suffixed(0), false)
+            (TagClass::Universal, false)
         };
 
         Ok(OpTypeArgs {
@@ -299,8 +312,7 @@ fn generate_read_element(
     let mut read_op = match read_type {
         OpType::Explicit(arg) => {
             let value = arg.value;
-            let tag_class = tag_class_from_literal(&arg.tagclass);
-            match tag_class {
+            match arg.tagclass {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote! {
@@ -327,8 +339,7 @@ fn generate_read_element(
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
-            let tag_class = tag_class_from_literal(&arg.tagclass);
-            match tag_class {
+            match arg.tagclass {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote! {
@@ -545,8 +556,7 @@ fn generate_write_element(
     match write_type {
         OpType::Explicit(arg) => {
             let value = arg.value;
-            let tag_class = tag_class_from_literal(&arg.tagclass);
-            match tag_class {
+            match arg.tagclass {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote_spanned! {f.span() =>
@@ -573,8 +583,7 @@ fn generate_write_element(
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
-            let tag_class = tag_class_from_literal(&arg.tagclass);
-            match tag_class {
+            match arg.tagclass {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote_spanned! {f.span() =>
@@ -621,15 +630,6 @@ enum TagClass {
     Application,
     ContextSpecific,
     Private,
-}
-
-fn tag_class_from_literal(literal: &proc_macro2::Literal) -> TagClass {
-    match literal.to_string().parse::<u8>().unwrap_or(0) {
-        0 => TagClass::Universal,
-        1 => TagClass::Application,
-        2 => TagClass::ContextSpecific,
-        _ => TagClass::Private,
-    }
 }
 
 fn generate_struct_write_block(data: &syn::DataStruct) -> proc_macro2::TokenStream {
