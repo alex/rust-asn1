@@ -17,7 +17,7 @@ impl TagClass {
             1 => TagClass::Application,
             2 => TagClass::ContextSpecific,
             3 => TagClass::Private,
-            _ => panic!("No matching tag class bits")
+            _ => panic!("No matching tag class bits"),
         }
     }
 }

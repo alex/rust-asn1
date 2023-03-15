@@ -206,22 +206,14 @@ pub const fn implicit_tag(tag: u32, inner_tag: Tag) -> Tag {
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub const fn implicit_tag_application(tag: u32, inner_tag: Tag) -> Tag {
-    Tag::new(
-        tag,
-        TagClass::Application,
-        inner_tag.is_constructed()
-    )
+    Tag::new(tag, TagClass::Application, inner_tag.is_constructed())
 }
 
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub const fn implicit_tag_context_specific(tag: u32, inner_tag: Tag) -> Tag {
-    Tag::new(
-        tag,
-        TagClass::ContextSpecific,
-        inner_tag.is_constructed()
-    )
+    Tag::new(tag, TagClass::ContextSpecific, inner_tag.is_constructed())
 }
 
 /// This API is public so that it may be used from macros, but should not be
@@ -231,7 +223,6 @@ pub const fn implicit_tag_context_specific(tag: u32, inner_tag: Tag) -> Tag {
 pub const fn explicit_tag_class<const TAG_CLASS: u8>(tag: u32) -> Tag {
     Tag::new(tag, TagClass::from_u8(TAG_CLASS), true)
 }
-
 
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
