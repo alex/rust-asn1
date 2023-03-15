@@ -121,7 +121,7 @@ impl Writer<'_> {
 
     /// This is an alias for `write_element::<Explicit<T, tag, 1>>` for use when
     /// MSRV is <1.51.
-    pub fn write_explicit_element_application<T: Asn1Writable>(
+    pub fn write_explicit_application_element<T: Asn1Writable>(
         &mut self,
         val: &T,
         tag: u32,
@@ -147,7 +147,7 @@ impl Writer<'_> {
 
     /// This is an alias for `write_element::<Option<Explicit<T, tag, 1>>>` for
     /// use when MSRV is <1.51.
-    pub fn write_optional_explicit_element_application<T: Asn1Writable>(
+    pub fn write_optional_explicit_application_element<T: Asn1Writable>(
         &mut self,
         val: &Option<T>,
         tag: u32,
@@ -705,13 +705,26 @@ mod tests {
     }
 
     #[test]
-    fn test_write_implicit_without_const_generics() {
+    fn test_write_without_const_generics() {
         assert_eq!(
             write(|w| { w.write_optional_implicit_element(&Some(true), 2) }).unwrap(),
             b"\x82\x01\xff"
         );
         assert_eq!(
+            write(|w| { w.write_optional_implicit_application_element(&Some(true), 2) }).unwrap(),
+            b"\x42\x01\xff"
+        );
+        assert_eq!(
+            write(|w| { w.write_optional_implicit_application_element::<u8>(&None, 2) }).unwrap(),
+            b""
+        );
+
+        assert_eq!(
             write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }).unwrap(),
+            b""
+        );
+        assert_eq!(
+            write(|w| { w.write_optional_explicit_application_element::<u8>(&None, 2) }).unwrap(),
             b""
         );
 
@@ -725,6 +738,16 @@ mod tests {
         assert_eq!(
             write(|w| { w.write_optional_explicit_element::<SequenceWriter>(&None, 2) }).unwrap(),
             b""
+        );
+        assert_eq!(
+            write(|w| {
+                w.write_optional_explicit_application_element(
+                    &Some(SequenceWriter::new(&|_w| Ok(()))),
+                    2,
+                )
+            })
+            .unwrap(),
+            b"\x62\x02\x30\0"
         );
 
         assert_eq!(

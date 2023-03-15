@@ -301,7 +301,7 @@ impl<'a> Parser<'a> {
 
     /// This is an alias for `read_element::<Explicit<T, tag, 1>>` for use when
     /// MSRV is < 1.51.
-    pub fn read_explicit_element_application<T: Asn1Readable<'a>>(
+    pub fn read_explicit_application_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
     ) -> ParseResult<T> {
@@ -331,7 +331,7 @@ impl<'a> Parser<'a> {
 
     /// This is an alias for `read_element::<Option<Explicit<T, tag, 1>>>` for use
     /// when MSRV is <1.51.
-    pub fn read_optional_explicit_element_application<T: Asn1Readable<'a>>(
+    pub fn read_optional_explicit_application_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
     ) -> ParseResult<Option<T>> {
@@ -358,7 +358,7 @@ impl<'a> Parser<'a> {
 
     /// This is an alias for `read_element::<Implicit<T, tag, 1>>` for use when
     /// MSRV is <1.51.
-    pub fn read_implicit_element_application<T: SimpleAsn1Readable<'a>>(
+    pub fn read_implicit_application_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,
     ) -> ParseResult<T> {
@@ -388,7 +388,7 @@ impl<'a> Parser<'a> {
 
     /// This is an alias for `read_element::<Option<Implicit<T, tag, 1>>>` for use
     /// when MSRV is <1.51.
-    pub fn read_optional_implicit_element_application<T: SimpleAsn1Readable<'a>>(
+    pub fn read_optional_implicit_application_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,
     ) -> ParseResult<Option<T>> {
@@ -1736,6 +1736,24 @@ mod tests {
             ],
             |p| p.read_optional_implicit_element::<bool>(2),
         );
+
+        assert_parses_cb(
+            &[
+                (Ok(Some(true)), b"\x42\x01\xff"),
+                (Ok(Some(false)), b"\x42\x01\x00"),
+                (Ok(None), b""),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x02\x01\xff",
+                ),
+            ],
+            |p| p.read_optional_implicit_application_element::<bool>(2),
+        );
+
         assert_parses_cb(
             &[
                 (Ok(Some(Sequence::new(b"abc"))), b"\xa2\x03abc"),
@@ -1751,6 +1769,23 @@ mod tests {
                 ),
             ],
             |p| p.read_optional_implicit_element::<Sequence>(2),
+        );
+
+        assert_parses_cb(
+            &[
+                (Ok(Some(Sequence::new(b"abc"))), b"\x62\x03abc"),
+                (Ok(Some(Sequence::new(b""))), b"\x62\x00"),
+                (Ok(None), b""),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x02\x01\xff",
+                ),
+            ],
+            |p| p.read_optional_implicit_application_element::<Sequence>(2),
         );
 
         assert_parses_cb(
@@ -1837,6 +1872,25 @@ mod tests {
                 ),
             ],
             |p| p.read_optional_explicit_element::<bool>(2),
+        );
+
+        assert_parses_cb(
+            &[
+                (Ok(Some(true)), b"\x62\x03\x01\x01\xff"),
+                (Ok(Some(false)), b"\x62\x03\x01\x01\x00"),
+                (Ok(None), b""),
+                (
+                    Err(ParseError::new(ParseErrorKind::ExtraData)),
+                    b"\x01\x01\xff",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
+                        actual: Tag::primitive(0x03),
+                    })),
+                    b"\x62\x03\x03\x01\xff",
+                ),
+            ],
+            |p| p.read_optional_explicit_application_element::<bool>(2),
         );
 
         assert_parses_cb(

@@ -317,11 +317,11 @@ fn generate_read_element(
                 TagClass::Application => {
                     if arg.required {
                         quote::quote! {
-                            p.read_explicit_element_application(#value)#add_error_location?
+                            p.read_explicit_application_element(#value)#add_error_location?
                         }
                     } else {
                         quote::quote! {
-                            p.read_optional_explicit_element_application(#value)#add_error_location?
+                            p.read_optional_explicit_application_element(#value)#add_error_location?
                         }
                     }
                 }
@@ -344,11 +344,11 @@ fn generate_read_element(
                 TagClass::Application => {
                     if arg.required {
                         quote::quote! {
-                            p.read_implicit_element_application(#value)#add_error_location?
+                            p.read_implicit_application_element(#value)#add_error_location?
                         }
                     } else {
                         quote::quote! {
-                            p.read_optional_implicit_element_application(#value)#add_error_location?
+                            p.read_optional_implicit_application_element(#value)#add_error_location?
                         }
                     }
                 }
@@ -561,11 +561,11 @@ fn generate_write_element(
                 TagClass::Application => {
                     if arg.required {
                         quote::quote_spanned! {f.span() =>
-                            w.write_explicit_element_application(#field_read, #value)?;
+                            w.write_explicit_application_element(#field_read, #value)?;
                         }
                     } else {
                         quote::quote_spanned! {f.span() =>
-                            w.write_optional_explicit_element_application(#field_read, #value)?;
+                            w.write_optional_explicit_application_element(#field_read, #value)?;
                         }
                     }
                 }
