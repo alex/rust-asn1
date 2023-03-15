@@ -1,4 +1,4 @@
-use asn1::{Implicit, TagClass, Utf8String};
+use asn1::{TagClass, Utf8String};
 use std::fmt;
 
 fn assert_roundtrips<
@@ -455,8 +455,11 @@ fn test_required_implicit() {
     ]);
 }
 
+#[cfg(feature = "const-generics")]
 #[test]
-fn test_implicit_struct() {
+fn test_implicit_struct_with_const_generics() {
+    use asn1::Implicit;
+
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
     struct InitiateSession<'a> {
         #[implicit(10, required, application)]
