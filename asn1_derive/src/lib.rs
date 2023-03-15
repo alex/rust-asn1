@@ -231,30 +231,31 @@ struct OpTypeArgs {
     tagclass: TagClass,
 }
 
+fn parse_tag_class_from_ident(ident: &str) -> Option<TagClass> {
+    match ident {
+        "application" => Some(TagClass::Application),
+        "private" => Some(TagClass::Private),
+        "context" => Some(TagClass::ContextSpecific),
+        "universal" => Some(TagClass::Universal),
+        _ => None,
+    }
+}
+
 impl syn::parse::Parse for OpTypeArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let value = input.parse::<proc_macro2::Literal>()?;
         let (tagclass, required) = if input.lookahead1().peek(syn::Token![,]) {
             input.parse::<syn::Token![,]>()?;
 
-            let (required, mut tagclass) = match input.parse::<syn::Ident>()?.to_string().as_str(){
-                "required" => (true, TagClass::Universal),
-                "application" => (false, TagClass::Application),
-                "private" => (false, TagClass::Private),
-                "context" => (false, TagClass::ContextSpecific),
-                "universal" => (false, TagClass::Universal),
-                _ => panic!("Expected one of the following: required, application, private, context, universal")
-            };
+            let ident = input.parse::<syn::Ident>()?.to_string();
+            let mut tagclass = parse_tag_class_from_ident(&ident).unwrap_or(TagClass::Universal);
+            let required = &ident == "required";
 
             if input.lookahead1().peek(syn::Token![,]) {
                 input.parse::<syn::Token![,]>()?;
-                tagclass = match input.parse::<syn::Ident>()?.to_string().as_str(){
-                    "application" => TagClass::Application,
-                    "private" => TagClass::Private,
-                    "context" => TagClass::ContextSpecific,
-                    "universal" => TagClass::Universal,
-                    _ => panic!("Could not parse ident: Expected: application, private, context or universal")
-                };
+                tagclass =
+                    parse_tag_class_from_ident(input.parse::<syn::Ident>()?.to_string().as_str())
+                        .unwrap();
             };
 
             (tagclass, required)
