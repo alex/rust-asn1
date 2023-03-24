@@ -104,7 +104,7 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
                 .attrs
                 .iter()
                 .find_map(|a| {
-                    if a.path.is_ident("defined_by") {
+                    if a.path().is_ident("defined_by") {
                         Some(a.parse_args::<syn::Ident>().unwrap())
                     } else {
                         None
@@ -153,7 +153,7 @@ pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macr
                     .attrs
                     .iter()
                     .find_map(|a| {
-                        if a.path.is_ident("defined_by") {
+                        if a.path().is_ident("defined_by") {
                             Some(a.parse_args::<syn::Ident>().unwrap())
                         } else {
                             None
@@ -248,22 +248,22 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
     let mut op_type = OpType::Regular;
     let mut default = None;
     for attr in attrs {
-        if attr.path.is_ident("explicit") {
+        if attr.path().is_ident("explicit") {
             if let OpType::Regular = op_type {
                 op_type = OpType::Explicit(attr.parse_args::<OpTypeArgs>().unwrap());
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
-        } else if attr.path.is_ident("implicit") {
+        } else if attr.path().is_ident("implicit") {
             if let OpType::Regular = op_type {
                 op_type = OpType::Implicit(attr.parse_args::<OpTypeArgs>().unwrap());
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
-        } else if attr.path.is_ident("default") {
+        } else if attr.path().is_ident("default") {
             assert!(default.is_none(), "Can't specify #[default] more than once");
             default = Some(attr.parse_args::<syn::Lit>().unwrap());
-        } else if attr.path.is_ident("defined_by") {
+        } else if attr.path().is_ident("defined_by") {
             op_type = OpType::DefinedBy(attr.parse_args::<syn::Ident>().unwrap());
         }
     }
