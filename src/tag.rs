@@ -47,7 +47,7 @@ impl Tag {
         if value == 0x1f {
             let result = base128::read_base128_int(data)
                 .map_err(|_| ParseError::new(ParseErrorKind::InvalidTag))?;
-            // Rust 1.47 doesn't support writing `(value, data) = ...;`
+            // MSRV of 1.59 required for `(value, data) = ...;`
             value = result.0;
             data = result.1;
             // Tags must be encoded in minimal form.

@@ -154,13 +154,11 @@ pub use crate::parser::{
 pub use crate::tag::Tag;
 pub use crate::types::{
     Asn1DefinedByReadable, Asn1DefinedByWritable, Asn1Readable, Asn1Writable, BMPString, BigInt,
-    BigUint, Choice1, Choice2, Choice3, DefinedByMarker, Enumerated, GeneralizedTime, IA5String,
-    Null, OctetStringEncoded, PrintableString, Sequence, SequenceOf, SequenceOfWriter,
-    SequenceWriter, SetOf, SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv,
-    UniversalString, UtcTime, Utf8String, VisibleString,
+    BigUint, Choice1, Choice2, Choice3, DefinedByMarker, Enumerated, Explicit, GeneralizedTime,
+    IA5String, Implicit, Null, OctetStringEncoded, PrintableString, Sequence, SequenceOf,
+    SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, SimpleAsn1Readable, SimpleAsn1Writable,
+    Tlv, UniversalString, UtcTime, Utf8String, VisibleString,
 };
-#[cfg(feature = "const-generics")]
-pub use crate::types::{Explicit, Implicit};
 pub use crate::writer::{write, write_single, WriteBuf, WriteError, WriteResult, Writer};
 
 pub use asn1_derive::{oid, Asn1DefinedByRead, Asn1DefinedByWrite, Asn1Read, Asn1Write};

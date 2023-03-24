@@ -1431,18 +1431,12 @@ impl<'a, T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'a,
 
 /// `Implicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `IMPLICIT`. This will generally be used with `Option` or `Choice`.
-///
-/// Requires the `const-generics` feature and Rust 1.51 or greater. For users
-/// on older Rust versions, `Parser::read_optional_implicit_element` may be
-/// used.
-#[cfg(feature = "const-generics")]
 #[derive(PartialEq, Eq, Debug)]
 pub struct Implicit<'a, T, const TAG: u32> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
     pub fn new(v: T) -> Self {
         Implicit {
@@ -1456,14 +1450,12 @@ impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T, const TAG: u32> From<T> for Implicit<'a, T, { TAG }> {
     fn from(v: T) -> Self {
         Implicit::new(v)
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
     for Implicit<'a, T, { TAG }>
 {
@@ -1473,7 +1465,6 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<'a, T, { TAG }> {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
 
@@ -1484,18 +1475,12 @@ impl<'a, T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<
 
 /// `Explicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `EXPLICIT`. This will generally be used with `Option` or `Choice`.
-///
-/// Requires the `const-generics` feature and Rust 1.51 or greater. For users
-/// on older Rust versions, `Parser::read_optional_explicit_element` may be
-/// used.
-#[cfg(feature = "const-generics")]
 #[derive(PartialEq, Eq, Debug)]
 pub struct Explicit<'a, T, const TAG: u32> {
     inner: T,
     _lifetime: PhantomData<&'a ()>,
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
     pub fn new(v: T) -> Self {
         Explicit {
@@ -1509,14 +1494,12 @@ impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T, const TAG: u32> From<T> for Explicit<'a, T, { TAG }> {
     fn from(v: T) -> Self {
         Explicit::new(v)
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
@@ -1524,7 +1507,6 @@ impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explici
     }
 }
 
-#[cfg(feature = "const-generics")]
 impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
@@ -1548,7 +1530,6 @@ mod tests {
         ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf,
         SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
     };
-    #[cfg(feature = "const-generics")]
     use crate::{Explicit, Implicit};
     use alloc::vec;
     use alloc::vec::Vec;
@@ -1801,13 +1782,11 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "const-generics")]
     fn test_implicit_as_inner() {
         assert_eq!(Implicit::<i32, 0>::new(12).as_inner(), &12);
     }
 
     #[test]
-    #[cfg(feature = "const-generics")]
     fn test_explicit_as_inner() {
         assert_eq!(Explicit::<i32, 0>::new(12).as_inner(), &12);
     }
