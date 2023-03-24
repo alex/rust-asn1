@@ -347,13 +347,11 @@ mod tests {
     use crate::tag::TagClass;
     use crate::types::Asn1Readable;
     use crate::{
-        BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
-        GeneralizedTime, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBitString,
+        BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated, Explicit,
+        GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded, OwnedBitString,
         ParseError, ParseErrorKind, ParseLocation, ParseResult, PrintableString, Sequence,
         SequenceOf, SetOf, Tag, Tlv, UniversalString, UtcTime, Utf8String, VisibleString,
     };
-    #[cfg(feature = "const-generics")]
-    use crate::{Explicit, Implicit};
     use alloc::boxed::Box;
     use alloc::{format, vec};
     use chrono::{TimeZone, Utc};
@@ -1610,7 +1608,6 @@ mod tests {
 
     #[test]
     fn test_parse_implicit() {
-        #[cfg(feature = "const-generics")]
         assert_parses::<Implicit<bool, 2>>(&[
             (Ok(Implicit::new(true)), b"\x82\x01\xff"),
             (Ok(Implicit::new(false)), b"\x82\x01\x00"),
@@ -1627,7 +1624,6 @@ mod tests {
                 b"\x02\x01\xff",
             ),
         ]);
-        #[cfg(feature = "const-generics")]
         assert_parses::<Implicit<Sequence, 2>>(&[
             (Ok(Implicit::new(Sequence::new(b"abc"))), b"\xa2\x03abc"),
             (Ok(Implicit::new(Sequence::new(b""))), b"\xa2\x00"),
@@ -1723,7 +1719,6 @@ mod tests {
 
     #[test]
     fn test_parse_explicit() {
-        #[cfg(feature = "const-generics")]
         assert_parses::<Explicit<bool, 2>>(&[
             (Ok(Explicit::new(true)), b"\xa2\x03\x01\x01\xff"),
             (Ok(Explicit::new(false)), b"\xa2\x03\x01\x01\x00"),

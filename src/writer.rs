@@ -220,12 +220,10 @@ mod tests {
     use crate::types::Asn1Writable;
     use crate::{
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, Enumerated,
-        GeneralizedTime, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBitString,
-        PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, SetOf,
-        SetOfWriter, Tlv, UniversalString, UtcTime, Utf8String, VisibleString, WriteError,
+        Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded,
+        OwnedBitString, PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter,
+        SetOf, SetOfWriter, Tlv, UniversalString, UtcTime, Utf8String, VisibleString, WriteError,
     };
-    #[cfg(feature = "const-generics")]
-    use crate::{Explicit, Implicit};
     use alloc::vec::Vec;
 
     fn assert_writes<T>(data: &[(T, &[u8])])
@@ -618,7 +616,6 @@ mod tests {
 
     #[test]
     fn test_write_implicit() {
-        #[cfg(feature = "const-generics")]
         assert_writes::<Implicit<bool, 2>>(&[
             (Implicit::new(true), b"\x82\x01\xff"),
             (Implicit::new(false), b"\x82\x01\x00"),
@@ -659,7 +656,6 @@ mod tests {
 
     #[test]
     fn test_write_explicit() {
-        #[cfg(feature = "const-generics")]
         assert_writes::<Explicit<bool, 2>>(&[
             (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
             (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),

@@ -214,7 +214,6 @@ fn test_default() {
 }
 
 #[test]
-#[cfg(feature = "const-generics")]
 fn test_default_const_generics() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
     struct DefaultFields<'a> {
