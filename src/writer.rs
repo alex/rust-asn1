@@ -1,5 +1,5 @@
 use crate::types::{Asn1Writable, SimpleAsn1Writable};
-use crate::{Tag, TagClass};
+use crate::Tag;
 use alloc::vec::Vec;
 use alloc::{fmt, vec};
 

@@ -455,7 +455,6 @@ fn test_required_implicit() {
     ]);
 }
 
-#[cfg(feature = "const-generics")]
 #[test]
 fn test_implicit_struct_with_const_generics() {
     use asn1::Implicit;

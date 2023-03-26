@@ -9,11 +9,8 @@ use core::mem;
 use crate::writer::Writer;
 use crate::{
     parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
-    ParseLocation, ParseResult, Parser, Tag, WriteBuf, WriteResult,
+    ParseLocation, ParseResult, Parser, Tag, TagClass, WriteBuf, WriteResult,
 };
-
-#[cfg(feature = "const-generics")]
-use crate::TagClass;
 
 /// Any type that can be parsed as DER ASN.1.
 pub trait Asn1Readable<'a>: Sized {

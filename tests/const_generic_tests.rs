@@ -1,10 +1,8 @@
-#[cfg(feature = "const-generics")]
 use asn1::{
     explicit_tag, explicit_tag_application, explicit_tag_class, implicit_tag,
     implicit_tag_application, implicit_tag_class, TagClass,
 };
 
-#[cfg(feature = "const-generics")]
 #[test]
 fn const_generic_shall_behave_the_same() {
     let inner_tag = explicit_tag(21);
