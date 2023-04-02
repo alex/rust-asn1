@@ -808,9 +808,8 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
     dest.push_byte(b'0' + (val % 10) as u8)
 }
 
-/// Used for parsing and writing ASN.1 `UTC TIME` values.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct UtcTime {
+pub struct DateTime {
     year: u16,
     month: u8,
     day: u8,
@@ -818,6 +817,10 @@ pub struct UtcTime {
     minute: u8,
     second: u8,
 }
+
+/// Used for parsing and writing ASN.1 `UTC TIME` values.
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct UtcTime(DateTime);
 
 impl UtcTime {
     pub fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Option<UtcTime> {
@@ -830,14 +833,18 @@ impl UtcTime {
         {
             return None;
         }
-        Some(UtcTime {
+        Some(UtcTime(DateTime {
             year,
             month,
             day,
             hour,
             minute,
             second,
-        })
+        }))
+    }
+
+    pub fn as_datetime(&self) -> &DateTime {
+        &self.0
     }
 }
 
@@ -870,19 +877,20 @@ impl SimpleAsn1Readable<'_> for UtcTime {
 impl SimpleAsn1Writable for UtcTime {
     const TAG: Tag = Tag::primitive(0x17);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        let year = if 1950 <= self.year && self.year < 2000 {
-            self.year - 1900
+        let dt = self.as_datetime();
+        let year = if 1950 <= dt.year && dt.year < 2000 {
+            dt.year - 1900
         } else {
-            assert!(2000 <= self.year && self.year < 2050);
-            self.year - 2000
+            assert!(2000 <= dt.year && dt.year < 2050);
+            dt.year - 2000
         };
         push_two_digits(dest, year.try_into().unwrap())?;
-        push_two_digits(dest, self.month)?;
-        push_two_digits(dest, self.day)?;
+        push_two_digits(dest, dt.month)?;
+        push_two_digits(dest, dt.day)?;
 
-        push_two_digits(dest, self.hour)?;
-        push_two_digits(dest, self.minute)?;
-        push_two_digits(dest, self.second)?;
+        push_two_digits(dest, dt.hour)?;
+        push_two_digits(dest, dt.minute)?;
+        push_two_digits(dest, dt.second)?;
 
         dest.push_byte(b'Z')
     }
@@ -891,14 +899,7 @@ impl SimpleAsn1Writable for UtcTime {
 /// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
 /// `chrono::DateTime<Utc>`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct GeneralizedTime {
-    year: u16,
-    month: u8,
-    day: u8,
-    hour: u8,
-    minute: u8,
-    second: u8,
-}
+pub struct GeneralizedTime(DateTime);
 
 impl GeneralizedTime {
     pub fn new(
@@ -917,14 +918,18 @@ impl GeneralizedTime {
         {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        Ok(GeneralizedTime {
+        Ok(GeneralizedTime(DateTime {
             year,
             month,
             day,
             hour,
             minute,
             second,
-        })
+        }))
+    }
+
+    pub fn as_datetime(&self) -> &DateTime {
+        &self.0
     }
 }
 
@@ -950,13 +955,14 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
 impl SimpleAsn1Writable for GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        push_four_digits(dest, self.year)?;
-        push_two_digits(dest, self.month)?;
-        push_two_digits(dest, self.day)?;
+        let dt = self.as_datetime();
+        push_four_digits(dest, dt.year)?;
+        push_two_digits(dest, dt.month)?;
+        push_two_digits(dest, dt.day)?;
 
-        push_two_digits(dest, self.hour)?;
-        push_two_digits(dest, self.minute)?;
-        push_two_digits(dest, self.second)?;
+        push_two_digits(dest, dt.hour)?;
+        push_two_digits(dest, dt.minute)?;
+        push_two_digits(dest, dt.second)?;
 
         dest.push_byte(b'Z')
     }
