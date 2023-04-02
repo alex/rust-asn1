@@ -219,8 +219,6 @@ mod tests {
     use alloc::boxed::Box;
     use alloc::vec;
 
-    use chrono::{TimeZone, Utc};
-
     use super::{_insert_at_position, write, write_single, WriteBuf, Writer};
     use crate::types::Asn1Writable;
     use crate::{
@@ -484,15 +482,15 @@ mod tests {
     fn test_write_utctime() {
         assert_writes::<UtcTime>(&[
             (
-                UtcTime::new(Utc.with_ymd_and_hms(1991, 5, 6, 23, 45, 40).unwrap()).unwrap(),
+                UtcTime::new(1991, 5, 6, 23, 45, 40).unwrap(),
                 b"\x17\x0d910506234540Z",
             ),
             (
-                UtcTime::new(Utc.timestamp_opt(0, 0).unwrap()).unwrap(),
+                UtcTime::new(1970, 1, 1, 0, 0, 0).unwrap(),
                 b"\x17\x0d700101000000Z",
             ),
             (
-                UtcTime::new(Utc.timestamp_opt(1258325776, 0).unwrap()).unwrap(),
+                UtcTime::new(2009, 11, 15, 22, 56, 16).unwrap(),
                 b"\x17\x0d091115225616Z",
             ),
         ]);
@@ -502,16 +500,15 @@ mod tests {
     fn test_write_generalizedtime() {
         assert_writes(&[
             (
-                GeneralizedTime::new(Utc.with_ymd_and_hms(1991, 5, 6, 23, 45, 40).unwrap())
-                    .unwrap(),
+                GeneralizedTime::new(1991, 5, 6, 23, 45, 40).unwrap(),
                 b"\x18\x0f19910506234540Z",
             ),
             (
-                GeneralizedTime::new(Utc.timestamp_opt(0, 0).unwrap()).unwrap(),
+                GeneralizedTime::new(1970, 1, 1, 0, 0, 0).unwrap(),
                 b"\x18\x0f19700101000000Z",
             ),
             (
-                GeneralizedTime::new(Utc.timestamp_opt(1258325776, 0).unwrap()).unwrap(),
+                GeneralizedTime::new(2009, 11, 15, 22, 56, 16).unwrap(),
                 b"\x18\x0f20091115225616Z",
             ),
         ]);

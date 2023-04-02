@@ -6,8 +6,6 @@ use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::mem;
 
-use chrono::{Datelike, TimeZone, Timelike};
-
 use crate::writer::Writer;
 use crate::{
     parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
@@ -810,21 +808,36 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
     dest.push_byte(b'0' + (val % 10) as u8)
 }
 
-/// Used for parsing and writing ASN.1 `UTC TIME` values. Wraps a
-/// `chrono::DateTime<Utc>`.
+/// Used for parsing and writing ASN.1 `UTC TIME` values.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct UtcTime(chrono::DateTime<chrono::Utc>);
+pub struct UtcTime {
+    year: u16,
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+    second: u8,
+}
 
 impl UtcTime {
-    pub fn new(v: chrono::DateTime<chrono::Utc>) -> Option<UtcTime> {
-        if v.year() >= 2050 || v.year() < 1950 {
+    pub fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Option<UtcTime> {
+        if !(1950..2050).contains(&year)
+            || !(1..=12).contains(&month)
+            || !(1..=31).contains(&day)
+            || hour > 23
+            || minute > 59
+            || second > 59
+        {
             return None;
         }
-        Some(UtcTime(v))
-    }
-
-    pub fn as_chrono(&self) -> &chrono::DateTime<chrono::Utc> {
-        &self.0
+        Some(UtcTime {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+        })
     }
 }
 
@@ -849,38 +862,27 @@ impl SimpleAsn1Readable<'_> for UtcTime {
 
         read_tz_and_finish(&mut data)?;
 
-        UtcTime::new(
-            chrono::Utc
-                .with_ymd_and_hms(
-                    year.into(),
-                    month.into(),
-                    day.into(),
-                    hour.into(),
-                    minute.into(),
-                    second.into(),
-                )
-                .unwrap(),
-        )
-        .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+        UtcTime::new(year, month, day, hour, minute, second)
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 
 impl SimpleAsn1Writable for UtcTime {
     const TAG: Tag = Tag::primitive(0x17);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        let year = if 1950 <= self.0.year() && self.0.year() < 2000 {
-            self.0.year() - 1900
+        let year = if 1950 <= self.year && self.year < 2000 {
+            self.year - 1900
         } else {
-            assert!(2000 <= self.0.year() && self.0.year() < 2050);
-            self.0.year() - 2000
+            assert!(2000 <= self.year && self.year < 2050);
+            self.year - 2000
         };
         push_two_digits(dest, year.try_into().unwrap())?;
-        push_two_digits(dest, self.0.month().try_into().unwrap())?;
-        push_two_digits(dest, self.0.day().try_into().unwrap())?;
+        push_two_digits(dest, self.month)?;
+        push_two_digits(dest, self.day)?;
 
-        push_two_digits(dest, self.0.hour().try_into().unwrap())?;
-        push_two_digits(dest, self.0.minute().try_into().unwrap())?;
-        push_two_digits(dest, self.0.second().try_into().unwrap())?;
+        push_two_digits(dest, self.hour)?;
+        push_two_digits(dest, self.minute)?;
+        push_two_digits(dest, self.second)?;
 
         dest.push_byte(b'Z')
     }
@@ -889,20 +891,40 @@ impl SimpleAsn1Writable for UtcTime {
 /// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
 /// `chrono::DateTime<Utc>`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct GeneralizedTime(chrono::DateTime<chrono::Utc>);
+pub struct GeneralizedTime {
+    year: u16,
+    month: u8,
+    day: u8,
+    hour: u8,
+    minute: u8,
+    second: u8,
+}
 
 impl GeneralizedTime {
-    pub fn new(v: chrono::DateTime<chrono::Utc>) -> ParseResult<GeneralizedTime> {
-        // Reject leap seconds, which aren't allowed by ASN.1. chrono encodes
-        // them as nanoseconds == 1000000.
-        if v.year() < 0 || v.nanosecond() >= 1_000_000 {
+    pub fn new(
+        year: u16,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+    ) -> ParseResult<GeneralizedTime> {
+        if !(1..=12).contains(&month)
+            || !(1..=31).contains(&day)
+            || hour > 23
+            || minute > 59
+            || second > 59
+        {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        Ok(GeneralizedTime(v))
-    }
-
-    pub fn as_chrono(&self) -> &chrono::DateTime<chrono::Utc> {
-        &self.0
+        Ok(GeneralizedTime {
+            year,
+            month,
+            day,
+            hour,
+            minute,
+            second,
+        })
     }
 }
 
@@ -918,37 +940,23 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
         let hour = read_2_digits(&mut data)?;
         let minute = read_2_digits(&mut data)?;
         let second = read_2_digits(&mut data)?;
-        if hour > 23 || minute > 59 || second > 59 {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
 
         read_tz_and_finish(&mut data)?;
 
-        GeneralizedTime::new(
-            chrono::Utc
-                .with_ymd_and_hms(
-                    year.into(),
-                    month.into(),
-                    day.into(),
-                    hour.into(),
-                    minute.into(),
-                    second.into(),
-                )
-                .unwrap(),
-        )
+        GeneralizedTime::new(year, month, day, hour, minute, second)
     }
 }
 
 impl SimpleAsn1Writable for GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        push_four_digits(dest, self.0.year().try_into().unwrap())?;
-        push_two_digits(dest, self.0.month().try_into().unwrap())?;
-        push_two_digits(dest, self.0.day().try_into().unwrap())?;
+        push_four_digits(dest, self.year)?;
+        push_two_digits(dest, self.month)?;
+        push_two_digits(dest, self.day)?;
 
-        push_two_digits(dest, self.0.hour().try_into().unwrap())?;
-        push_two_digits(dest, self.0.minute().try_into().unwrap())?;
-        push_two_digits(dest, self.0.second().try_into().unwrap())?;
+        push_two_digits(dest, self.hour)?;
+        push_two_digits(dest, self.minute)?;
+        push_two_digits(dest, self.second)?;
 
         dest.push_byte(b'Z')
     }
@@ -1533,7 +1541,6 @@ mod tests {
     use crate::{Explicit, Implicit};
     use alloc::vec;
     use alloc::vec::Vec;
-    use chrono::{TimeZone, Timelike, Utc};
     #[cfg(feature = "std")]
     use core::hash::{Hash, Hasher};
     #[cfg(feature = "std")]
@@ -1740,40 +1747,14 @@ mod tests {
     }
     #[test]
     fn test_utctime_new() {
-        assert!(
-            UtcTime::new(chrono::Utc.with_ymd_and_hms(1950, 1, 1, 12, 0, 0).unwrap()).is_some()
-        );
-        assert!(
-            UtcTime::new(chrono::Utc.with_ymd_and_hms(2050, 1, 1, 12, 0, 0).unwrap()).is_none()
-        );
-    }
-
-    #[test]
-    fn test_utctime_as_chrono() {
-        let t = Utc.with_ymd_and_hms(1951, 5, 6, 23, 45, 0).unwrap();
-        assert_eq!(UtcTime::new(t).unwrap().as_chrono(), &t);
+        assert!(UtcTime::new(1950, 1, 1, 12, 0, 0).is_some());
+        assert!(UtcTime::new(2050, 1, 1, 12, 0, 0).is_none());
     }
 
     #[test]
     fn test_generalized_time_new() {
-        let t = Utc
-            .with_ymd_and_hms(2015, 6, 30, 23, 59, 59)
-            .unwrap()
-            .with_nanosecond(1_000_000_000)
-            .unwrap();
-        assert!(GeneralizedTime::new(t).is_err());
-        let t = Utc
-            .with_ymd_and_hms(2015, 6, 30, 23, 59, 59)
-            .unwrap()
-            .with_nanosecond(0)
-            .unwrap();
-        assert!(GeneralizedTime::new(t).is_ok());
-    }
-
-    #[test]
-    fn test_generalized_time_as_chrono() {
-        let t = Utc.with_ymd_and_hms(1951, 5, 6, 23, 45, 0).unwrap();
-        assert_eq!(GeneralizedTime::new(t).unwrap().as_chrono(), &t);
+        assert!(GeneralizedTime::new(2015, 6, 30, 23, 59, 60).is_err());
+        assert!(GeneralizedTime::new(2015, 6, 30, 23, 59, 59).is_ok());
     }
 
     #[test]
