@@ -156,7 +156,7 @@ pub fn parse<'a, T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>
 /// trailing data). Most often this will be used where `T` is a type with
 /// `#[derive(asn1::Asn1Read)]`.
 pub fn parse_single<'a, T: Asn1Readable<'a>>(data: &'a [u8]) -> ParseResult<T> {
-    parse(data, |p| p.read_element::<T>())
+    parse(data, Parser::read_element::<T>)
 }
 
 /// Encapsulates an ongoing parse. For almost all use-cases the correct

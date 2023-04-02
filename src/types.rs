@@ -1503,7 +1503,7 @@ impl<'a, T, const TAG: u32> From<T> for Explicit<'a, T, { TAG }> {
 impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        Ok(Explicit::new(parse(data, |p| p.read_element::<T>())?))
+        Ok(Explicit::new(parse(data, Parser::read_element::<T>)?))
     }
 }
 

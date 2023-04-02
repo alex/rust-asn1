@@ -7,6 +7,8 @@ keywords = ["asn1"]
 license = "BSD-3-Clause"
 description = "ASN.1 (DER) parser and writer for Rust."
 edition = "2018"
+# This specifies the MSRV
+rust-version = "1.56.0"
 
 [features]
 default = ["std"]
