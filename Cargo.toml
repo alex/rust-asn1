@@ -6,7 +6,9 @@ repository = "https://github.com/alex/rust-asn1"
 keywords = ["asn1"]
 license = "BSD-3-Clause"
 description = "ASN.1 (DER) parser and writer for Rust."
-edition = "2018"
+edition = "2021"
+# This specifies the MSRV
+rust-version = "1.56.0"
 
 [features]
 default = ["std"]
@@ -14,7 +16,7 @@ std = []
 fallible-allocations = []
 
 [dependencies]
-chrono = { version = "0.4.23", default-features = false, features = ["alloc"] }
+chrono = { version = "0.4.23", default-features = false }
 asn1_derive = { path = "asn1_derive/", version = "0.13.0" }
 
 [dev-dependencies]

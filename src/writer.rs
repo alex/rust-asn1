@@ -175,6 +175,11 @@ impl Writer<'_> {
         self.buf.push_byte(0)?;
         let start_len = self.buf.len();
         body(self.buf)?;
+        self.insert_length(start_len)
+    }
+
+    #[inline]
+    fn insert_length(&mut self, start_len: usize) -> WriteResult {
         let added_len = self.buf.len() - start_len;
         if added_len >= 128 {
             let n = _length_length(added_len);

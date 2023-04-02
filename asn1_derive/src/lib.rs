@@ -445,8 +445,8 @@ fn generate_enum_read_block(
                     if tlv.tag() == asn1::explicit_tag(#tag) {
                         return Ok(#name::#ident(asn1::parse(
                             tlv.full_data(),
-                            |p| Ok(p.read_optional_explicit_element(#tag)#add_error_location?.unwrap()))?
-                        ))
+                            |p| p.read_explicit_element(#tag)#add_error_location
+                        )?))
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
@@ -461,8 +461,8 @@ fn generate_enum_read_block(
                     if tlv.tag() == asn1::implicit_tag(#tag, <#ty as asn1::SimpleAsn1Readable>::TAG) {
                         return Ok(#name::#ident(asn1::parse(
                             tlv.full_data(),
-                            |p| Ok(p.read_optional_implicit_element(#tag)#add_error_location?.unwrap()))?
-                        ))
+                            |p| p.read_implicit_element(#tag)#add_error_location
+                        )?))
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
