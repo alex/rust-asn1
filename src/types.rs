@@ -1800,6 +1800,9 @@ mod tests {
     fn test_utctime_new() {
         assert!(UtcTime::new(1950, 1, 1, 12, 0, 0).is_ok());
         assert!(UtcTime::new(2050, 1, 1, 12, 0, 0).is_err());
+        assert!(UtcTime::new(2038, 13, 1, 12, 0, 0).is_err());
+        assert!(UtcTime::new(2000, 1, 1, 12, 60, 0).is_err());
+        assert!(UtcTime::new(2000, 1, 1, 12, 0, 60).is_err());
     }
 
     #[test]
