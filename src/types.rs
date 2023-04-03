@@ -808,8 +808,8 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
     dest.push_byte(b'0' + (val % 10) as u8)
 }
 
-/// A structure representing a date and time. Wrapped by
-/// `UtcTime` and `GeneralizedTime`.
+/// A structure representing a (UTC timezone) date and time.
+/// Wrapped by `UtcTime` and `GeneralizedTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct DateTime {
     year: u16,
@@ -875,7 +875,7 @@ pub struct UtcTime(DateTime);
 
 impl UtcTime {
     pub fn new(dt: DateTime) -> ParseResult<UtcTime> {
-        if dt.year() >= 2050 {
+        if dt.year() < 1950 || dt.year() >= 2050 {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
         Ok(UtcTime(dt))
@@ -1769,6 +1769,7 @@ mod tests {
     #[test]
     fn test_utctime_new() {
         assert!(UtcTime::new(DateTime::new(1950, 1, 1, 12, 0, 0).unwrap()).is_ok());
+        assert!(UtcTime::new(DateTime::new(1949, 1, 1, 12, 0, 0).unwrap()).is_err());
         assert!(UtcTime::new(DateTime::new(2050, 1, 1, 12, 0, 0).unwrap()).is_err());
         assert!(UtcTime::new(DateTime::new(2100, 1, 1, 12, 0, 0).unwrap()).is_err());
     }
