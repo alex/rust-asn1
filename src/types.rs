@@ -808,6 +808,8 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
     dest.push_byte(b'0' + (val % 10) as u8)
 }
 
+/// A structure representing a date and time. Wrapped by
+/// `UtcTime` and `GeneralizedTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct DateTime {
     year: u16,
@@ -828,7 +830,7 @@ impl DateTime {
         second: u8,
     ) -> ParseResult<DateTime> {
         validate_date(year, month, day)?;
-        if minute > 59 || second > 59 {
+        if hour > 23 || minute > 59 || second > 59 {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
         Ok(DateTime {
@@ -866,27 +868,17 @@ impl DateTime {
     }
 }
 
-/// Used for parsing and writing ASN.1 `UTC TIME` values.
+/// Used for parsing and writing ASN.1 `UTC TIME` values. Wraps a
+/// `DateTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct UtcTime(DateTime);
 
 impl UtcTime {
-    pub fn new(
-        year: u16,
-        month: u8,
-        day: u8,
-        hour: u8,
-        minute: u8,
-        second: u8,
-    ) -> ParseResult<UtcTime> {
-        if year >= 2050 {
+    pub fn new(dt: DateTime) -> ParseResult<UtcTime> {
+        if dt.year() >= 2050 {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        let dt = DateTime::new(year, month, day, hour, minute, second);
-        match dt {
-            Ok(dt) => Ok(UtcTime(dt)),
-            Err(e) => Err(e),
-        }
+        Ok(UtcTime(dt))
     }
 
     pub fn as_datetime(&self) -> &DateTime {
@@ -904,18 +896,13 @@ impl SimpleAsn1Readable<'_> for UtcTime {
         // year ordinals to full year:
         // https://tools.ietf.org/html/rfc5280#section-4.1.2.5.1
         let year = if year >= 50 { 1900 + year } else { 2000 + year };
-        validate_date(year, month, day)?;
-
         let hour = read_2_digits(&mut data)?;
         let minute = read_2_digits(&mut data)?;
         let second = read_2_digits(&mut data)?;
-        if hour > 23 || minute > 59 || second > 59 {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
 
         read_tz_and_finish(&mut data)?;
 
-        UtcTime::new(year, month, day, hour, minute, second)
+        UtcTime::new(DateTime::new(year, month, day, hour, minute, second)?)
     }
 }
 
@@ -942,35 +929,13 @@ impl SimpleAsn1Writable for UtcTime {
 }
 
 /// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
-/// `chrono::DateTime<Utc>`.
+/// `DateTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct GeneralizedTime(DateTime);
 
 impl GeneralizedTime {
-    pub fn new(
-        year: u16,
-        month: u8,
-        day: u8,
-        hour: u8,
-        minute: u8,
-        second: u8,
-    ) -> ParseResult<GeneralizedTime> {
-        if !(1..=12).contains(&month)
-            || !(1..=31).contains(&day)
-            || hour > 23
-            || minute > 59
-            || second > 59
-        {
-            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-        }
-        Ok(GeneralizedTime(DateTime {
-            year,
-            month,
-            day,
-            hour,
-            minute,
-            second,
-        }))
+    pub fn new(dt: DateTime) -> ParseResult<GeneralizedTime> {
+        Ok(GeneralizedTime(dt))
     }
 
     pub fn as_datetime(&self) -> &DateTime {
@@ -984,16 +949,13 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
         let year = read_4_digits(&mut data)?;
         let month = read_2_digits(&mut data)?;
         let day = read_2_digits(&mut data)?;
-
-        validate_date(year, month, day)?;
-
         let hour = read_2_digits(&mut data)?;
         let minute = read_2_digits(&mut data)?;
         let second = read_2_digits(&mut data)?;
 
         read_tz_and_finish(&mut data)?;
 
-        GeneralizedTime::new(year, month, day, hour, minute, second)
+        GeneralizedTime::new(DateTime::new(year, month, day, hour, minute, second)?)
     }
 }
 
@@ -1585,9 +1547,9 @@ impl<T> DefinedByMarker<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, Enumerated, GeneralizedTime, IA5String, OctetStringEncoded,
-        ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf,
-        SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
+        parse_single, BigInt, BigUint, DateTime, Enumerated, GeneralizedTime, IA5String,
+        OctetStringEncoded, ParseError, ParseErrorKind, PrintableString, SequenceOf,
+        SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
     };
     use crate::{Explicit, Implicit};
     use alloc::vec;
@@ -1797,18 +1759,22 @@ mod tests {
         assert!(s1 == s2);
     }
     #[test]
+    fn test_datetime_new() {
+        assert!(DateTime::new(2038, 13, 1, 12, 0, 0).is_err());
+        assert!(DateTime::new(2000, 1, 1, 12, 60, 0).is_err());
+        assert!(DateTime::new(2000, 1, 1, 12, 0, 60).is_err());
+    }
+
+    #[test]
     fn test_utctime_new() {
-        assert!(UtcTime::new(1950, 1, 1, 12, 0, 0).is_ok());
-        assert!(UtcTime::new(2050, 1, 1, 12, 0, 0).is_err());
-        assert!(UtcTime::new(2038, 13, 1, 12, 0, 0).is_err());
-        assert!(UtcTime::new(2000, 1, 1, 12, 60, 0).is_err());
-        assert!(UtcTime::new(2000, 1, 1, 12, 0, 60).is_err());
+        assert!(UtcTime::new(DateTime::new(1950, 1, 1, 12, 0, 0).unwrap()).is_ok());
+        assert!(UtcTime::new(DateTime::new(2050, 1, 1, 12, 0, 0).unwrap()).is_err());
+        assert!(UtcTime::new(DateTime::new(2100, 1, 1, 12, 0, 0).unwrap()).is_err());
     }
 
     #[test]
     fn test_generalized_time_new() {
-        assert!(GeneralizedTime::new(2015, 6, 30, 23, 59, 60).is_err());
-        assert!(GeneralizedTime::new(2015, 6, 30, 23, 59, 59).is_ok());
+        assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap()).is_ok());
     }
 
     #[test]
