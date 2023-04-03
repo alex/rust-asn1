@@ -16,7 +16,6 @@ std = []
 fallible-allocations = []
 
 [dependencies]
-chrono = { version = "0.4.23", default-features = false }
 asn1_derive = { path = "asn1_derive/", version = "0.13.0" }
 
 [dev-dependencies]
