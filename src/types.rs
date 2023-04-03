@@ -1763,6 +1763,7 @@ mod tests {
         assert!(DateTime::new(2038, 13, 1, 12, 0, 0).is_err());
         assert!(DateTime::new(2000, 1, 1, 12, 60, 0).is_err());
         assert!(DateTime::new(2000, 1, 1, 12, 0, 60).is_err());
+        assert!(DateTime::new(2000, 1, 1, 24, 0, 0).is_err());
     }
 
     #[test]
