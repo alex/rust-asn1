@@ -818,29 +818,75 @@ pub struct DateTime {
     second: u8,
 }
 
-/// Used for parsing and writing ASN.1 `UTC TIME` values.
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct UtcTime(DateTime);
-
-impl UtcTime {
-    pub fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> Option<UtcTime> {
-        if !(1950..2050).contains(&year)
-            || !(1..=12).contains(&month)
-            || !(1..=31).contains(&day)
-            || hour > 23
-            || minute > 59
-            || second > 59
-        {
-            return None;
+impl DateTime {
+    pub fn new(
+        year: u16,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+    ) -> ParseResult<DateTime> {
+        validate_date(year, month, day)?;
+        if minute > 59 || second > 59 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        Some(UtcTime(DateTime {
+        Ok(DateTime {
             year,
             month,
             day,
             hour,
             minute,
             second,
-        }))
+        })
+    }
+
+    pub fn year(&self) -> u16 {
+        self.year
+    }
+
+    pub fn month(&self) -> u8 {
+        self.month
+    }
+
+    pub fn day(&self) -> u8 {
+        self.day
+    }
+
+    pub fn hour(&self) -> u8 {
+        self.hour
+    }
+
+    pub fn minute(&self) -> u8 {
+        self.minute
+    }
+
+    pub fn second(&self) -> u8 {
+        self.second
+    }
+}
+
+/// Used for parsing and writing ASN.1 `UTC TIME` values.
+#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+pub struct UtcTime(DateTime);
+
+impl UtcTime {
+    pub fn new(
+        year: u16,
+        month: u8,
+        day: u8,
+        hour: u8,
+        minute: u8,
+        second: u8,
+    ) -> ParseResult<UtcTime> {
+        if year >= 2050 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
+        }
+        let dt = DateTime::new(year, month, day, hour, minute, second);
+        match dt {
+            Ok(dt) => Ok(UtcTime(dt)),
+            Err(e) => Err(e),
+        }
     }
 
     pub fn as_datetime(&self) -> &DateTime {
@@ -870,7 +916,6 @@ impl SimpleAsn1Readable<'_> for UtcTime {
         read_tz_and_finish(&mut data)?;
 
         UtcTime::new(year, month, day, hour, minute, second)
-            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 
@@ -878,19 +923,19 @@ impl SimpleAsn1Writable for UtcTime {
     const TAG: Tag = Tag::primitive(0x17);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let dt = self.as_datetime();
-        let year = if 1950 <= dt.year && dt.year < 2000 {
-            dt.year - 1900
+        let year = if 1950 <= dt.year() && dt.year() < 2000 {
+            dt.year() - 1900
         } else {
-            assert!(2000 <= dt.year && dt.year < 2050);
-            dt.year - 2000
+            assert!(2000 <= dt.year() && dt.year() < 2050);
+            dt.year() - 2000
         };
         push_two_digits(dest, year.try_into().unwrap())?;
-        push_two_digits(dest, dt.month)?;
-        push_two_digits(dest, dt.day)?;
+        push_two_digits(dest, dt.month())?;
+        push_two_digits(dest, dt.day())?;
 
-        push_two_digits(dest, dt.hour)?;
-        push_two_digits(dest, dt.minute)?;
-        push_two_digits(dest, dt.second)?;
+        push_two_digits(dest, dt.hour())?;
+        push_two_digits(dest, dt.minute())?;
+        push_two_digits(dest, dt.second())?;
 
         dest.push_byte(b'Z')
     }
@@ -956,13 +1001,13 @@ impl SimpleAsn1Writable for GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let dt = self.as_datetime();
-        push_four_digits(dest, dt.year)?;
-        push_two_digits(dest, dt.month)?;
-        push_two_digits(dest, dt.day)?;
+        push_four_digits(dest, dt.year())?;
+        push_two_digits(dest, dt.month())?;
+        push_two_digits(dest, dt.day())?;
 
-        push_two_digits(dest, dt.hour)?;
-        push_two_digits(dest, dt.minute)?;
-        push_two_digits(dest, dt.second)?;
+        push_two_digits(dest, dt.hour())?;
+        push_two_digits(dest, dt.minute())?;
+        push_two_digits(dest, dt.second())?;
 
         dest.push_byte(b'Z')
     }
@@ -1753,8 +1798,8 @@ mod tests {
     }
     #[test]
     fn test_utctime_new() {
-        assert!(UtcTime::new(1950, 1, 1, 12, 0, 0).is_some());
-        assert!(UtcTime::new(2050, 1, 1, 12, 0, 0).is_none());
+        assert!(UtcTime::new(1950, 1, 1, 12, 0, 0).is_ok());
+        assert!(UtcTime::new(2050, 1, 1, 12, 0, 0).is_err());
     }
 
     #[test]
