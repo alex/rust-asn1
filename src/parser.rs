@@ -298,7 +298,7 @@ impl<'a> Parser<'a> {
         parse_single(tlv.data())
     }
 
-    /// This is an alias for `read_element::<Explicit<T, tag, 1>>`
+    /// This is an alias for `read_element::<Explicit<T, tag, tag_class>>`
     pub fn read_explicit_class_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
@@ -327,7 +327,7 @@ impl<'a> Parser<'a> {
         Ok(Some(parse_single::<T>(tlv.data())?))
     }
 
-    /// This is an alias for `read_element::<Option<Explicit<T, tag, 1>>>`
+    /// This is an alias for `read_element::<Option<Explicit<T, tag, tag_class>>>`
     pub fn read_optional_explicit_class_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
@@ -353,7 +353,7 @@ impl<'a> Parser<'a> {
         T::parse_data(tlv.data())
     }
 
-    /// This is an alias for `read_element::<Implicit<T, tag, 1>>`
+    /// This is an alias for `read_element::<Implicit<T, tag, tag_class>>`
     pub fn read_implicit_class_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,
@@ -382,7 +382,7 @@ impl<'a> Parser<'a> {
         Ok(Some(T::parse_data(tlv.data())?))
     }
 
-    /// This is an alias for `read_element::<Option<Implicit<T, tag, 1>>>`
+    /// This is an alias for `read_element::<Option<Implicit<T, tag, tag_class>>>`
     pub fn read_optional_implicit_class_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,

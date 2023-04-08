@@ -118,7 +118,7 @@ impl Writer<'_> {
         self.write_tlv(tag, |dest| Writer::new(dest).write_element(val))
     }
 
-    /// This is an alias for `write_element::<Explicit<T, tag, 1>>`
+    /// This is an alias for `write_element::<Explicit<T, tag, tag_class>>`
     pub fn write_explicit_class_element<T: Asn1Writable>(
         &mut self,
         val: &T,
@@ -143,7 +143,7 @@ impl Writer<'_> {
         }
     }
 
-    /// This is an alias for `write_element::<Option<Explicit<T, tag, 1>>>`
+    /// This is an alias for `write_element::<Option<Explicit<T, tag, tag_class>>>`
     pub fn write_optional_explicit_class_element<T: Asn1Writable>(
         &mut self,
         val: &Option<T>,
@@ -193,7 +193,7 @@ impl Writer<'_> {
         }
     }
 
-    /// This is an alias for `write_element::<Option<Implicit<T, tag, 1>>>`
+    /// This is an alias for `write_element::<Option<Implicit<T, tag, tag_class>>>`
     pub fn write_optional_implicit_class_element<T: SimpleAsn1Writable>(
         &mut self,
         val: &Option<T>,
