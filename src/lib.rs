@@ -209,8 +209,7 @@ pub const fn explicit_tag_class(tag: u32, tag_class: TagClass) -> Tag {
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub const fn explicit_tag(tag: u32) -> Tag {
-    const CONTEXT_SPECIFIC_TAG: TagClass = TagClass::ContextSpecific;
-    explicit_tag_class(tag, CONTEXT_SPECIFIC_TAG)
+    explicit_tag_class(tag, TagClass::ContextSpecific)
 }
 
 /// This API is public so that it may be used from macros, but should not be
