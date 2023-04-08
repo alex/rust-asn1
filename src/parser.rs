@@ -286,8 +286,7 @@ impl<'a> Parser<'a> {
         T::parse(self)
     }
 
-    /// This is an alias for `read_element::<Explicit<T, tag>>` for use when
-    /// MSRV is < 1.51.
+    /// This is an alias for `read_element::<Explicit<T, tag>>`
     pub fn read_explicit_element<T: Asn1Readable<'a>>(&mut self, tag: u32) -> ParseResult<T> {
         let expected_tag = crate::explicit_tag(tag);
         let tlv = self.read_tlv()?;
@@ -299,8 +298,7 @@ impl<'a> Parser<'a> {
         parse_single(tlv.data())
     }
 
-    /// This is an alias for `read_element::<Explicit<T, tag, 1>>` for use when
-    /// MSRV is < 1.51.
+    /// This is an alias for `read_element::<Explicit<T, tag, 1>>`
     pub fn read_explicit_application_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
@@ -315,8 +313,7 @@ impl<'a> Parser<'a> {
         parse_single(tlv.data())
     }
 
-    /// This is an alias for `read_element::<Option<Explicit<T, tag>>>` for use
-    /// when MSRV is <1.51.
+    /// This is an alias for `read_element::<Option<Explicit<T, tag>>>`
     pub fn read_optional_explicit_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
@@ -329,8 +326,7 @@ impl<'a> Parser<'a> {
         Ok(Some(parse_single::<T>(tlv.data())?))
     }
 
-    /// This is an alias for `read_element::<Option<Explicit<T, tag, 1>>>` for use
-    /// when MSRV is <1.51.
+    /// This is an alias for `read_element::<Option<Explicit<T, tag, 1>>>`
     pub fn read_optional_explicit_application_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
@@ -343,8 +339,7 @@ impl<'a> Parser<'a> {
         Ok(Some(parse_single::<T>(tlv.data())?))
     }
 
-    /// This is an alias for `read_element::<Implicit<T, tag>>` for use when
-    /// MSRV is <1.51.
+    /// This is an alias for `read_element::<Implicit<T, tag>>`
     pub fn read_implicit_element<T: SimpleAsn1Readable<'a>>(&mut self, tag: u32) -> ParseResult<T> {
         let expected_tag = crate::implicit_tag(tag, T::TAG);
         let tlv = self.read_tlv()?;
@@ -356,8 +351,7 @@ impl<'a> Parser<'a> {
         T::parse_data(tlv.data())
     }
 
-    /// This is an alias for `read_element::<Implicit<T, tag, 1>>` for use when
-    /// MSRV is <1.51.
+    /// This is an alias for `read_element::<Implicit<T, tag, 1>>`
     pub fn read_implicit_application_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,
@@ -372,8 +366,7 @@ impl<'a> Parser<'a> {
         T::parse_data(tlv.data())
     }
 
-    /// This is an alias for `read_element::<Option<Implicit<T, tag>>>` for use
-    /// when MSRV is <1.51.
+    /// This is an alias for `read_element::<Option<Implicit<T, tag>>>`
     pub fn read_optional_implicit_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,
@@ -386,8 +379,7 @@ impl<'a> Parser<'a> {
         Ok(Some(T::parse_data(tlv.data())?))
     }
 
-    /// This is an alias for `read_element::<Option<Implicit<T, tag, 1>>>` for use
-    /// when MSRV is <1.51.
+    /// This is an alias for `read_element::<Option<Implicit<T, tag, 1>>>`
     pub fn read_optional_implicit_application_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,
