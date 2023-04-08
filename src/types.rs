@@ -1469,6 +1469,10 @@ impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
     pub fn as_inner(&self) -> &T {
         &self.inner
     }
+
+    pub fn into_inner(self) -> T {
+        self.inner
+    }
 }
 
 impl<'a, T, const TAG: u32> From<T> for Implicit<'a, T, { TAG }> {
@@ -1512,6 +1516,10 @@ impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
 
     pub fn as_inner(&self) -> &T {
         &self.inner
+    }
+
+    pub fn into_inner(self) -> T {
+        self.inner
     }
 }
 
@@ -1608,6 +1616,12 @@ mod tests {
     #[test]
     fn test_visiblestring_as_str() {
         assert_eq!(VisibleString::new("abc").unwrap().as_str(), "abc");
+    }
+
+    #[test]
+    fn test_tlv_data() {
+        let tlv = parse_single::<Tlv<'_>>(b"\x01\x03abc").unwrap();
+        assert_eq!(tlv.data(), b"abc");
     }
 
     #[test]

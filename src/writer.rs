@@ -82,6 +82,7 @@ fn _length_length(length: usize) -> u8 {
     }
     num_bytes
 }
+
 fn _insert_at_position(buf: &mut WriteBuf, pos: usize, data: &[u8]) -> WriteResult {
     for _ in 0..data.len() {
         buf.push_byte(0)?;

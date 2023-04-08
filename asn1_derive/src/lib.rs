@@ -288,11 +288,11 @@ fn generate_read_element(
             let value = arg.value;
             if arg.required {
                 quote::quote! {
-                    p.read_explicit_element(#value)#add_error_location?
+                    p.read_element::<asn1::Explicit<_, #value>>()#add_error_location?.into_inner()
                 }
             } else {
                 quote::quote! {
-                    p.read_optional_explicit_element(#value)#add_error_location?
+                    p.read_element::<Option<asn1::Explicit<_, #value>>>()#add_error_location?.map(asn1::Explicit::into_inner)
                 }
             }
         }
@@ -300,11 +300,11 @@ fn generate_read_element(
             let value = arg.value;
             if arg.required {
                 quote::quote! {
-                    p.read_implicit_element(#value)#add_error_location?
+                    p.read_element::<asn1::Implicit<_, #value>>()#add_error_location?.into_inner()
                 }
             } else {
                 quote::quote! {
-                    p.read_optional_implicit_element(#value)#add_error_location?
+                    p.read_element::<Option<asn1::Implicit<_, #value>>>()#add_error_location?.map(asn1::Implicit::into_inner)
                 }
             }
         }
@@ -445,7 +445,7 @@ fn generate_enum_read_block(
                     if tlv.tag() == asn1::explicit_tag(#tag) {
                         return Ok(#name::#ident(asn1::parse(
                             tlv.full_data(),
-                            |p| p.read_explicit_element(#tag)#add_error_location
+                            |p| Ok(p.read_element::<asn1::Explicit<_, #tag>>()#add_error_location?.into_inner())
                         )?))
                     }
                 });
@@ -461,7 +461,7 @@ fn generate_enum_read_block(
                     if tlv.tag() == asn1::implicit_tag(#tag, <#ty as asn1::SimpleAsn1Readable>::TAG) {
                         return Ok(#name::#ident(asn1::parse(
                             tlv.full_data(),
-                            |p| p.read_implicit_element(#tag)#add_error_location
+                            |p| Ok(p.read_element::<asn1::Implicit<_, #tag>>()#add_error_location?.into_inner())
                         )?))
                     }
                 });
