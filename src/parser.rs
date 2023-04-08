@@ -1673,13 +1673,13 @@ mod tests {
                 b"\x02\x01\xff",
             ),
         ]);
-        const CONTEXT_SPECIFIC: u8 = TagClass::ContextSpecific as u8;
-        assert_parses::<Implicit<bool, 2, { CONTEXT_SPECIFIC }>>(&[
+        const CONTEXT_SPECIFIC: TagClass = TagClass::ContextSpecific;
+        assert_parses::<Implicit<bool, 2, { CONTEXT_SPECIFIC.as_u8() }>>(&[
             (Ok(Implicit::new(true)), b"\x82\x01\xff"),
             (Ok(Implicit::new(false)), b"\x82\x01\x00"),
         ]);
-        const APPLICATION: u8 = TagClass::Application as u8;
-        assert_parses::<Implicit<bool, 2, { APPLICATION }>>(&[
+        const APPLICATION: TagClass = TagClass::Application;
+        assert_parses::<Implicit<bool, 2, { APPLICATION.as_u8() }>>(&[
             (Ok(Implicit::new(true)), b"\x42\x01\xff"),
             (Ok(Implicit::new(false)), b"\x42\x01\x00"),
             (

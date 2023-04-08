@@ -672,18 +672,18 @@ mod tests {
             (Implicit::new(false), b"\x82\x01\x00"),
         ]);
 
-        const CONTEXT_SPECIFIC: u8 = TagClass::ContextSpecific as u8;
-        assert_writes::<Implicit<bool, 2, CONTEXT_SPECIFIC>>(&[
+        const CONTEXT_SPECIFIC: TagClass = TagClass::ContextSpecific;
+        assert_writes::<Implicit<bool, 2, { CONTEXT_SPECIFIC.as_u8() }>>(&[
             (Implicit::new(true), b"\x82\x01\xff"),
             (Implicit::new(false), b"\x82\x01\x00"),
         ]);
-        assert_writes::<Implicit<i32, 2, CONTEXT_SPECIFIC>>(&[
+        assert_writes::<Implicit<i32, 2, { CONTEXT_SPECIFIC.as_u8() }>>(&[
             (Implicit::new(3i32), b"\x82\x01\x03"),
             (Implicit::new(15i32), b"\x82\x01\x0f"),
         ]);
 
-        const APPLICATION: u8 = TagClass::Application as u8;
-        assert_writes::<Implicit<i32, 2, APPLICATION>>(&[
+        const APPLICATION: TagClass = TagClass::Application;
+        assert_writes::<Implicit<i32, 2, { APPLICATION.as_u8() }>>(&[
             (Implicit::new(3i32), b"\x42\x01\x03"),
             (Implicit::new(15i32), b"\x42\x01\x0f"),
         ]);
@@ -775,14 +775,14 @@ mod tests {
             (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
         ]);
 
-        const CONTEXT_SPECIFIC: u8 = TagClass::ContextSpecific as u8;
-        assert_writes::<Explicit<bool, 2, CONTEXT_SPECIFIC>>(&[
+        const CONTEXT_SPECIFIC: TagClass = TagClass::ContextSpecific;
+        assert_writes::<Explicit<bool, 2, { CONTEXT_SPECIFIC.as_u8() }>>(&[
             (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
             (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
         ]);
 
-        const APPLICATION: u8 = TagClass::Application as u8;
-        assert_writes::<Explicit<bool, 2, APPLICATION>>(&[
+        const APPLICATION: TagClass = TagClass::Application;
+        assert_writes::<Explicit<bool, 2, { APPLICATION.as_u8() }>>(&[
             (Explicit::new(true), b"\x62\x03\x01\x01\xff"),
             (Explicit::new(false), b"\x62\x03\x01\x01\x00"),
         ]);
