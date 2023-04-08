@@ -1,4 +1,4 @@
-use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
+use crate::types::{Asn1Readable, Tlv};
 use crate::Tag;
 use core::fmt;
 
@@ -284,60 +284,6 @@ impl<'a> Parser<'a> {
     #[inline]
     pub fn read_element<T: Asn1Readable<'a>>(&mut self) -> ParseResult<T> {
         T::parse(self)
-    }
-
-    /// This is an alias for `read_element::<Explicit<T, tag>>` for use when
-    /// MSRV is < 1.51.
-    pub fn read_explicit_element<T: Asn1Readable<'a>>(&mut self, tag: u32) -> ParseResult<T> {
-        let expected_tag = crate::explicit_tag(tag);
-        let tlv = self.read_tlv()?;
-        if tlv.tag != expected_tag {
-            return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                actual: tlv.tag,
-            }));
-        }
-        parse_single(tlv.data())
-    }
-
-    /// This is an alias for `read_element::<Option<Explicit<T, tag>>>` for use
-    /// when MSRV is <1.51.
-    pub fn read_optional_explicit_element<T: Asn1Readable<'a>>(
-        &mut self,
-        tag: u32,
-    ) -> ParseResult<Option<T>> {
-        let expected_tag = crate::explicit_tag(tag);
-        if self.peek_tag() != Some(expected_tag) {
-            return Ok(None);
-        }
-        let tlv = self.read_tlv()?;
-        Ok(Some(parse_single::<T>(tlv.data())?))
-    }
-
-    /// This is an alias for `read_element::<Implicit<T, tag>>` for use when
-    /// MSRV is <1.51.
-    pub fn read_implicit_element<T: SimpleAsn1Readable<'a>>(&mut self, tag: u32) -> ParseResult<T> {
-        let expected_tag = crate::implicit_tag(tag, T::TAG);
-        let tlv = self.read_tlv()?;
-        if tlv.tag != expected_tag {
-            return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                actual: tlv.tag,
-            }));
-        }
-        T::parse_data(tlv.data())
-    }
-
-    /// This is an alias for `read_element::<Option<Implicit<T, tag>>>` for use
-    /// when MSRV is <1.51.
-    pub fn read_optional_implicit_element<T: SimpleAsn1Readable<'a>>(
-        &mut self,
-        tag: u32,
-    ) -> ParseResult<Option<T>> {
-        let expected_tag = crate::implicit_tag(tag, T::TAG);
-        if self.peek_tag() != Some(expected_tag) {
-            return Ok(None);
-        }
-        let tlv = self.read_tlv()?;
-        Ok(Some(T::parse_data(tlv.data())?))
     }
 }
 
@@ -1634,80 +1580,6 @@ mod tests {
             ),
             (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
         ]);
-
-        assert_parses_cb(
-            &[
-                (Ok(Some(true)), b"\x82\x01\xff"),
-                (Ok(Some(false)), b"\x82\x01\x00"),
-                (Ok(None), b""),
-                (
-                    Err(ParseError::new(ParseErrorKind::ExtraData)),
-                    b"\x01\x01\xff",
-                ),
-                (
-                    Err(ParseError::new(ParseErrorKind::ExtraData)),
-                    b"\x02\x01\xff",
-                ),
-            ],
-            |p| p.read_optional_implicit_element::<bool>(2),
-        );
-        assert_parses_cb(
-            &[
-                (Ok(Some(Sequence::new(b"abc"))), b"\xa2\x03abc"),
-                (Ok(Some(Sequence::new(b""))), b"\xa2\x00"),
-                (Ok(None), b""),
-                (
-                    Err(ParseError::new(ParseErrorKind::ExtraData)),
-                    b"\x01\x01\xff",
-                ),
-                (
-                    Err(ParseError::new(ParseErrorKind::ExtraData)),
-                    b"\x02\x01\xff",
-                ),
-            ],
-            |p| p.read_optional_implicit_element::<Sequence>(2),
-        );
-
-        assert_parses_cb(
-            &[
-                (Ok(true), b"\x82\x01\xff"),
-                (Ok(false), b"\x82\x01\x00"),
-                (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
-                (
-                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: Tag::primitive(0x01),
-                    })),
-                    b"\x01\x01\xff",
-                ),
-                (
-                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: Tag::primitive(0x02),
-                    })),
-                    b"\x02\x01\xff",
-                ),
-            ],
-            |p| p.read_implicit_element::<bool>(2),
-        );
-        assert_parses_cb(
-            &[
-                (Ok(Sequence::new(b"abc")), b"\xa2\x03abc"),
-                (Ok(Sequence::new(b"")), b"\xa2\x00"),
-                (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
-                (
-                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: Tag::primitive(0x01),
-                    })),
-                    b"\x01\x01\xff",
-                ),
-                (
-                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: Tag::primitive(0x02),
-                    })),
-                    b"\x02\x01\xff",
-                ),
-            ],
-            |p| p.read_implicit_element::<Sequence>(2),
-        );
     }
 
     #[test]
@@ -1734,46 +1606,6 @@ mod tests {
                 b"\xa2\x03\x03\x01\xff",
             ),
         ]);
-
-        assert_parses_cb(
-            &[
-                (Ok(Some(true)), b"\xa2\x03\x01\x01\xff"),
-                (Ok(Some(false)), b"\xa2\x03\x01\x01\x00"),
-                (Ok(None), b""),
-                (
-                    Err(ParseError::new(ParseErrorKind::ExtraData)),
-                    b"\x01\x01\xff",
-                ),
-                (
-                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: Tag::primitive(0x03),
-                    })),
-                    b"\xa2\x03\x03\x01\xff",
-                ),
-            ],
-            |p| p.read_optional_explicit_element::<bool>(2),
-        );
-
-        assert_parses_cb(
-            &[
-                (Ok(true), b"\xa2\x03\x01\x01\xff"),
-                (Ok(false), b"\xa2\x03\x01\x01\x00"),
-                (Err(ParseError::new(ParseErrorKind::ShortData)), b""),
-                (
-                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: Tag::primitive(0x01),
-                    })),
-                    b"\x01\x01\xff",
-                ),
-                (
-                    Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                        actual: Tag::primitive(0x03),
-                    })),
-                    b"\xa2\x03\x03\x01\xff",
-                ),
-            ],
-            |p| p.read_explicit_element::<bool>(2),
-        );
     }
 
     #[test]
