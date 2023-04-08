@@ -1,5 +1,5 @@
 use crate::types::{Asn1Readable, SimpleAsn1Readable, Tlv};
-use crate::Tag;
+use crate::{Tag, TagClass};
 use core::fmt;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -299,11 +299,12 @@ impl<'a> Parser<'a> {
     }
 
     /// This is an alias for `read_element::<Explicit<T, tag, 1>>`
-    pub fn read_explicit_application_element<T: Asn1Readable<'a>>(
+    pub fn read_explicit_class_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
+        tag_class: TagClass,
     ) -> ParseResult<T> {
-        let expected_tag = crate::explicit_tag_application(tag);
+        let expected_tag = crate::explicit_tag_class(tag, tag_class);
         let tlv = self.read_tlv()?;
         if tlv.tag != expected_tag {
             return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
@@ -327,11 +328,12 @@ impl<'a> Parser<'a> {
     }
 
     /// This is an alias for `read_element::<Option<Explicit<T, tag, 1>>>`
-    pub fn read_optional_explicit_application_element<T: Asn1Readable<'a>>(
+    pub fn read_optional_explicit_class_element<T: Asn1Readable<'a>>(
         &mut self,
         tag: u32,
+        tag_class: TagClass,
     ) -> ParseResult<Option<T>> {
-        let expected_tag = crate::explicit_tag_application(tag);
+        let expected_tag = crate::explicit_tag_class(tag, tag_class);
         if self.peek_tag() != Some(expected_tag) {
             return Ok(None);
         }
@@ -352,11 +354,12 @@ impl<'a> Parser<'a> {
     }
 
     /// This is an alias for `read_element::<Implicit<T, tag, 1>>`
-    pub fn read_implicit_application_element<T: SimpleAsn1Readable<'a>>(
+    pub fn read_implicit_class_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,
+        tag_class: TagClass,
     ) -> ParseResult<T> {
-        let expected_tag = crate::implicit_tag_application(tag, T::TAG);
+        let expected_tag = crate::implicit_tag_class(tag, tag_class, T::TAG);
         let tlv = self.read_tlv()?;
         if tlv.tag != expected_tag {
             return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
@@ -380,11 +383,12 @@ impl<'a> Parser<'a> {
     }
 
     /// This is an alias for `read_element::<Option<Implicit<T, tag, 1>>>`
-    pub fn read_optional_implicit_application_element<T: SimpleAsn1Readable<'a>>(
+    pub fn read_optional_implicit_class_element<T: SimpleAsn1Readable<'a>>(
         &mut self,
         tag: u32,
+        tag_class: TagClass,
     ) -> ParseResult<Option<T>> {
-        let expected_tag = crate::implicit_tag_application(tag, T::TAG);
+        let expected_tag = crate::implicit_tag_class(tag, tag_class, T::TAG);
         if self.peek_tag() != Some(expected_tag) {
             return Ok(None);
         }
@@ -1743,7 +1747,7 @@ mod tests {
                     b"\x02\x01\xff",
                 ),
             ],
-            |p| p.read_optional_implicit_application_element::<bool>(2),
+            |p| p.read_optional_implicit_class_element::<bool>(2, TagClass::Application),
         );
 
         assert_parses_cb(
@@ -1777,7 +1781,7 @@ mod tests {
                     b"\x02\x01\xff",
                 ),
             ],
-            |p| p.read_optional_implicit_application_element::<Sequence>(2),
+            |p| p.read_optional_implicit_class_element::<Sequence>(2, TagClass::Application),
         );
 
         assert_parses_cb(
@@ -1882,7 +1886,7 @@ mod tests {
                     b"\x62\x03\x03\x01\xff",
                 ),
             ],
-            |p| p.read_optional_explicit_application_element::<bool>(2),
+            |p| p.read_optional_explicit_class_element::<bool>(2, TagClass::Application),
         );
 
         assert_parses_cb(

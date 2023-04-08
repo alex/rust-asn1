@@ -1,5 +1,5 @@
 use crate::types::{Asn1Writable, SimpleAsn1Writable};
-use crate::Tag;
+use crate::{Tag, TagClass};
 use alloc::vec::Vec;
 use alloc::{fmt, vec};
 
@@ -119,12 +119,13 @@ impl Writer<'_> {
     }
 
     /// This is an alias for `write_element::<Explicit<T, tag, 1>>`
-    pub fn write_explicit_application_element<T: Asn1Writable>(
+    pub fn write_explicit_class_element<T: Asn1Writable>(
         &mut self,
         val: &T,
         tag: u32,
+        tag_class: TagClass,
     ) -> WriteResult {
-        let tag = crate::explicit_tag_application(tag);
+        let tag = crate::explicit_tag_class(tag, tag_class);
         self.write_tlv(tag, |dest| Writer::new(dest).write_element(val))
     }
 
@@ -143,13 +144,14 @@ impl Writer<'_> {
     }
 
     /// This is an alias for `write_element::<Option<Explicit<T, tag, 1>>>`
-    pub fn write_optional_explicit_application_element<T: Asn1Writable>(
+    pub fn write_optional_explicit_class_element<T: Asn1Writable>(
         &mut self,
         val: &Option<T>,
         tag: u32,
+        tag_class: TagClass,
     ) -> WriteResult {
         if let Some(v) = val {
-            let tag = crate::explicit_tag_application(tag);
+            let tag = crate::explicit_tag_class(tag, tag_class);
             self.write_tlv(tag, |dest| Writer::new(dest).write_element(v))
         } else {
             Ok(())
@@ -166,23 +168,14 @@ impl Writer<'_> {
         self.write_tlv(tag, |dest| val.write_data(dest))
     }
 
-    /// This is an alias for `write_element::<Implicit<T, tag, tag_class>>`
-    pub fn write_implicit_application_element<T: SimpleAsn1Writable>(
+    /// This is an alias for `write_element::<Implicit<T, tag>>`
+    pub fn write_implicit_class_element<T: SimpleAsn1Writable>(
         &mut self,
         val: &T,
         tag: u32,
+        tag_class: TagClass,
     ) -> WriteResult {
-        let tag = crate::implicit_tag_application(tag, T::TAG);
-        self.write_tlv(tag, |dest| val.write_data(dest))
-    }
-
-    /// This is an alias for `write_element::<Implicit<T, tag, tag_class>>`
-    pub fn write_implicit_context_specific_element<T: SimpleAsn1Writable>(
-        &mut self,
-        val: &T,
-        tag: u32,
-    ) -> WriteResult {
-        let tag = crate::implicit_tag_context_specific(tag, T::TAG);
+        let tag = crate::implicit_tag_class(tag, tag_class, T::TAG);
         self.write_tlv(tag, |dest| val.write_data(dest))
     }
 
@@ -201,13 +194,14 @@ impl Writer<'_> {
     }
 
     /// This is an alias for `write_element::<Option<Implicit<T, tag, 1>>>`
-    pub fn write_optional_implicit_application_element<T: SimpleAsn1Writable>(
+    pub fn write_optional_implicit_class_element<T: SimpleAsn1Writable>(
         &mut self,
         val: &Option<T>,
         tag: u32,
+        tag_class: TagClass,
     ) -> WriteResult {
         if let Some(v) = val {
-            let tag = crate::implicit_tag_application(tag, T::TAG);
+            let tag = crate::implicit_tag_class(tag, tag_class, T::TAG);
             self.write_tlv(tag, |dest| v.write_data(dest))
         } else {
             Ok(())
@@ -702,11 +696,17 @@ mod tests {
             b"\x82\x01\xff"
         );
         assert_eq!(
-            write(|w| { w.write_optional_implicit_application_element(&Some(true), 2) }).unwrap(),
+            write(|w| {
+                w.write_optional_implicit_class_element(&Some(true), 2, TagClass::Application)
+            })
+            .unwrap(),
             b"\x42\x01\xff"
         );
         assert_eq!(
-            write(|w| { w.write_optional_implicit_application_element::<u8>(&None, 2) }).unwrap(),
+            write(|w| {
+                w.write_optional_implicit_class_element::<u8>(&None, 2, TagClass::Application)
+            })
+            .unwrap(),
             b""
         );
 
@@ -715,7 +715,10 @@ mod tests {
             b""
         );
         assert_eq!(
-            write(|w| { w.write_optional_explicit_application_element::<u8>(&None, 2) }).unwrap(),
+            write(|w| {
+                w.write_optional_explicit_class_element::<u8>(&None, 2, TagClass::Application)
+            })
+            .unwrap(),
             b""
         );
 
@@ -732,9 +735,10 @@ mod tests {
         );
         assert_eq!(
             write(|w| {
-                w.write_optional_explicit_application_element(
+                w.write_optional_explicit_class_element(
                     &Some(SequenceWriter::new(&|_w| Ok(()))),
                     2,
+                    TagClass::Application,
                 )
             })
             .unwrap(),
@@ -753,12 +757,13 @@ mod tests {
         );
 
         assert_eq!(
-            write(|w| { w.write_implicit_application_element(&3i32, 3) }).unwrap(),
+            write(|w| { w.write_implicit_class_element(&3i32, 3, TagClass::Application) }).unwrap(),
             b"\x43\x01\x03"
         );
 
         assert_eq!(
-            write(|w| { w.write_implicit_context_specific_element(&3i32, 3) }).unwrap(),
+            write(|w| { w.write_implicit_class_element(&3i32, 3, TagClass::ContextSpecific) })
+                .unwrap(),
             b"\x83\x01\x03"
         );
     }

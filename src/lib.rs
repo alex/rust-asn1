@@ -186,61 +186,31 @@ pub fn to_optional_default<'a, T: PartialEq>(v: &'a T, default: &'a T) -> Option
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
-pub const fn implicit_tag_class<const TAG_CLASS: u8>(tag: u32, inner_tag: Tag) -> Tag {
-    Tag::new(
-        tag,
-        TagClass::from_u8(TAG_CLASS),
-        inner_tag.is_constructed(),
-    )
+pub const fn implicit_tag_class(tag: u32, tag_class: TagClass, inner_tag: Tag) -> Tag {
+    Tag::new(tag, tag_class, inner_tag.is_constructed())
 }
 
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub const fn implicit_tag(tag: u32, inner_tag: Tag) -> Tag {
-    implicit_tag_context_specific(tag, inner_tag)
+    const TAG_CLASS: TagClass = TagClass::ContextSpecific;
+    implicit_tag_class(tag, TAG_CLASS, inner_tag)
 }
 
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
-pub const fn implicit_tag_application(tag: u32, inner_tag: Tag) -> Tag {
-    Tag::new(tag, TagClass::Application, inner_tag.is_constructed())
-}
-
-/// This API is public so that it may be used from macros, but should not be
-/// considered a part of the supported API surface.
-#[doc(hidden)]
-pub const fn implicit_tag_context_specific(tag: u32, inner_tag: Tag) -> Tag {
-    Tag::new(tag, TagClass::ContextSpecific, inner_tag.is_constructed())
-}
-
-/// This API is public so that it may be used from macros, but should not be
-/// considered a part of the supported API surface.
-#[doc(hidden)]
-pub const fn explicit_tag_class<const TAG_CLASS: u8>(tag: u32) -> Tag {
-    Tag::new(tag, TagClass::from_u8(TAG_CLASS), true)
-}
-
-/// This API is public so that it may be used from macros, but should not be
-/// considered a part of the supported API surface.
-#[doc(hidden)]
-pub const fn explicit_tag_application(tag: u32) -> Tag {
-    Tag::new(tag, TagClass::Application, true)
-}
-
-/// This API is public so that it may be used from macros, but should not be
-/// considered a part of the supported API surface.
-#[doc(hidden)]
-pub const fn explicit_tag_context_specific(tag: u32) -> Tag {
-    Tag::new(tag, TagClass::ContextSpecific, true)
+pub const fn explicit_tag_class(tag: u32, tag_class: TagClass) -> Tag {
+    Tag::new(tag, tag_class, true)
 }
 
 /// This API is public so that it may be used from macros, but should not be
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub const fn explicit_tag(tag: u32) -> Tag {
-    explicit_tag_context_specific(tag)
+    const CONTEXT_SPECIFIC_TAG: TagClass = TagClass::ContextSpecific;
+    explicit_tag_class(tag, CONTEXT_SPECIFIC_TAG)
 }
 
 /// This API is public so that it may be used from macros, but should not be

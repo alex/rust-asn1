@@ -228,7 +228,7 @@ enum OpType {
 struct OpTypeArgs {
     value: proc_macro2::Literal,
     required: bool,
-    tagclass: TagClass,
+    tag_class: TagClass,
 }
 
 fn parse_tag_class_from_ident(ident: &str) -> Option<TagClass> {
@@ -265,7 +265,7 @@ impl syn::parse::Parse for OpTypeArgs {
 
         Ok(OpTypeArgs {
             value,
-            tagclass,
+            tag_class: tagclass,
             required,
         })
     }
@@ -313,15 +313,15 @@ fn generate_read_element(
     let mut read_op = match read_type {
         OpType::Explicit(arg) => {
             let value = arg.value;
-            match arg.tagclass {
+            match arg.tag_class {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote! {
-                            p.read_explicit_application_element(#value)#add_error_location?
+                            p.read_explicit_class_element(#value, TagClass::Application)#add_error_location?
                         }
                     } else {
                         quote::quote! {
-                            p.read_optional_explicit_application_element(#value)#add_error_location?
+                            p.read_optional_explicit_class_element(#value, TagClass::Application)#add_error_location?
                         }
                     }
                 }
@@ -340,15 +340,15 @@ fn generate_read_element(
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
-            match arg.tagclass {
+            match arg.tag_class {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote! {
-                            p.read_implicit_application_element(#value)#add_error_location?
+                            p.read_implicit_class_element(#value, TagClass::Application)#add_error_location?
                         }
                     } else {
                         quote::quote! {
-                            p.read_optional_implicit_application_element(#value)#add_error_location?
+                            p.read_optional_implicit_class_element(#value, TagClass::Application)#add_error_location?
                         }
                     }
                 }
@@ -557,15 +557,16 @@ fn generate_write_element(
     match write_type {
         OpType::Explicit(arg) => {
             let value = arg.value;
-            match arg.tagclass {
+            let tag_class = arg.tag_class;
+            match tag_class {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote_spanned! {f.span() =>
-                            w.write_explicit_application_element(#field_read, #value)?;
+                            w.write_explicit_class_element(#field_read, #value, TagClass::Application)?;
                         }
                     } else {
                         quote::quote_spanned! {f.span() =>
-                            w.write_optional_explicit_application_element(#field_read, #value)?;
+                            w.write_optional_explicit_class_element(#field_read, #value, TagClass::Application)?;
                         }
                     }
                 }
@@ -584,15 +585,15 @@ fn generate_write_element(
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
-            match arg.tagclass {
+            match arg.tag_class {
                 TagClass::Application => {
                     if arg.required {
                         quote::quote_spanned! {f.span() =>
-                            w.write_implicit_application_element(#field_read, #value)?;
+                            w.write_implicit_class_element(#field_read, #value, TagClass::Application)?;
                         }
                     } else {
                         quote::quote_spanned! {f.span() =>
-                            w.write_optional_implicit_application_element(#field_read, #value)?;
+                            w.write_optional_implicit_class_element(#field_read, #value, TagClass::Application)?;
                         }
                     }
                 }

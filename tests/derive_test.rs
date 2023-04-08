@@ -484,9 +484,9 @@ fn test_implicit_struct_with_const_generics() {
     };
 
     const TAG_NUMBER: u32 = 0u32;
-    const TAG_CLASS: u8 = TagClass::Application as u8;
+    const TAG_CLASS: TagClass = TagClass::Application;
     let implicit_application_sequence =
-        Implicit::<InitiateSession, TAG_NUMBER, TAG_CLASS>::new(session);
+        Implicit::<InitiateSession, TAG_NUMBER, { TAG_CLASS.as_u8() }>::new(session);
     let expected_bytes: Vec<u8> = vec![
         0x60, 0x27, // session itself
         0x4a, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, // a

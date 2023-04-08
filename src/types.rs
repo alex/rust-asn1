@@ -1487,7 +1487,7 @@ impl<'a, T, const TAG: u32, const TAG_CLASS: u8> From<T>
 impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Readable<'a>
     for Implicit<'a, T, { TAG }, { TAG_CLASS }>
 {
-    const TAG: Tag = crate::implicit_tag_class::<TAG_CLASS>(TAG, T::TAG);
+    const TAG: Tag = crate::implicit_tag_class(TAG, TagClass::from_u8(TAG_CLASS), T::TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Implicit::new(T::parse_data(data)?))
     }
@@ -1496,7 +1496,7 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32, const TAG_CLASS: u8> SimpleA
 impl<'a, T: SimpleAsn1Writable, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Writable
     for Implicit<'a, T, { TAG }, { TAG_CLASS }>
 {
-    const TAG: Tag = crate::implicit_tag_class::<TAG_CLASS>(TAG, T::TAG);
+    const TAG: Tag = crate::implicit_tag_class(TAG, TagClass::from_u8(TAG_CLASS), T::TAG);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         self.inner.write_data(dest)
     }
@@ -1539,7 +1539,7 @@ impl<'a, T, const TAG: u32, const TAG_CLASS: u8> From<T>
 impl<'a, T: Asn1Readable<'a>, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Readable<'a>
     for Explicit<'a, T, { TAG }, { TAG_CLASS }>
 {
-    const TAG: Tag = crate::explicit_tag_class::<TAG_CLASS>(TAG);
+    const TAG: Tag = crate::explicit_tag_class(TAG, TagClass::from_u8(TAG_CLASS));
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Explicit::new(parse(data, Parser::read_element::<T>)?))
     }
@@ -1548,7 +1548,7 @@ impl<'a, T: Asn1Readable<'a>, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Rea
 impl<'a, T: Asn1Writable, const TAG: u32, const TAG_CLASS: u8> SimpleAsn1Writable
     for Explicit<'a, T, { TAG }, { TAG_CLASS }>
 {
-    const TAG: Tag = crate::explicit_tag_class::<TAG_CLASS>(TAG);
+    const TAG: Tag = crate::explicit_tag_class(TAG, TagClass::from_u8(TAG_CLASS));
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         Writer::new(dest).write_element(&self.inner)
     }

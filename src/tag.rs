@@ -20,6 +20,15 @@ impl TagClass {
             _ => panic!("No matching tag class bits"),
         }
     }
+
+    pub const fn as_u8(&self) -> u8 {
+        match self {
+            TagClass::Universal => 0,
+            TagClass::Application => 1,
+            TagClass::ContextSpecific => 2,
+            TagClass::Private => 3,
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
