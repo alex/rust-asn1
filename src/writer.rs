@@ -288,8 +288,8 @@ mod tests {
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime,
         Enumerated, Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier,
         OctetStringEncoded, OwnedBitString, PrintableString, Sequence, SequenceOf,
-        SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString, UtcTime,
-        Utf8String, VisibleString, WriteError,
+        SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, TagClass, Tlv, UniversalString,
+        UtcTime, Utf8String, VisibleString, WriteError,
     };
     use alloc::vec::Vec;
 
