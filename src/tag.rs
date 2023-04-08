@@ -4,14 +4,14 @@ use crate::writer::{WriteBuf, WriteResult};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum TagClass {
-    Universal = 0b00,
-    Application = 0b01,
-    ContextSpecific = 0b10,
-    Private = 0b11,
+    Universal,
+    Application,
+    ContextSpecific,
+    Private,
 }
 
 impl TagClass {
-    pub(crate) const fn from_u8(value: u8) -> TagClass {
+    pub(crate) const fn from_u8(value: u8) -> Self {
         match value {
             0 => TagClass::Universal,
             1 => TagClass::Application,
