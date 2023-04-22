@@ -214,6 +214,31 @@ fn test_default() {
 }
 
 #[test]
+fn test_default_not_literal() {
+    const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
+    const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3, 4);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct DefaultFields {
+        #[default(OID1)]
+        a: asn1::ObjectIdentifier,
+    }
+
+    assert_roundtrips(&[
+        (Ok(DefaultFields { a: OID1 }), b"\x30\x00"),
+        (
+            Ok(DefaultFields { a: OID2 }),
+            b"\x30\x05\x06\x03\x2a\x03\x04",
+        ),
+        (
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::EncodedDefault)
+                .add_location(asn1::ParseLocation::Field("DefaultFields::a"))),
+            b"\x30\x04\x06\x02\x2a\x03",
+        ),
+    ]);
+}
+
+#[test]
 fn test_default_const_generics() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
     struct DefaultFields<'a> {

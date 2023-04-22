@@ -244,7 +244,7 @@ impl syn::parse::Parse for OpTypeArgs {
     }
 }
 
-fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Lit>) {
+fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Expr>) {
     let mut op_type = OpType::Regular;
     let mut default = None;
     for attr in attrs {
@@ -262,7 +262,7 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Li
             }
         } else if attr.path().is_ident("default") {
             assert!(default.is_none(), "Can't specify #[default] more than once");
-            default = Some(attr.parse_args::<syn::Lit>().unwrap());
+            default = Some(attr.parse_args::<syn::Expr>().unwrap());
         } else if attr.path().is_ident("defined_by") {
             op_type = OpType::DefinedBy(attr.parse_args::<syn::Ident>().unwrap());
         }
