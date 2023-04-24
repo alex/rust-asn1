@@ -84,6 +84,27 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     proc_macro::TokenStream::from(expanded)
 }
 
+fn extract_defined_by_property(variant: &syn::Variant) -> syn::Ident {
+    match &variant.fields {
+        syn::Fields::Unnamed(fields) => {
+            assert_eq!(fields.unnamed.len(), 1);
+        }
+        _ => panic!("enum elements must have a single field"),
+    };
+
+    variant
+        .attrs
+        .iter()
+        .find_map(|a| {
+            if a.path().is_ident("defined_by") {
+                Some(a.parse_args::<syn::Ident>().unwrap())
+            } else {
+                None
+            }
+        })
+        .expect("Variant must have #[defined_by]")
+}
+
 #[proc_macro_derive(Asn1DefinedByRead, attributes(defined_by))]
 pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
@@ -93,24 +114,8 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
 
     let read_block = match &input.data {
         syn::Data::Enum(data) => data.variants.iter().map(|variant| {
-            match &variant.fields {
-                syn::Fields::Unnamed(fields) => {
-                    assert_eq!(fields.unnamed.len(), 1);
-                }
-                _ => panic!("enum elements must have a single field"),
-            };
             let ident = &variant.ident;
-            let defined_by = variant
-                .attrs
-                .iter()
-                .find_map(|a| {
-                    if a.path().is_ident("defined_by") {
-                        Some(a.parse_args::<syn::Ident>().unwrap())
-                    } else {
-                        None
-                    }
-                })
-                .expect("Variant must have #[defined_by]");
+            let defined_by = extract_defined_by_property(variant);
             quote::quote! {
                 if item == #defined_by {
                     return Ok(#name::#ident(parser.read_element()?));
@@ -142,24 +147,8 @@ pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macr
     match &input.data {
         syn::Data::Enum(data) => {
             for variant in &data.variants {
-                match &variant.fields {
-                    syn::Fields::Unnamed(fields) => {
-                        assert_eq!(fields.unnamed.len(), 1);
-                    }
-                    _ => panic!("enum elements must have a single field"),
-                };
                 let ident = &variant.ident;
-                let defined_by = variant
-                    .attrs
-                    .iter()
-                    .find_map(|a| {
-                        if a.path().is_ident("defined_by") {
-                            Some(a.parse_args::<syn::Ident>().unwrap())
-                        } else {
-                            None
-                        }
-                    })
-                    .expect("Variant must have #[defined_by]");
+                let defined_by = extract_defined_by_property(variant);
 
                 write_blocks.push(quote::quote! {
                     #name::#ident(value) => w.write_element(value),
