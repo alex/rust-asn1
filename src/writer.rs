@@ -409,6 +409,28 @@ mod tests {
     }
 
     #[test]
+    fn test_write_u16() {
+        assert_writes::<u16>(&[
+            (0, b"\x02\x01\x00"),
+            (1, b"\x02\x01\x01"),
+            (256, b"\x02\x02\x01\x00"),
+            (65535, b"\x02\x03\x00\xff\xff"),
+        ]);
+    }
+
+    #[test]
+    fn test_write_i16() {
+        assert_writes::<i16>(&[
+            (0, b"\x02\x01\x00"),
+            (1, b"\x02\x01\x01"),
+            (-256, b"\x02\x02\xff\x00"),
+            (-1, b"\x02\x01\xff"),
+            (-32768, b"\x02\x02\x80\x00"),
+            (32767, b"\x02\x02\x7f\xff"),
+        ]);
+    }
+
+    #[test]
     fn test_write_biguint() {
         assert_writes::<BigUint>(&[
             (BigUint::new(b"\x00\xff").unwrap(), b"\x02\x02\x00\xff"),
