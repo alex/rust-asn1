@@ -84,7 +84,15 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     proc_macro::TokenStream::from(expanded)
 }
 
-fn extract_defined_by_property(variant: &syn::Variant) -> syn::Ident {
+enum DefinedByVariant {
+    DefinedBy(syn::Ident),
+    Default,
+}
+
+fn extract_defined_by_property(variant: &syn::Variant) -> DefinedByVariant {
+    if variant.attrs.iter().any(|a| a.path().is_ident("default")) {
+        return DefinedByVariant::Default;
+    }
     match &variant.fields {
         syn::Fields::Unnamed(fields) => {
             assert_eq!(fields.unnamed.len(), 1);
@@ -92,44 +100,68 @@ fn extract_defined_by_property(variant: &syn::Variant) -> syn::Ident {
         _ => panic!("enum elements must have a single field"),
     };
 
-    variant
-        .attrs
-        .iter()
-        .find_map(|a| {
-            if a.path().is_ident("defined_by") {
-                Some(a.parse_args::<syn::Ident>().unwrap())
-            } else {
-                None
-            }
-        })
-        .expect("Variant must have #[defined_by]")
+    DefinedByVariant::DefinedBy(
+        variant
+            .attrs
+            .iter()
+            .find_map(|a| {
+                if a.path().is_ident("defined_by") {
+                    Some(a.parse_args::<syn::Ident>().unwrap())
+                } else {
+                    None
+                }
+            })
+            .expect("Variant must have #[defined_by]"),
+    )
 }
 
-#[proc_macro_derive(Asn1DefinedByRead, attributes(defined_by))]
+#[proc_macro_derive(Asn1DefinedByRead, attributes(default, defined_by))]
 pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
     let (impl_lifetimes, ty_lifetimes, lifetime_name) = add_lifetime_if_none(input.generics);
 
-    let read_block = match &input.data {
-        syn::Data::Enum(data) => data.variants.iter().map(|variant| {
-            let ident = &variant.ident;
-            let defined_by = extract_defined_by_property(variant);
-            quote::quote! {
-                if item == #defined_by {
-                    return Ok(#name::#ident(parser.read_element()?));
-                }
+    let mut read_block = vec![];
+    let mut default_ident = None;
+
+    match &input.data {
+        syn::Data::Enum(data) => {
+            for variant in &data.variants {
+                let ident = &variant.ident;
+                let defined_by = match extract_defined_by_property(variant) {
+                    DefinedByVariant::DefinedBy(defined_by) => defined_by,
+                    DefinedByVariant::Default => {
+                        assert!(default_ident.is_none());
+                        default_ident = Some(ident);
+                        continue;
+                    }
+                };
+                read_block.push(quote::quote! {
+                    if item == #defined_by {
+                        return Ok(#name::#ident(parser.read_element()?));
+                    }
+                });
             }
-        }),
+        }
         _ => panic!("Only support for enums"),
+    }
+
+    let fallback_block = if let Some(ident) = default_ident {
+        quote::quote! {
+            Ok(#name::#ident(item, parser.read_element()?))
+        }
+    } else {
+        quote::quote! {
+            Err(asn1::ParseError::new(asn1::ParseErrorKind::UnknownDefinedBy))
+        }
     };
     proc_macro::TokenStream::from(quote::quote! {
         impl<#impl_lifetimes> asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier> for #name<#ty_lifetimes> {
             fn parse(item: asn1::ObjectIdentifier, parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
                 #(#read_block)*
 
-                Err(asn1::ParseError::new(asn1::ParseErrorKind::UnknownDefinedBy))
+                #fallback_block
             }
         }
     })
@@ -148,14 +180,24 @@ pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macr
         syn::Data::Enum(data) => {
             for variant in &data.variants {
                 let ident = &variant.ident;
-                let defined_by = extract_defined_by_property(variant);
-
-                write_blocks.push(quote::quote! {
-                    #name::#ident(value) => w.write_element(value),
-                });
-                item_blocks.push(quote::quote! {
-                    #name::#ident(_) => &#defined_by,
-                });
+                match extract_defined_by_property(variant) {
+                    DefinedByVariant::DefinedBy(defined_by) => {
+                        write_blocks.push(quote::quote! {
+                            #name::#ident(value) => w.write_element(value),
+                        });
+                        item_blocks.push(quote::quote! {
+                            #name::#ident(_) => &#defined_by,
+                        });
+                    }
+                    DefinedByVariant::Default => {
+                        write_blocks.push(quote::quote! {
+                            #name::#ident(_, value) => w.write_element(value),
+                        });
+                        item_blocks.push(quote::quote! {
+                            #name::#ident(defined_by, _) => &defined_by,
+                        });
+                    }
+                };
             }
         }
         _ => panic!("Only support for enums"),
