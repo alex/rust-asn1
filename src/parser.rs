@@ -756,6 +756,36 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_int_u16() {
+        assert_parses::<u16>(&[
+            (Ok(0), b"\x02\x01\x00"),
+            (Ok(1), b"\x02\x01\x01"),
+            (Ok(256), b"\x02\x02\x01\x00"),
+            (Ok(65535), b"\x02\x03\x00\xff\xff"),
+            (
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
+                b"\x02\x03\x01\x00\x00",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_parse_int_i16() {
+        assert_parses::<i16>(&[
+            (Ok(0), b"\x02\x01\x00"),
+            (Ok(1), b"\x02\x01\x01"),
+            (Ok(-256), b"\x02\x02\xff\x00"),
+            (Ok(-1), b"\x02\x01\xff"),
+            (Ok(-32768), b"\x02\x02\x80\x00"),
+            (Ok(32767), b"\x02\x02\x7f\xff"),
+            (
+                Err(ParseError::new(ParseErrorKind::IntegerOverflow)),
+                b"\x02\x03\x80\x00\x00",
+            ),
+        ]);
+    }
+
+    #[test]
     fn test_parse_int_i8() {
         assert_parses::<i8>(&[
             (Ok(0i8), b"\x02\x01\x00"),
