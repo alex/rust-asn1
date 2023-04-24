@@ -390,25 +390,6 @@ mod tests {
     }
 
     #[test]
-    fn test_write_u8() {
-        assert_writes::<u8>(&[
-            (0, b"\x02\x01\x00"),
-            (127, b"\x02\x01\x7f"),
-            (128, b"\x02\x02\x00\x80"),
-        ]);
-    }
-
-    #[test]
-    fn test_write_i8() {
-        assert_writes::<i8>(&[
-            (0, b"\x02\x01\x00"),
-            (127, b"\x02\x01\x7f"),
-            (-1, b"\x02\x01\xff"),
-            (-128, b"\x02\x01\x80"),
-        ]);
-    }
-
-    #[test]
     fn test_write_u16() {
         assert_writes::<u16>(&[
             (0, b"\x02\x01\x00"),
@@ -427,6 +408,25 @@ mod tests {
             (-1, b"\x02\x01\xff"),
             (-32768, b"\x02\x02\x80\x00"),
             (32767, b"\x02\x02\x7f\xff"),
+        ]);
+    }
+
+    #[test]
+    fn test_write_u8() {
+        assert_writes::<u8>(&[
+            (0, b"\x02\x01\x00"),
+            (127, b"\x02\x01\x7f"),
+            (128, b"\x02\x02\x00\x80"),
+        ]);
+    }
+
+    #[test]
+    fn test_write_i8() {
+        assert_writes::<i8>(&[
+            (0, b"\x02\x01\x00"),
+            (127, b"\x02\x01\x7f"),
+            (-1, b"\x02\x01\xff"),
+            (-128, b"\x02\x01\x80"),
         ]);
     }
 
