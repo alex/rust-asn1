@@ -251,7 +251,7 @@ impl<'a> Parser<'a> {
                 }
                 Ok(length)
             }
-            // We only support two-byte lengths
+            // We only support four-byte lengths
             _ => Err(ParseError::new(ParseErrorKind::InvalidLength)),
         }
     }
