@@ -634,3 +634,40 @@ fn test_defined_by_optional() {
         ),
     ]);
 }
+
+#[test]
+fn test_defined_by_mod() {
+    mod oids {
+        pub const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
+    }
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct S<'a> {
+        oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
+        #[defined_by(oid)]
+        value: Value<'a>,
+    }
+
+    #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug, Eq)]
+    enum Value<'a> {
+        #[defined_by(oids::OID1)]
+        OctetString(&'a [u8]),
+    }
+
+    assert_roundtrips::<S>(&[
+        (
+            Ok(S {
+                oid: asn1::DefinedByMarker::marker(),
+                value: Value::OctetString(b"abc"),
+            }),
+            b"\x30\x09\x06\x02\x2a\x03\x04\x03abc",
+        ),
+        (
+            Err(
+                asn1::ParseError::new(asn1::ParseErrorKind::UnknownDefinedBy)
+                    .add_location(asn1::ParseLocation::Field("S::value")),
+            ),
+            b"\x30\x04\x06\x02\x2a\x07",
+        ),
+    ]);
+}
