@@ -205,10 +205,10 @@ pub const fn explicit_tag(tag: u32) -> Tag {
 /// considered a part of the supported API surface.
 #[doc(hidden)]
 pub fn read_defined_by<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>>(
-    v: (T, DefinedByMarker<T>),
+    v: T,
     p: &mut Parser<'a>,
 ) -> ParseResult<U> {
-    U::parse(v.0, p)
+    U::parse(v, p)
 }
 
 /// This API is public so that it may be used from macros, but should not be
