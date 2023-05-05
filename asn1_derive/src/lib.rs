@@ -85,7 +85,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 }
 
 enum DefinedByVariant {
-    DefinedBy(syn::Ident, bool),
+    DefinedBy(syn::Path, bool),
     Default,
 }
 
@@ -108,7 +108,7 @@ fn extract_defined_by_property(variant: &syn::Variant) -> DefinedByVariant {
             .iter()
             .find_map(|a| {
                 if a.path().is_ident("defined_by") {
-                    Some(a.parse_args::<syn::Ident>().unwrap())
+                    Some(a.parse_args::<syn::Path>().unwrap())
                 } else {
                     None
                 }
