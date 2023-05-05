@@ -85,7 +85,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 }
 
 enum DefinedByVariant {
-    DefinedBy(syn::Ident),
+    DefinedBy(syn::Ident, bool),
     Default,
 }
 
@@ -93,10 +93,12 @@ fn extract_defined_by_property(variant: &syn::Variant) -> DefinedByVariant {
     if variant.attrs.iter().any(|a| a.path().is_ident("default")) {
         return DefinedByVariant::Default;
     }
-    match &variant.fields {
+    let has_field = match &variant.fields {
         syn::Fields::Unnamed(fields) => {
-            assert_eq!(fields.unnamed.len(), 1);
+            assert!(fields.unnamed.len() == 1);
+            true
         }
+        syn::Fields::Unit => false,
         _ => panic!("enum elements must have a single field"),
     };
 
@@ -112,6 +114,7 @@ fn extract_defined_by_property(variant: &syn::Variant) -> DefinedByVariant {
                 }
             })
             .expect("Variant must have #[defined_by]"),
+        has_field,
     )
 }
 
@@ -129,19 +132,25 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
         syn::Data::Enum(data) => {
             for variant in &data.variants {
                 let ident = &variant.ident;
-                let defined_by = match extract_defined_by_property(variant) {
-                    DefinedByVariant::DefinedBy(defined_by) => defined_by,
+                match extract_defined_by_property(variant) {
+                    DefinedByVariant::DefinedBy(defined_by, has_field) => {
+                        let read_op = if has_field {
+                            quote::quote! { #name::#ident(parser.read_element()?) }
+                        } else {
+                            quote::quote! { #name::#ident }
+                        };
+
+                        read_block.push(quote::quote! {
+                            if item == #defined_by {
+                                return Ok(#read_op);
+                            }
+                        });
+                    }
                     DefinedByVariant::Default => {
                         assert!(default_ident.is_none());
                         default_ident = Some(ident);
-                        continue;
                     }
                 };
-                read_block.push(quote::quote! {
-                    if item == #defined_by {
-                        return Ok(#name::#ident(parser.read_element()?));
-                    }
-                });
             }
         }
         _ => panic!("Only support for enums"),
@@ -181,13 +190,22 @@ pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macr
             for variant in &data.variants {
                 let ident = &variant.ident;
                 match extract_defined_by_property(variant) {
-                    DefinedByVariant::DefinedBy(defined_by) => {
-                        write_blocks.push(quote::quote! {
-                            #name::#ident(value) => w.write_element(value),
-                        });
-                        item_blocks.push(quote::quote! {
-                            #name::#ident(_) => &#defined_by,
-                        });
+                    DefinedByVariant::DefinedBy(defined_by, has_field) => {
+                        if has_field {
+                            write_blocks.push(quote::quote! {
+                                #name::#ident(value) => w.write_element(value),
+                            });
+                            item_blocks.push(quote::quote! {
+                                #name::#ident(..) => &#defined_by,
+                            });
+                        } else {
+                            write_blocks.push(quote::quote! {
+                                #name::#ident => { Ok(()) },
+                            });
+                            item_blocks.push(quote::quote! {
+                                #name::#ident => &#defined_by,
+                            });
+                        }
                     }
                     DefinedByVariant::Default => {
                         write_blocks.push(quote::quote! {
