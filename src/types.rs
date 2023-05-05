@@ -1545,7 +1545,7 @@ impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T,
     }
 }
 
-#[derive(PartialEq, Eq, Debug)]
+#[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub struct DefinedByMarker<T>(core::marker::PhantomData<T>);
 
 impl<T> DefinedByMarker<T> {
