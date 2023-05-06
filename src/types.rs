@@ -1549,7 +1549,7 @@ impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T,
 pub struct DefinedByMarker<T>(core::marker::PhantomData<T>);
 
 impl<T> DefinedByMarker<T> {
-    pub fn marker() -> DefinedByMarker<T> {
+    pub const fn marker() -> DefinedByMarker<T> {
         DefinedByMarker(core::marker::PhantomData)
     }
 }
@@ -1557,9 +1557,10 @@ impl<T> DefinedByMarker<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, DateTime, Enumerated, GeneralizedTime, IA5String,
-        OctetStringEncoded, ParseError, ParseErrorKind, PrintableString, SequenceOf,
-        SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
+        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
+        IA5String, ObjectIdentifier, OctetStringEncoded, ParseError, ParseErrorKind,
+        PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime,
+        Utf8String, VisibleString,
     };
     use crate::{Explicit, Implicit};
     use alloc::vec;
@@ -1808,5 +1809,10 @@ mod tests {
     #[test]
     fn test_explicit_as_inner() {
         assert_eq!(Explicit::<i32, 0>::new(12).as_inner(), &12);
+    }
+
+    #[test]
+    fn test_const() {
+        const _: DefinedByMarker<ObjectIdentifier> = DefinedByMarker::marker();
     }
 }
