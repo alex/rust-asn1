@@ -361,7 +361,7 @@ fn generate_read_element(
             if is_defined_by_marker {
                 let f = syn::Ident::new(f_name, proc_macro2::Span::call_site());
                 quote::quote! {{
-                    #f = (p.read_element()#add_error_location?, asn1::DefinedByMarker::marker());
+                    #f = p.read_element()#add_error_location?;
                     asn1::DefinedByMarker::marker()
                 }}
             } else {
