@@ -591,6 +591,33 @@ fn test_defined_by_default() {
 }
 
 #[test]
+fn test_defined_by_marker_const() {
+    const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct S<'a> {
+        oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
+        #[defined_by(oid)]
+        value: Value<'a>,
+    }
+
+    #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug, Eq)]
+    enum Value<'a> {
+        #[defined_by(OID1)]
+        Integer(u32),
+        #[default]
+        Other(asn1::ObjectIdentifier, asn1::Tlv<'a>),
+    }
+
+    const INSTANCE: S = S {
+        oid: asn1::DefinedByMarker::marker(),
+        value: Value::Integer(7),
+    };
+
+    assert_roundtrips::<S>(&[(Ok(INSTANCE), b"\x30\x07\x06\x02\x2a\x03\x02\x01\x07")])
+}
+
+#[test]
 fn test_defined_by_optional() {
     const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
     const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 5);

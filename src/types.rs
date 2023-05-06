@@ -1549,7 +1549,7 @@ impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T,
 pub struct DefinedByMarker<T>(core::marker::PhantomData<T>);
 
 impl<T> DefinedByMarker<T> {
-    pub fn marker() -> DefinedByMarker<T> {
+    pub const fn marker() -> DefinedByMarker<T> {
         DefinedByMarker(core::marker::PhantomData)
     }
 }
