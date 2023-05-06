@@ -1557,9 +1557,10 @@ impl<T> DefinedByMarker<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, DateTime, Enumerated, GeneralizedTime, IA5String,
-        OctetStringEncoded, ParseError, ParseErrorKind, PrintableString, SequenceOf,
-        SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
+        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
+        IA5String, ObjectIdentifier, OctetStringEncoded, ParseError, ParseErrorKind,
+        PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime,
+        Utf8String, VisibleString,
     };
     use crate::{Explicit, Implicit};
     use alloc::vec;
@@ -1808,5 +1809,10 @@ mod tests {
     #[test]
     fn test_explicit_as_inner() {
         assert_eq!(Explicit::<i32, 0>::new(12).as_inner(), &12);
+    }
+
+    #[test]
+    fn test_const() {
+        const _: DefinedByMarker<ObjectIdentifier> = DefinedByMarker::marker();
     }
 }
