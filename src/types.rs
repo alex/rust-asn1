@@ -845,26 +845,32 @@ impl DateTime {
         })
     }
 
+    /// The calendar year.
     pub fn year(&self) -> u16 {
         self.year
     }
 
+    /// The calendar month (1 to 12).
     pub fn month(&self) -> u8 {
         self.month
     }
 
+    /// The calendar day (1 to 31).
     pub fn day(&self) -> u8 {
         self.day
     }
 
+    /// The clock hour (0 to 23).
     pub fn hour(&self) -> u8 {
         self.hour
     }
 
+    /// The clock minute (0 to 59).
     pub fn minute(&self) -> u8 {
         self.minute
     }
 
+    /// The clock second (0 to 59).
     pub fn second(&self) -> u8 {
         self.second
     }
