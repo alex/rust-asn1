@@ -1224,6 +1224,8 @@ impl<'a, T: Asn1Readable<'a> + PartialEq> PartialEq for SequenceOf<'a, T> {
     }
 }
 
+impl<'a, T: Asn1Readable<'a> + Eq> Eq for SequenceOf<'a, T> {}
+
 impl<'a, T: Asn1Readable<'a> + Hash> Hash for SequenceOf<'a, T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         for val in self.clone() {
@@ -1339,6 +1341,8 @@ impl<'a, T: Asn1Readable<'a> + PartialEq> PartialEq for SetOf<'a, T> {
         }
     }
 }
+
+impl<'a, T: Asn1Readable<'a> + Eq> Eq for SetOf<'a, T> {}
 
 impl<'a, T: Asn1Readable<'a> + Hash> Hash for SetOf<'a, T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
