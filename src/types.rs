@@ -812,7 +812,7 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
 
 /// A structure representing a (UTC timezone) date and time.
 /// Wrapped by `UtcTime` and `GeneralizedTime`.
-#[derive(Debug, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd)]
 pub struct DateTime {
     year: u16,
     month: u8,
@@ -1785,12 +1785,32 @@ mod tests {
 
         assert!(s1 == s2);
     }
+
     #[test]
     fn test_datetime_new() {
         assert!(DateTime::new(2038, 13, 1, 12, 0, 0).is_err());
         assert!(DateTime::new(2000, 1, 1, 12, 60, 0).is_err());
         assert!(DateTime::new(2000, 1, 1, 12, 0, 60).is_err());
         assert!(DateTime::new(2000, 1, 1, 24, 0, 0).is_err());
+    }
+
+    #[test]
+    fn test_datetime_partialord() {
+        let point = DateTime::new(2023, 6, 15, 14, 26, 5).unwrap();
+
+        assert!(point < DateTime::new(2023, 6, 15, 14, 26, 6).unwrap());
+        assert!(point < DateTime::new(2023, 6, 15, 14, 27, 5).unwrap());
+        assert!(point < DateTime::new(2023, 6, 15, 15, 26, 5).unwrap());
+        assert!(point < DateTime::new(2023, 6, 16, 14, 26, 5).unwrap());
+        assert!(point < DateTime::new(2023, 7, 15, 14, 26, 5).unwrap());
+        assert!(point < DateTime::new(2024, 6, 15, 14, 26, 5).unwrap());
+
+        assert!(point > DateTime::new(2023, 6, 15, 14, 26, 4).unwrap());
+        assert!(point > DateTime::new(2023, 6, 15, 14, 25, 5).unwrap());
+        assert!(point > DateTime::new(2023, 6, 15, 13, 26, 5).unwrap());
+        assert!(point > DateTime::new(2023, 6, 14, 14, 26, 5).unwrap());
+        assert!(point > DateTime::new(2023, 5, 15, 14, 26, 5).unwrap());
+        assert!(point > DateTime::new(2022, 6, 15, 14, 26, 5).unwrap());
     }
 
     #[test]
