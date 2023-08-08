@@ -539,7 +539,7 @@ mod tests {
             // Overflow u32 for the tag number.
             (
                 Err(ParseError::new(ParseErrorKind::InvalidTag)),
-                b"\x1f\x88\x80\x80\x80\x00\x00",
+                b"\x1f\x88\x80\x80\x80\x80\x00",
             ),
             // Long form tag for value that fits in a short form
             (

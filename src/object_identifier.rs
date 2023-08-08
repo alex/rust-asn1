@@ -197,6 +197,7 @@ mod tests {
             "1.2.3.4",
             "1.2.840.133549.1.1.5",
             "2.100.3",
+            "2.1.750304883",
         ] {
             assert_eq!(
                 &ObjectIdentifier::from_string(val).unwrap().to_string(),
