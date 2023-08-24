@@ -20,3 +20,10 @@ fn test_i8() {
         assert_roundtrips::<i8>(i);
     }
 }
+
+#[test]
+fn test_u64() {
+    for v in [0, 12356915591483590945, u64::MAX] {
+        assert_roundtrips::<u64>(v);
+    }
+}

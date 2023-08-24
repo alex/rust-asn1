@@ -376,6 +376,14 @@ mod tests {
     }
 
     #[test]
+    fn test_write_u64() {
+        assert_writes::<u64>(&[(
+            12356915591483590945,
+            b"\x02\x09\x00\xab\x7c\x95\x42\xbd\xdd\x89\x21",
+        )]);
+    }
+
+    #[test]
     fn test_write_i32() {
         assert_writes::<i32>(&[
             (0, b"\x02\x01\x00"),
