@@ -52,7 +52,7 @@ impl WriteBuf {
 
     #[inline]
     pub fn push_byte(&mut self, b: u8) -> WriteResult {
-        #[cfg(feature = "fallible-allocattions")]
+        #[cfg(feature = "fallible-allocations")]
         self.0
             .try_reserve(1)
             .map_err(|_| WriteError::AllocationError)?;
@@ -63,7 +63,7 @@ impl WriteBuf {
 
     #[inline]
     pub fn push_slice(&mut self, data: &[u8]) -> WriteResult {
-        #[cfg(feature = "fallible-allocattions")]
+        #[cfg(feature = "fallible-allocations")]
         self.0
             .try_reserve(data.len())
             .map_err(|_| WriteError::AllocationError)?;
