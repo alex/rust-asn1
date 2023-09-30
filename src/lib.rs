@@ -135,6 +135,16 @@
 //! serialized DER data. If you would like to be able to handle allocation
 //! failures when writing data, specify the `fallible-allocations` feature of
 //! this crate. This feature require Rust 1.57 or greater.
+//!
+//! # Design philosophy
+//!
+//! As we have designed the `asn1` crate, we value the following things, in
+//! this order:
+//!
+//! - **Security**
+//! - **Correctness**
+//! - **Performance**
+//! - **Ergonomics**
 
 extern crate alloc;
 
