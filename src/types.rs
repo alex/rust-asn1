@@ -677,6 +677,11 @@ impl<'a> BigInt<'a> {
     pub fn as_bytes(&self) -> &'a [u8] {
         self.data
     }
+
+    /// Returns a boolean indicating whether the integer is negative.
+    pub fn is_negative(&self) -> bool {
+        self.data[0] & 0x80 == 0x80
+    }
 }
 
 impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
@@ -1667,6 +1672,13 @@ mod tests {
     #[test]
     fn test_bigint_as_bytes() {
         assert_eq!(BigInt::new(b"\x01").unwrap().as_bytes(), b"\x01");
+    }
+
+    #[test]
+    fn test_bigint_is_negative() {
+        assert!(!BigInt::new(b"\x01").unwrap().is_negative()); // 1
+        assert!(!BigInt::new(b"\x00").unwrap().is_negative()); // 0
+        assert!(BigInt::new(b"\xff").unwrap().is_negative()); // -1
     }
 
     #[test]
