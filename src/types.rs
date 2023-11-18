@@ -1465,17 +1465,13 @@ impl<'a, T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'a,
 /// `Implicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `IMPLICIT`. This will generally be used with `Option` or `Choice`.
 #[derive(PartialEq, Eq, Debug)]
-pub struct Implicit<'a, T, const TAG: u32> {
+pub struct Implicit<T, const TAG: u32> {
     inner: T,
-    _lifetime: PhantomData<&'a ()>,
 }
 
-impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
+impl<T, const TAG: u32> Implicit<T, { TAG }> {
     pub fn new(v: T) -> Self {
-        Implicit {
-            inner: v,
-            _lifetime: PhantomData,
-        }
+        Implicit { inner: v }
     }
 
     pub fn as_inner(&self) -> &T {
@@ -1487,14 +1483,14 @@ impl<'a, T, const TAG: u32> Implicit<'a, T, { TAG }> {
     }
 }
 
-impl<'a, T, const TAG: u32> From<T> for Implicit<'a, T, { TAG }> {
+impl<T, const TAG: u32> From<T> for Implicit<T, { TAG }> {
     fn from(v: T) -> Self {
         Implicit::new(v)
     }
 }
 
 impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
-    for Implicit<'a, T, { TAG }>
+    for Implicit<T, { TAG }>
 {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
@@ -1502,7 +1498,7 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
     }
 }
 
-impl<'a, T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<'a, T, { TAG }> {
+impl<T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<T, { TAG }> {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
 
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
@@ -1513,17 +1509,13 @@ impl<'a, T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<
 /// `Explicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `EXPLICIT`. This will generally be used with `Option` or `Choice`.
 #[derive(PartialEq, Eq, Debug)]
-pub struct Explicit<'a, T, const TAG: u32> {
+pub struct Explicit<T, const TAG: u32> {
     inner: T,
-    _lifetime: PhantomData<&'a ()>,
 }
 
-impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
+impl<T, const TAG: u32> Explicit<T, { TAG }> {
     pub fn new(v: T) -> Self {
-        Explicit {
-            inner: v,
-            _lifetime: PhantomData,
-        }
+        Explicit { inner: v }
     }
 
     pub fn as_inner(&self) -> &T {
@@ -1535,20 +1527,20 @@ impl<'a, T, const TAG: u32> Explicit<'a, T, { TAG }> {
     }
 }
 
-impl<'a, T, const TAG: u32> From<T> for Explicit<'a, T, { TAG }> {
+impl<T, const TAG: u32> From<T> for Explicit<T, { TAG }> {
     fn from(v: T) -> Self {
         Explicit::new(v)
     }
 }
 
-impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explicit<'a, T, { TAG }> {
+impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explicit<T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Explicit::new(parse(data, Parser::read_element::<T>)?))
     }
 }
 
-impl<'a, T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<'a, T, { TAG }> {
+impl<T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         Writer::new(dest).write_element(&self.inner)
