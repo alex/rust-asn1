@@ -241,11 +241,11 @@ fn test_default_not_literal() {
 #[test]
 fn test_default_const_generics() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
-    struct DefaultFields<'a> {
+    struct DefaultFields {
         #[default(15)]
-        a: asn1::Explicit<'a, u8, 1>,
+        a: asn1::Explicit<u8, 1>,
         #[default(17)]
-        b: asn1::Implicit<'a, u8, 5>,
+        b: asn1::Implicit<u8, 5>,
     }
 
     assert_roundtrips(&[
