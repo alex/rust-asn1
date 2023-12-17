@@ -102,8 +102,8 @@ impl fmt::Debug for ParseError {
                 .enumerate()
             {
                 locations[i] = match location.as_ref().unwrap() {
-                    ParseLocation::Field(ref f) => SomeFmtOption(Some(f as &dyn fmt::Debug)),
-                    ParseLocation::Index(ref i) => SomeFmtOption(Some(i as &dyn fmt::Debug)),
+                    ParseLocation::Field(f) => SomeFmtOption(Some(f as &dyn fmt::Debug)),
+                    ParseLocation::Index(i) => SomeFmtOption(Some(i as &dyn fmt::Debug)),
                 }
             }
 

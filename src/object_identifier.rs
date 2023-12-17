@@ -4,11 +4,11 @@ use alloc::fmt;
 
 const MAX_OID_LENGTH: usize = 63;
 
-/// Represents an ASN.1 `OBJECT IDENTIFIER`. ObjectIdentifiers are opaque, the only thing may be
-/// done with them is test if they are equal to another `ObjectIdentifier`. The generally
-/// recommended practice for handling them is to create some `ObjectIdentifier` constants with
-/// `asn1::oid!()` and then compare ObjectIdentifiers you get from parsing to
-/// those.
+/// Represents an ASN.1 `OBJECT IDENTIFIER`. `ObjectIdentifier`s are opaque,
+/// the only thing may be done with them is test if they are equal to another
+/// `ObjectIdentifier`. The generally recommended practice for handling them
+/// is to create some `ObjectIdentifier` constants with `asn1::oid!()` and
+/// then compare them with `ObjectIdentifier`s you get from parsing.
 ///
 /// `asn1::oid!()` takes a series of arcs, for example: `asn1::oid!(1, 2, 3)`.
 ///
