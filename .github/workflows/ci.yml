@@ -104,7 +104,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
         with:
-          toolchain: nightly
+          toolchain: stable
           components: llvm-tools-preview
 
       - run: sudo apt update && sudo apt-get install -y lcov
@@ -113,15 +113,11 @@ jobs:
         id: cargo-cache
         with:
           path: |
-            ~/.cargo/bin/
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
-          key: ${{ runner.os }}-cargo-4-${{ hashFiles('**/Cargo.toml') }}
-
-      - run: cargo install cargo-binutils
-        if: steps.cargo-cache.outputs.cache-hit != 'true'
+          key: ${{ runner.os }}-cargo-5-${{ hashFiles('**/Cargo.toml') }}
 
       - run: cargo test
         env:
@@ -131,8 +127,9 @@ jobs:
       - name: Compute coverage HTML
         run: |
           set -xe
-          cargo profdata -- merge -sparse rust-cov/*.profraw -o cargo-test-rust-cov.profdata
-          cargo cov -- export \
+          LIBDIR=$(rustc --print target-libdir)
+          $LIBDIR/../bin/llvm-profdata merge -sparse rust-cov/*.profraw -o cargo-test-rust-cov.profdata
+          $LIBDIR/../bin/llvm-cov export \
             $( \
               for file in \
                 $( \
