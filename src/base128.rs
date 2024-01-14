@@ -27,7 +27,7 @@ pub(crate) fn read_base128_int(mut data: &[u8]) -> ParseResult<(u32, &[u8])> {
 
 pub(crate) fn base128_length(n: u32) -> usize {
     // Equivalent to: let bits = if n != 0 { 32 - n.leading_zeros() } else { 1 };
-    let bits = 32 - (n | 1).leading_zeros();
+    let bits = u32::BITS - (n | 1).leading_zeros();
     let bytes = (bits + 6) / 7;
     bytes as usize
 }
