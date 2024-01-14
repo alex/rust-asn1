@@ -25,17 +25,11 @@ pub(crate) fn read_base128_int(mut data: &[u8]) -> ParseResult<(u32, &[u8])> {
     Err(ParseError::new(ParseErrorKind::InvalidValue))
 }
 
-pub(crate) fn base128_length(mut n: u32) -> usize {
-    if n == 0 {
-        return 1;
-    }
-
-    let mut length = 0;
-    while n > 0 {
-        length += 1;
-        n >>= 7;
-    }
-    length
+pub(crate) fn base128_length(n: u32) -> usize {
+    // Equivalent to: let bits = if n != 0 { 32 - n.leading_zeros() } else { 1 };
+    let bits = u32::BITS - (n | 1).leading_zeros();
+    let bytes = (bits + 6) / 7;
+    bytes as usize
 }
 
 pub(crate) fn write_base128_int(mut data: &mut [u8], n: u32) -> Option<usize> {
