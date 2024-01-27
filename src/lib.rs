@@ -128,13 +128,6 @@
 //! }
 //! ```
 //!
-//! # Fallible allocations
-//!
-//! `asn1::write` and `asn1::write_single` emit a `Vec<u8>` containing the
-//! serialized DER data. If you would like to be able to handle allocation
-//! failures when writing data, specify the `fallible-allocations` feature of
-//! this crate. This feature require Rust 1.57 or greater.
-//!
 //! # Design philosophy
 //!
 //! As we have designed the `asn1` crate, we value the following things, in

@@ -46,16 +46,11 @@ jobs:
       matrix:
         RUST:
           # MSRV
-          - VERSION: "1.56.0"
-            FLAGS: ""
-          # MSRV for the fallible-allocations features
           - VERSION: "1.57.0"
-            FLAGS: "--features fallible-allocations"
+            FLAGS: ""
 
           - VERSION: stable
             FLAGS: ""
-          - VERSION: stable
-            FLAGS: "--features fallible-allocations"
           - VERSION: stable
             FLAGS: "--no-default-features --features std"
           - VERSION: stable
