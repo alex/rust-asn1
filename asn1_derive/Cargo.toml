@@ -1,13 +1,13 @@
 [package]
 name = "asn1_derive"
-version = "0.15.5"
+version = "0.16.0"
 authors = ["Alex Gaynor <alex.gaynor@gmail.com>"]
 repository = "https://github.com/alex/rust-asn1"
 license = "BSD-3-Clause"
 description = "#[derive] support for asn1"
 edition = "2021"
 # This specifies the MSRV
-rust-version = "1.56.0"
+rust-version = "1.57.0"
 
 [lib]
 proc-macro = true
