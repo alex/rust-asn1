@@ -68,10 +68,9 @@
 //! let result = asn1::write_single(&Signature{r, s});
 //! ```
 //!
-//! On Rust >= 1.51.0, [`Explicit`] and [`Implicit`] tagging may be specified
-//! with struct members of those types. However on Rust < 1.51.0, this is not
-//! possible, since they require const generics. Instead, the `#[implicit]`
-//! and `#[explicit]` attributes may be used:
+//! Fields may be marked as `EXPLICIT` or `IMPLICIT` either by struct members
+//! having the types [`Explicit`] and [`Implicit`] or via the use of
+//! `#[explicit]` and `#[implicit]` annotations:
 //! ```
 //! #[derive(asn1::Asn1Read, asn1::Asn1Write)]
 //! struct SomeSequence<'a> {
