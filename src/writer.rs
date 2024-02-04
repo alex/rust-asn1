@@ -106,15 +106,13 @@ impl Writer<'_> {
         val.write(self)
     }
 
-    /// This is an alias for `write_element::<Explicit<T, tag>>` for use when
-    /// MSRV is <1.51.
+    /// This is an alias for `write_element::<Explicit<T, tag>>`.
     pub fn write_explicit_element<T: Asn1Writable>(&mut self, val: &T, tag: u32) -> WriteResult {
         let tag = crate::explicit_tag(tag);
         self.write_tlv(tag, |dest| Writer::new(dest).write_element(val))
     }
 
-    /// This is an alias for `write_element::<Option<Explicit<T, tag>>>` for
-    /// use when MSRV is <1.51.
+    /// This is an alias for `write_element::<Option<Explicit<T, tag>>>`.
     pub fn write_optional_explicit_element<T: Asn1Writable>(
         &mut self,
         val: &Option<T>,
@@ -128,8 +126,7 @@ impl Writer<'_> {
         }
     }
 
-    /// This is an alias for `write_element::<Implicit<T, tag>>` for use when
-    /// MSRV is <1.51.
+    /// This is an alias for `write_element::<Implicit<T, tag>>`.
     pub fn write_implicit_element<T: SimpleAsn1Writable>(
         &mut self,
         val: &T,
@@ -139,8 +136,7 @@ impl Writer<'_> {
         self.write_tlv(tag, |dest| val.write_data(dest))
     }
 
-    /// This is an alias for `write_element::<Option<Implicit<T, tag>>>` for
-    /// use when MSRV is <1.51.
+    /// This is an alias for `write_element::<Option<Implicit<T, tag>>>`.
     pub fn write_optional_implicit_element<T: SimpleAsn1Writable>(
         &mut self,
         val: &Option<T>,
