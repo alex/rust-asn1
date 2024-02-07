@@ -214,9 +214,9 @@ mod tests {
     use crate::{
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime,
         Enumerated, Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier,
-        OctetStringEncoded, OwnedBitString, PrintableString, Sequence, SequenceOf,
-        SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString, UtcTime,
-        Utf8String, VisibleString, WriteError,
+        OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString, PrintableString, Sequence,
+        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString,
+        UtcTime, Utf8String, VisibleString, WriteError,
     };
     use alloc::vec::Vec;
 
@@ -439,11 +439,38 @@ mod tests {
     }
 
     #[test]
+    fn test_write_ownedbiguint() {
+        assert_writes::<OwnedBigUint>(&[
+            (
+                OwnedBigUint::new(b"\x00\xff".to_vec()).unwrap(),
+                b"\x02\x02\x00\xff",
+            ),
+            (
+                OwnedBigUint::new(b"\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff".to_vec())
+                    .unwrap(),
+                b"\x02\x0d\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
+        ]);
+    }
+
+    #[test]
     fn test_write_bigint() {
         assert_writes::<BigInt>(&[
             (BigInt::new(b"\xff").unwrap(), b"\x02\x01\xff"),
             (
                 BigInt::new(b"\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff").unwrap(),
+                b"\x02\x0c\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_write_ownedbigint() {
+        assert_writes::<OwnedBigInt>(&[
+            (OwnedBigInt::new(b"\xff".to_vec()).unwrap(), b"\x02\x01\xff"),
+            (
+                OwnedBigInt::new(b"\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff".to_vec())
+                    .unwrap(),
                 b"\x02\x0c\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
             ),
         ]);
