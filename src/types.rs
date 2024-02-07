@@ -1,5 +1,6 @@
 use alloc::boxed::Box;
 use alloc::vec;
+use alloc::vec::Vec;
 use core::borrow::Borrow;
 use core::convert::TryInto;
 use core::hash::{Hash, Hasher};
@@ -655,6 +656,44 @@ impl<'a> SimpleAsn1Writable for BigUint<'a> {
     }
 }
 
+/// Arbitrary sized unsigned integer which owns its data. Contents may be
+/// accessed as `&[u8]` of big-endian data. Its contents always match the DER
+/// encoding of a value (i.e. they are minimal)
+#[derive(PartialEq, Clone, Debug, Hash, Eq)]
+pub struct OwnedBigUint {
+    data: Vec<u8>,
+}
+
+impl OwnedBigUint {
+    /// Create a new `OwnedBigUint` from already encoded data. `data` must be
+    /// encoded as required by DER: minimally and if the high bit would be set
+    /// in the first octet, a leading `\x00` should be prepended (to
+    /// disambiguate from negative values).
+    pub fn new(data: Vec<u8>) -> Option<Self> {
+        validate_integer(&data, false).ok()?;
+        Some(OwnedBigUint { data })
+    }
+
+    /// Returns the contents of the integer as big-endian bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.data
+    }
+}
+
+impl SimpleAsn1Readable<'_> for OwnedBigUint {
+    const TAG: Tag = Tag::primitive(0x02);
+    fn parse_data(data: &[u8]) -> ParseResult<Self> {
+        OwnedBigUint::new(data.to_vec())
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+    }
+}
+impl SimpleAsn1Writable for OwnedBigUint {
+    const TAG: Tag = Tag::primitive(0x02);
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        dest.push_slice(self.as_bytes())
+    }
+}
+
 /// Arbitrary sized signed integer. Contents may be accessed as `&[u8]` of
 /// big-endian data. Its contents always match the DER encoding of a value
 /// (i.e. they are minimal)
@@ -691,6 +730,48 @@ impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
     }
 }
 impl<'a> SimpleAsn1Writable for BigInt<'a> {
+    const TAG: Tag = Tag::primitive(0x02);
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        dest.push_slice(self.as_bytes())
+    }
+}
+
+/// Arbitrary sized signed integer which owns its contents. Contents may be
+/// accessed as `&[u8]` of big-endian data. Its contents always match the DER
+/// encoding of a value (i.e. they are minimal)
+#[derive(PartialEq, Clone, Debug, Hash, Eq)]
+pub struct OwnedBigInt {
+    data: Vec<u8>,
+}
+
+impl OwnedBigInt {
+    /// Create a new `OwnedBigInt` from already encoded data. `data` must be
+    /// encoded as required by DER: minimally and if the high bit would be set
+    /// in the first octet, a leading `\x00` should be prepended (to
+    /// disambiguate from negative values).
+    pub fn new(data: Vec<u8>) -> Option<Self> {
+        validate_integer(&data, true).ok()?;
+        Some(OwnedBigInt { data })
+    }
+
+    /// Returns the contents of the integer as big-endian bytes.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.data
+    }
+
+    /// Returns a boolean indicating whether the integer is negative.
+    pub fn is_negative(&self) -> bool {
+        self.data[0] & 0x80 == 0x80
+    }
+}
+
+impl SimpleAsn1Readable<'_> for OwnedBigInt {
+    const TAG: Tag = Tag::primitive(0x02);
+    fn parse_data(data: &[u8]) -> ParseResult<Self> {
+        OwnedBigInt::new(data.to_vec()).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+    }
+}
+impl SimpleAsn1Writable for OwnedBigInt {
     const TAG: Tag = Tag::primitive(0x02);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
@@ -1565,9 +1646,9 @@ impl<T> DefinedByMarker<T> {
 mod tests {
     use crate::{
         parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
-        IA5String, ObjectIdentifier, OctetStringEncoded, ParseError, ParseErrorKind,
-        PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime,
-        Utf8String, VisibleString,
+        IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
+        ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
+        Tlv, UtcTime, Utf8String, VisibleString,
     };
     use crate::{Explicit, Implicit};
     use alloc::vec;
@@ -1659,11 +1740,19 @@ mod tests {
     #[test]
     fn test_biguint_as_bytes() {
         assert_eq!(BigUint::new(b"\x01").unwrap().as_bytes(), b"\x01");
+        assert_eq!(
+            OwnedBigUint::new(b"\x01".to_vec()).unwrap().as_bytes(),
+            b"\x01"
+        );
     }
 
     #[test]
     fn test_bigint_as_bytes() {
         assert_eq!(BigInt::new(b"\x01").unwrap().as_bytes(), b"\x01");
+        assert_eq!(
+            OwnedBigInt::new(b"\x01".to_vec()).unwrap().as_bytes(),
+            b"\x01"
+        );
     }
 
     #[test]
@@ -1671,6 +1760,10 @@ mod tests {
         assert!(!BigInt::new(b"\x01").unwrap().is_negative()); // 1
         assert!(!BigInt::new(b"\x00").unwrap().is_negative()); // 0
         assert!(BigInt::new(b"\xff").unwrap().is_negative()); // -1
+
+        assert!(!OwnedBigInt::new(b"\x01".to_vec()).unwrap().is_negative()); // 1
+        assert!(!OwnedBigInt::new(b"\x00".to_vec()).unwrap().is_negative()); // 0
+        assert!(OwnedBigInt::new(b"\xff".to_vec()).unwrap().is_negative()); // -1
     }
 
     #[test]

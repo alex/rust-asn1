@@ -295,8 +295,9 @@ mod tests {
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime, Enumerated,
         Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded,
-        OwnedBitString, ParseError, ParseErrorKind, ParseLocation, ParseResult, PrintableString,
-        Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString, UtcTime, Utf8String, VisibleString,
+        OwnedBigInt, OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation,
+        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
+        UtcTime, Utf8String, VisibleString,
     };
     use alloc::boxed::Box;
     use alloc::{format, vec};
@@ -844,6 +845,39 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_ownedbiguint() {
+        assert_parses::<OwnedBigUint>(&[
+            (
+                Ok(OwnedBigUint::new(b"\x00".to_vec()).unwrap()),
+                b"\x02\x01\x00",
+            ),
+            (
+                Ok(OwnedBigUint::new(b"\x00\xff".to_vec()).unwrap()),
+                b"\x02\x02\x00\xff",
+            ),
+            (
+                Ok(OwnedBigUint::new(
+                    b"\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff".to_vec(),
+                )
+                .unwrap()),
+                b"\x02\x0d\x00\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x01\x80",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x02\xff\x80",
+            ),
+        ]);
+    }
+
+    #[test]
     fn test_parse_bigint() {
         assert_parses::<BigInt>(&[
             (Ok(BigInt::new(b"\x80").unwrap()), b"\x02\x01\x80"),
@@ -858,6 +892,39 @@ mod tests {
             ),
             (
                 Ok(BigInt::new(b"\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff").unwrap()),
+                b"\x02\x0c\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x00",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_parse_owned_bigint() {
+        assert_parses::<OwnedBigInt>(&[
+            (
+                Ok(OwnedBigInt::new(b"\x80".to_vec()).unwrap()),
+                b"\x02\x01\x80",
+            ),
+            (
+                Ok(OwnedBigInt::new(b"\xff".to_vec()).unwrap()),
+                b"\x02\x01\xff",
+            ),
+            (
+                Ok(OwnedBigInt::new(b"\x00\xff\xff".to_vec()).unwrap()),
+                b"\x02\x03\x00\xff\xff",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x02\x02\xff\xff",
+            ),
+            (
+                Ok(
+                    OwnedBigInt::new(b"\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff".to_vec())
+                        .unwrap(),
+                ),
                 b"\x02\x0c\xff\x7f\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff",
             ),
             (
