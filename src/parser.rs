@@ -76,13 +76,13 @@ impl std::error::Error for ParseError {}
 struct SomeFmtOption<T>(Option<T>);
 
 impl<T: fmt::Debug> fmt::Debug for SomeFmtOption<T> {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.as_ref().unwrap().fmt(f)
     }
 }
 
 impl fmt::Debug for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut f = f.debug_struct("ParseError");
         f.field("kind", &self.kind);
         if self.parse_depth > 0 {
@@ -114,7 +114,7 @@ impl fmt::Debug for ParseError {
 }
 
 impl fmt::Display for ParseError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "ASN.1 parsing error: ")?;
         match self.kind {
             ParseErrorKind::InvalidValue => write!(f, "invalid value"),
@@ -324,7 +324,7 @@ mod tests {
         // Automatic 'static SEQUENCE containing an automatic 'static
         // OCTET_STRING
         let result = crate::parse(b"\x30\x03\x04\x01\x00", |p| {
-            p.read_element::<Sequence>()?
+            p.read_element::<Sequence<'_>>()?
                 .parse(|p| p.read_element::<&[u8]>())
         })
         .unwrap();
@@ -332,7 +332,7 @@ mod tests {
 
         // BIT_STRING
         let result = crate::parse::<_, ParseError, _>(b"\x03\x02\x00\x00", |p| {
-            Ok(p.read_element::<BitString>()?.as_bytes())
+            Ok(p.read_element::<BitString<'_>>()?.as_bytes())
         })
         .unwrap();
         assert_eq!(result, b"\x00");
@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn test_parse_tlv() {
-        assert_parses::<Tlv>(&[
+        assert_parses::<Tlv<'_>>(&[
             (
                 Ok(Tlv {
                     tag: Tag::primitive(0x4),
@@ -822,7 +822,7 @@ mod tests {
 
     #[test]
     fn test_parse_biguint() {
-        assert_parses::<BigUint>(&[
+        assert_parses::<BigUint<'_>>(&[
             (Ok(BigUint::new(b"\x00").unwrap()), b"\x02\x01\x00"),
             (Ok(BigUint::new(b"\x00\xff").unwrap()), b"\x02\x02\x00\xff"),
             (
@@ -879,7 +879,7 @@ mod tests {
 
     #[test]
     fn test_parse_bigint() {
-        assert_parses::<BigInt>(&[
+        assert_parses::<BigInt<'_>>(&[
             (Ok(BigInt::new(b"\x80").unwrap()), b"\x02\x01\x80"),
             (Ok(BigInt::new(b"\xff").unwrap()), b"\x02\x01\xff"),
             (
@@ -1042,7 +1042,7 @@ mod tests {
 
     #[test]
     fn test_parse_printable_string() {
-        assert_parses::<PrintableString>(&[
+        assert_parses::<PrintableString<'_>>(&[
             (Ok(PrintableString::new("abc").unwrap()), b"\x13\x03abc"),
             (Ok(PrintableString::new(")").unwrap()), b"\x13\x01)"),
             (
@@ -1054,7 +1054,7 @@ mod tests {
 
     #[test]
     fn test_parse_ia5string() {
-        assert_parses::<IA5String>(&[
+        assert_parses::<IA5String<'_>>(&[
             (Ok(IA5String::new("abc").unwrap()), b"\x16\x03abc"),
             (Ok(IA5String::new(")").unwrap()), b"\x16\x01)"),
             (
@@ -1066,7 +1066,7 @@ mod tests {
 
     #[test]
     fn test_parse_utf8string() {
-        assert_parses::<Utf8String>(&[
+        assert_parses::<Utf8String<'_>>(&[
             (Ok(Utf8String::new("abc")), b"\x0c\x03abc"),
             (Ok(Utf8String::new(")")), b"\x0c\x01)"),
             (
@@ -1078,7 +1078,7 @@ mod tests {
 
     #[test]
     fn test_parse_visiblestring() {
-        assert_parses::<VisibleString>(&[
+        assert_parses::<VisibleString<'_>>(&[
             (Ok(VisibleString::new("abc").unwrap()), b"\x1a\x03abc"),
             (Ok(VisibleString::new(")").unwrap()), b"\x1a\x01)"),
             (
@@ -1090,7 +1090,7 @@ mod tests {
 
     #[test]
     fn test_parse_bmpstring() {
-        assert_parses::<BMPString>(&[
+        assert_parses::<BMPString<'_>>(&[
             (
                 Ok(BMPString::new(b"\x00a\x00b\x00c").unwrap()),
                 b"\x1e\x06\x00a\x00b\x00c",
@@ -1112,7 +1112,7 @@ mod tests {
 
     #[test]
     fn test_parse_universalstring() {
-        assert_parses::<UniversalString>(&[
+        assert_parses::<UniversalString<'_>>(&[
             (
                 Ok(UniversalString::new(b"\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c").unwrap()),
                 b"\x1c\x0c\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c",
@@ -1474,7 +1474,7 @@ mod tests {
                 ),
             ],
             |p| {
-                p.read_element::<Sequence>()?
+                p.read_element::<Sequence<'_>>()?
                     .parse(|p| Ok((p.read_element::<i64>()?, p.read_element::<i64>()?)))
             },
         );
@@ -1495,7 +1495,7 @@ mod tests {
                 ),
             ],
             |p| {
-                p.read_element::<Sequence>()?.parse(|p| {
+                p.read_element::<Sequence<'_>>()?.parse(|p| {
                     let mut result = vec![];
                     while !p.is_empty() {
                         result.push(p.read_element::<i64>()?);
@@ -1521,7 +1521,7 @@ mod tests {
                     b"\x30\x02\x02\x01",
                 ),
             ],
-            |p| Ok(p.read_element::<SequenceOf<i64>>()?.collect()),
+            |p| Ok(p.read_element::<SequenceOf<'_, i64>>()?.collect()),
         );
     }
 
@@ -1552,7 +1552,7 @@ mod tests {
                     b"\x31\x02\x01\x00",
                 ),
             ],
-            |p| Ok(p.read_element::<SetOf<u64>>()?.collect()),
+            |p| Ok(p.read_element::<SetOf<'_, u64>>()?.collect()),
         );
     }
 
@@ -1576,7 +1576,7 @@ mod tests {
             },
         );
 
-        assert_parses::<Option<Tlv>>(&[
+        assert_parses::<Option<Tlv<'_>>>(&[
             (
                 Ok(Some(Tlv {
                     tag: Tag::primitive(0x4),
@@ -1660,7 +1660,7 @@ mod tests {
                 b"\x02\x01\xff",
             ),
         ]);
-        assert_parses::<Implicit<Sequence, 2>>(&[
+        assert_parses::<Implicit<Sequence<'_>, 2>>(&[
             (Ok(Implicit::new(Sequence::new(b"abc"))), b"\xa2\x03abc"),
             (Ok(Implicit::new(Sequence::new(b""))), b"\xa2\x00"),
             (

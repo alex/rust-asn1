@@ -54,7 +54,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> SimpleAsn1Readable<'a> for Box<T> {
 
 /// Any type that can be written as DER ASN.1.
 pub trait Asn1Writable: Sized {
-    fn write(&self, dest: &mut Writer) -> WriteResult;
+    fn write(&self, dest: &mut Writer<'_>) -> WriteResult;
 }
 
 // Types with a fixed-tag that can be written as DER ASN.1.
@@ -70,12 +70,12 @@ pub trait Asn1DefinedByReadable<'a, T: Asn1Readable<'a>>: Sized {
 
 pub trait Asn1DefinedByWritable<T: Asn1Writable>: Sized {
     fn item(&self) -> &T;
-    fn write(&self, dest: &mut Writer) -> WriteResult;
+    fn write(&self, dest: &mut Writer<'_>) -> WriteResult;
 }
 
 impl<T: SimpleAsn1Writable> Asn1Writable for T {
     #[inline]
-    fn write(&self, w: &mut Writer) -> WriteResult {
+    fn write(&self, w: &mut Writer<'_>) -> WriteResult {
         w.write_tlv(Self::TAG, move |dest| self.write_data(dest))
     }
 }
@@ -138,7 +138,7 @@ impl<'a> Asn1Readable<'a> for Tlv<'a> {
 }
 impl<'a> Asn1Writable for Tlv<'a> {
     #[inline]
-    fn write(&self, w: &mut Writer) -> WriteResult {
+    fn write(&self, w: &mut Writer<'_>) -> WriteResult {
         w.write_tlv(self.tag, move |dest| dest.push_slice(self.data))
     }
 }
@@ -322,7 +322,7 @@ impl<'a> IA5String<'a> {
         }
     }
 
-    fn new_from_bytes(s: &'a [u8]) -> Option<IA5String> {
+    fn new_from_bytes(s: &'a [u8]) -> Option<IA5String<'a>> {
         if IA5String::verify(s) {
             // TODO: This value is always valid utf-8 because we just verified
             // the contents, but I don't want to call an unsafe function, so we
@@ -366,7 +366,7 @@ impl<'a> Utf8String<'a> {
         Utf8String(s)
     }
 
-    fn new_from_bytes(s: &'a [u8]) -> Option<Utf8String> {
+    fn new_from_bytes(s: &'a [u8]) -> Option<Utf8String<'a>> {
         Some(Utf8String(core::str::from_utf8(s).ok()?))
     }
 
@@ -404,7 +404,7 @@ impl<'a> VisibleString<'a> {
         }
     }
 
-    fn new_from_bytes(s: &'a [u8]) -> Option<VisibleString> {
+    fn new_from_bytes(s: &'a [u8]) -> Option<VisibleString<'a>> {
         if VisibleString::verify(s) {
             // TODO: This value is always valid utf-8 because we just verified
             // the contents, but I don't want to call an unsafe function, so we
@@ -1115,7 +1115,7 @@ impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for Option<T> {
 
 impl<T: Asn1Writable> Asn1Writable for Option<T> {
     #[inline]
-    fn write(&self, w: &mut Writer) -> WriteResult {
+    fn write(&self, w: &mut Writer<'_>) -> WriteResult {
         if let Some(v) = self {
             w.write_element(v)
         } else {
@@ -1170,7 +1170,7 @@ macro_rules! declare_choice {
                 $number: Asn1Writable,
             )*
         > Asn1Writable for $count<$($number,)*> {
-            fn write(&self, w: &mut Writer) -> WriteResult {
+            fn write(&self, w: &mut Writer<'_>) -> WriteResult {
                 match self {
                     $(
                         $count::$name(v) => w.write_element(v),
@@ -1227,12 +1227,12 @@ impl<'a> SimpleAsn1Writable for Sequence<'a> {
 /// Writes an ASN.1 `SEQUENCE` using a callback that writes the inner
 /// elements.
 pub struct SequenceWriter<'a> {
-    f: &'a dyn Fn(&mut Writer) -> WriteResult,
+    f: &'a dyn Fn(&mut Writer<'_>) -> WriteResult,
 }
 
 impl<'a> SequenceWriter<'a> {
     #[inline]
-    pub fn new(f: &'a dyn Fn(&mut Writer) -> WriteResult) -> Self {
+    pub fn new(f: &'a dyn Fn(&mut Writer<'_>) -> WriteResult) -> Self {
         SequenceWriter { f }
     }
 }
@@ -1444,7 +1444,7 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         parse(data, |p| {
-            let mut last_element: Option<Tlv> = None;
+            let mut last_element: Option<Tlv<'a>> = None;
             let mut i = 0;
             while !p.is_empty() {
                 let el = p
@@ -1769,7 +1769,7 @@ mod tests {
     #[test]
     fn test_sequence_of_clone() {
         let mut seq1 =
-            parse_single::<SequenceOf<u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
+            parse_single::<SequenceOf<'_, u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
                 .unwrap();
         assert_eq!(seq1.next(), Some(1));
         let seq2 = seq1.clone();
@@ -1780,7 +1780,7 @@ mod tests {
     #[test]
     fn test_sequence_of_len() {
         let mut seq1 =
-            parse_single::<SequenceOf<u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
+            parse_single::<SequenceOf<'_, u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
                 .unwrap();
         let seq2 = seq1.clone();
 
