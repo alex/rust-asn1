@@ -25,7 +25,7 @@ impl Tag {
     pub fn from_bytes(mut data: &[u8]) -> ParseResult<(Tag, &[u8])> {
         let tag = match data.first() {
             Some(&b) => b,
-            None => return Err(ParseError::new(ParseErrorKind::ShortData)),
+            None => return Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
         };
         data = &data[1..];
         let mut value = u32::from(tag & 0x1f);
