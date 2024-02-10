@@ -61,7 +61,10 @@ impl ObjectIdentifier {
 
         let mut parsed = (0, data);
         while !parsed.1.is_empty() {
-            parsed = base128::read_base128_int(parsed.1)?;
+            // `base128::read_base128_int` can return a `ShortData` error, but
+            // in context here that means `InvalidValue`.
+            parsed = base128::read_base128_int(parsed.1)
+                .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))?;
         }
 
         let mut storage = [0; MAX_OID_LENGTH];

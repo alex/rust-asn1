@@ -45,8 +45,13 @@ impl Tag {
 
         // Long form tag
         if value == 0x1f {
-            let result = base128::read_base128_int(data)
-                .map_err(|_| ParseError::new(ParseErrorKind::InvalidTag))?;
+            let result = base128::read_base128_int(data).map_err(|e| {
+                if matches!(e.kind(), ParseErrorKind::ShortData { .. }) {
+                    e
+                } else {
+                    ParseError::new(ParseErrorKind::InvalidTag)
+                }
+            })?;
             // MSRV of 1.59 required for `(value, data) = ...;`
             value = result.0;
             data = result.1;
