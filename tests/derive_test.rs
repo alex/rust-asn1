@@ -465,8 +465,10 @@ fn test_required_implicit() {
     assert_roundtrips::<RequiredImplicit>(&[
         (Ok(RequiredImplicit { value: 8 }), b"\x30\x03\x80\x01\x08"),
         (
-            Err(asn1::ParseError::new(asn1::ParseErrorKind::ShortData)
-                .add_location(asn1::ParseLocation::Field("RequiredImplicit::value"))),
+            Err(
+                asn1::ParseError::new(asn1::ParseErrorKind::ShortData { needed: 1 })
+                    .add_location(asn1::ParseLocation::Field("RequiredImplicit::value")),
+            ),
             b"\x30\x00",
         ),
         (
@@ -493,8 +495,10 @@ fn test_required_explicit() {
             b"\x30\x05\xa0\x03\x02\x01\x08",
         ),
         (
-            Err(asn1::ParseError::new(asn1::ParseErrorKind::ShortData)
-                .add_location(asn1::ParseLocation::Field("RequiredExplicit::value"))),
+            Err(
+                asn1::ParseError::new(asn1::ParseErrorKind::ShortData { needed: 1 })
+                    .add_location(asn1::ParseLocation::Field("RequiredExplicit::value")),
+            ),
             b"\x30\x00",
         ),
         (
