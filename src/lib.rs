@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
+#![deny(rust_2018_idioms)]
 
 //! This crate provides you with the ability to generate and parse ASN.1
 //! encoded data. More precisely, it provides you with the ability to generate
@@ -219,7 +220,7 @@ pub fn read_defined_by<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>>
 #[doc(hidden)]
 pub fn write_defined_by<T: Asn1Writable, U: Asn1DefinedByWritable<T>>(
     v: &U,
-    w: &mut Writer,
+    w: &mut Writer<'_>,
 ) -> WriteResult {
     v.write(w)
 }
