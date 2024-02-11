@@ -566,10 +566,16 @@ mod tests {
                 }),
                 b"\x41\x00",
             ),
-            (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\x1f"),
-            (Err(ParseError::new(ParseErrorKind::InvalidTag)), b"\xff"),
             (
-                Err(ParseError::new(ParseErrorKind::InvalidTag)),
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+                b"\x1f",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+                b"\xff",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
                 b"\x1f\x85",
             ),
             // Overflow u32 for the tag number.

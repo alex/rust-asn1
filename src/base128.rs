@@ -5,7 +5,7 @@ pub(crate) fn read_base128_int(mut data: &[u8]) -> ParseResult<(u32, &[u8])> {
     for i in 0..5 {
         let b = match data.first() {
             Some(b) => *b,
-            None => return Err(ParseError::new(ParseErrorKind::InvalidValue)),
+            None => return Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
         };
         data = &data[1..];
         if ret > u32::MAX >> 7 {
