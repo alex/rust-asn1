@@ -175,6 +175,24 @@ pub fn parse_single<'a, T: Asn1Readable<'a>>(data: &'a [u8]) -> ParseResult<T> {
     parse(data, Parser::read_element::<T>)
 }
 
+/// Attempts to parse the `Tlv` at the start of `data` (allows trailing data).
+/// If successful, the `Tlv` and the trailing data after it are returned, if
+/// unsuccessful a `ParseError` is returned.
+///
+/// This can be useful where you have a file or stream format that relies on
+/// ASN.1 TLVs for framing.
+///
+/// When parsing a stream, if an error is returned, if its `kind` is
+/// `ParseErrorKind::ShortData`, this indicates that `data` did not contain
+/// sufficient data to parse an entire `Tlv`, and thus adding more data may
+/// resolve this. All other errors are "fatal" and cannot be resolved with
+/// additional data.
+pub fn strip_tlv(data: &[u8]) -> ParseResult<(Tlv<'_>, &[u8])> {
+    let mut p = Parser::new(data);
+    let tlv = p.read_element::<Tlv<'_>>()?;
+    Ok((tlv, p.data))
+}
+
 /// Encapsulates an ongoing parse. For almost all use-cases the correct
 /// entry-point is [`parse`] or [`parse_single`].
 pub struct Parser<'a> {
@@ -444,6 +462,57 @@ mod tests {
     fn test_parse_error_kind() {
         let e = ParseError::new(ParseErrorKind::EncodedDefault);
         assert_eq!(e.kind(), ParseErrorKind::EncodedDefault);
+    }
+
+    #[test]
+    fn test_strip_tlv() {
+        for (der_bytes, expected) in [
+            (
+                b"" as &[u8],
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+            ),
+            (
+                b"\x04",
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+            ),
+            (
+                b"\x04\x82",
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 2 })),
+            ),
+            (
+                b"\x04\x03",
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 3 })),
+            ),
+            (
+                b"\x04\x03ab",
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+            ),
+            (
+                b"\x04\x03abc",
+                Ok((
+                    Tlv {
+                        tag: Tag::primitive(0x04),
+                        data: b"abc",
+                        full_data: b"\x04\x03abc",
+                    },
+                    b"" as &[u8],
+                )),
+            ),
+            (
+                b"\x04\x03abc\x00\x00\x00",
+                Ok((
+                    Tlv {
+                        tag: Tag::primitive(0x04),
+                        data: b"abc",
+                        full_data: b"\x04\x03abc",
+                    },
+                    b"\x00\x00\x00",
+                )),
+            ),
+        ] {
+            let result = crate::strip_tlv(der_bytes);
+            assert_eq!(result, expected);
+        }
     }
 
     fn assert_parses_cb<
