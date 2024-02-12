@@ -182,7 +182,7 @@ pub fn parse_single<'a, T: Asn1Readable<'a>>(data: &'a [u8]) -> ParseResult<T> {
 /// This can be useful where you have a file or stream format that relies on
 /// ASN.1 TLVs for framing.
 ///
-/// When parsing a stream, if an error is returned, if it's `kind` is
+/// When parsing a stream, if an error is returned, if its `kind` is
 /// `ParseErrorKind::ShortData`, this indicates that `data` did not contain
 /// sufficient data to parse an entire `Tlv`, and thus adding more data may
 /// resolve this. All other errors are "fatal" and cannot be resolved with
