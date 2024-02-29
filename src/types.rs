@@ -1,8 +1,10 @@
+#[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
 use alloc::vec;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::borrow::Borrow;
-use core::convert::TryInto;
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::mem;
@@ -1651,7 +1653,9 @@ mod tests {
         Tlv, UtcTime, Utf8String, VisibleString,
     };
     use crate::{Explicit, Implicit};
+    #[cfg(not(feature = "std"))]
     use alloc::vec;
+    #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
     #[cfg(feature = "std")]
     use core::hash::{Hash, Hasher};

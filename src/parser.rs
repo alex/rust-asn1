@@ -338,6 +338,7 @@ mod tests {
         ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
         UtcTime, Utf8String, VisibleString,
     };
+    #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
     use alloc::{format, vec};
     use core::fmt;

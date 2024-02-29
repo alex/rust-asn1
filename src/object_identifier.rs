@@ -135,6 +135,7 @@ mod tests {
     use super::MAX_OID_LENGTH;
     use crate::{ObjectIdentifier, ParseError, ParseErrorKind};
     use alloc::format;
+    #[cfg(not(feature = "std"))]
     use alloc::string::ToString;
 
     #[test]
