@@ -1,3 +1,4 @@
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 
 /// Represents an ASN.1 `BIT STRING` whose contents is borrowed.

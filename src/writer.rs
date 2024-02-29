@@ -1,5 +1,6 @@
 use crate::types::{Asn1Writable, SimpleAsn1Writable};
 use crate::Tag;
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use alloc::{fmt, vec};
 
@@ -206,7 +207,9 @@ pub fn write_single<T: Asn1Writable>(v: &T) -> WriteResult<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
+    #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
+    #[cfg(not(feature = "std"))]
     use alloc::vec;
 
     use super::{_insert_at_position, write, write_single, WriteBuf, Writer};
@@ -218,6 +221,7 @@ mod tests {
         SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString,
         UtcTime, Utf8String, VisibleString, WriteError,
     };
+    #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
 
     fn assert_writes<T>(data: &[(T, &[u8])])
