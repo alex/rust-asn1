@@ -1635,6 +1635,30 @@ impl<T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<T, { TAG }
     }
 }
 
+impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32>
+    Asn1DefinedByReadable<'a, T> for Explicit<U, { TAG }>
+{
+    fn parse(item: T, parser: &mut Parser<'a>) -> ParseResult<Self> {
+        let tlv = parser.read_element::<Explicit<Tlv<'_>, TAG>>()?;
+        Ok(Explicit::new(parse(tlv.as_inner().full_data(), |p| {
+            U::parse(item, p)
+        })?))
+    }
+}
+
+impl<T: Asn1Writable, U: Asn1DefinedByWritable<T>, const TAG: u32> Asn1DefinedByWritable<T>
+    for Explicit<U, { TAG }>
+{
+    fn item(&self) -> &T {
+        self.as_inner().item()
+    }
+    fn write(&self, dest: &mut Writer<'_>) -> WriteResult {
+        dest.write_tlv(crate::explicit_tag(TAG), |dest| {
+            self.as_inner().write(&mut Writer::new(dest))
+        })
+    }
+}
+
 #[derive(PartialEq, Eq, Debug, Clone, Hash)]
 pub struct DefinedByMarker<T>(core::marker::PhantomData<T>);
 

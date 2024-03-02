@@ -675,3 +675,29 @@ fn test_defined_by_mod() {
         ),
     ]);
 }
+
+#[test]
+fn test_defined_by_explicit() {
+    pub const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct S<'a> {
+        oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
+        #[defined_by(oid)]
+        value: asn1::Explicit<Value<'a>, 1>,
+    }
+
+    #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug, Eq)]
+    enum Value<'a> {
+        #[defined_by(OID1)]
+        OctetString(&'a [u8]),
+    }
+
+    assert_roundtrips::<S>(&[(
+        Ok(S {
+            oid: asn1::DefinedByMarker::marker(),
+            value: asn1::Explicit::new(Value::OctetString(b"abc")),
+        }),
+        b"\x30\x0b\x06\x02\x2a\x03\xa1\x05\x04\x03abc",
+    )]);
+}
