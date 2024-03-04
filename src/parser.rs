@@ -158,7 +158,7 @@ pub type ParseResult<T> = Result<T, ParseError>;
 
 /// Parse takes a sequence of bytes of DER encoded ASN.1 data, constructs a
 /// parser, and invokes a callback to read elements from the ASN.1 parser.
-pub fn parse<'a, T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>(
+pub fn parse<'a, T, E: From<ParseError>, F: FnOnce(&mut Parser<'a>) -> Result<T, E>>(
     data: &'a [u8],
     f: F,
 ) -> Result<T, E> {
