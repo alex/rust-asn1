@@ -99,7 +99,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1482605bfc5719782e1267fd0c0cc350fe7646b8
         with:
-          toolchain: stable
+          toolchain: beta
           components: llvm-tools-preview
 
       - run: sudo apt update && sudo apt-get install -y lcov
