@@ -768,10 +768,7 @@ mod tests {
             (Ok(-128), b"\x02\x01\x80"),
             (Ok(-129), b"\x02\x02\xff\x7f"),
             (Ok(-256), b"\x02\x02\xff\x00"),
-            (
-                Ok(core::i64::MAX),
-                b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff",
-            ),
+            (Ok(i64::MAX), b"\x02\x08\x7f\xff\xff\xff\xff\xff\xff\xff"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
                     actual: Tag::primitive(0x3),
@@ -817,7 +814,7 @@ mod tests {
     fn parse_int_u64() {
         assert_parses::<u64>(&[
             (
-                Ok(core::u64::MAX),
+                Ok(u64::MAX),
                 b"\x02\x09\x00\xff\xff\xff\xff\xff\xff\xff\xff",
             ),
             (
@@ -841,7 +838,7 @@ mod tests {
             (Ok(-128), b"\x02\x01\x80"),
             (Ok(-129), b"\x02\x02\xff\x7f"),
             (Ok(-256), b"\x02\x02\xff\x00"),
-            (Ok(core::i32::MAX), b"\x02\x04\x7f\xff\xff\xff"),
+            (Ok(i32::MAX), b"\x02\x04\x7f\xff\xff\xff"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
                     actual: Tag::primitive(0x3),
