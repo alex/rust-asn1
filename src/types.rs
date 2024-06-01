@@ -205,6 +205,21 @@ impl<'a> SimpleAsn1Writable for &'a [u8] {
     }
 }
 
+impl<const N: usize> SimpleAsn1Readable<'_> for [u8; N] {
+    const TAG: Tag = Tag::primitive(0x04);
+    fn parse_data(data: &[u8]) -> ParseResult<[u8; N]> {
+        data.try_into()
+            .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))
+    }
+}
+
+impl<const N: usize> SimpleAsn1Writable for [u8; N] {
+    const TAG: Tag = Tag::primitive(0x04);
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        dest.push_slice(self)
+    }
+}
+
 /// Represents values that are encoded as an `OCTET STRING` containing an
 /// encoded TLV, of type `T`.
 #[derive(PartialEq, Eq, Debug)]
