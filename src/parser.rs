@@ -736,6 +736,26 @@ mod tests {
             // 4 byte length form with leading 0.
             (Err(ParseError::new(ParseErrorKind::InvalidLength)), b"\x04\x84\x00\xff\xff\xff"),
         ]);
+
+        assert_parses::<[u8; 0]>(&[
+            (Ok([]), b"\x04\x00"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x04\x02\x01\x02",
+            ),
+        ]);
+
+        assert_parses::<[u8; 1]>(&[
+            (Ok([2]), b"\x04\x01\x02"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x04\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x04\x02\x01\x02",
+            ),
+        ]);
     }
 
     #[test]
