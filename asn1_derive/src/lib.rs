@@ -52,13 +52,13 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    let lifetimes = find_lifetimes(input.generics);
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let expanded = match input.data {
         syn::Data::Struct(data) => {
             let write_block = generate_struct_write_block(&data);
             quote::quote! {
-                impl<#lifetimes> asn1::SimpleAsn1Writable for #name<#lifetimes> {
+                impl #impl_generics asn1::SimpleAsn1Writable for #name #ty_generics #where_clause {
                     const TAG: asn1::Tag = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
                     fn write_data(&self, dest: &mut asn1::WriteBuf) -> asn1::WriteResult {
                         #write_block
@@ -71,7 +71,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         syn::Data::Enum(data) => {
             let write_block = generate_enum_write_block(&name, &data);
             quote::quote! {
-                impl<#lifetimes> asn1::Asn1Writable for #name<#lifetimes> {
+                impl #impl_generics asn1::Asn1Writable for #name #ty_generics #where_clause {
                     fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
                         #write_block
                     }
@@ -181,7 +181,7 @@ pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macr
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    let lifetimes = find_lifetimes(input.generics);
+    let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let mut write_blocks = vec![];
     let mut item_blocks = vec![];
@@ -222,7 +222,7 @@ pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macr
     }
 
     proc_macro::TokenStream::from(quote::quote! {
-        impl<#lifetimes> asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier> for #name<#lifetimes> {
+        impl #impl_generics asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier> for #name #ty_generics #where_clause {
             fn item(&self) -> &asn1::ObjectIdentifier {
                 match self {
                     #(#item_blocks)*
