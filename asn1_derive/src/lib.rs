@@ -3,20 +3,22 @@ extern crate proc_macro;
 use syn::parse::Parser;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
-use syn::token::Comma;
 
 #[proc_macro_derive(Asn1Read, attributes(explicit, implicit, default, defined_by))]
 pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    let (impl_lifetimes, ty_lifetimes, lifetime_name) = add_lifetime_if_none(input.generics);
+    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut generics = input.generics.clone();
+    let lifetime_name = add_lifetime_if_none(&mut generics);
+    let (impl_generics, _, _) = generics.split_for_impl();
 
     let expanded = match input.data {
         syn::Data::Struct(data) => {
             let read_block = generate_struct_read_block(&name, &data);
             quote::quote! {
-                impl<#impl_lifetimes> asn1::SimpleAsn1Readable<#lifetime_name> for #name<#ty_lifetimes> {
+                impl #impl_generics asn1::SimpleAsn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     const TAG: asn1::Tag = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
                     fn parse_data(data: &#lifetime_name [u8]) -> asn1::ParseResult<Self> {
                         asn1::parse(data, |p| { #read_block })
@@ -27,7 +29,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         syn::Data::Enum(data) => {
             let (read_block, can_parse_block) = generate_enum_read_block(&name, &data);
             quote::quote! {
-                impl<#impl_lifetimes> asn1::Asn1Readable<#lifetime_name> for #name<#ty_lifetimes> {
+                impl #impl_generics asn1::Asn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     fn parse(parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
                         let tlv = parser.read_element::<asn1::Tlv>()?;
                         #read_block
@@ -123,7 +125,10 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    let (impl_lifetimes, ty_lifetimes, lifetime_name) = add_lifetime_if_none(input.generics);
+    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
+    let mut generics = input.generics.clone();
+    let lifetime_name = add_lifetime_if_none(&mut generics);
+    let (impl_generics, _, _) = generics.split_for_impl();
 
     let mut read_block = vec![];
     let mut default_ident = None;
@@ -166,7 +171,7 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
         }
     };
     proc_macro::TokenStream::from(quote::quote! {
-        impl<#impl_lifetimes> asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier> for #name<#ty_lifetimes> {
+        impl #impl_generics asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier> for #name #ty_generics #where_clause {
             fn parse(item: asn1::ObjectIdentifier, parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
                 #(#read_block)*
 
@@ -238,33 +243,16 @@ pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macr
     })
 }
 
-fn find_lifetimes(mut generics: syn::Generics) -> Punctuated<syn::Lifetime, Comma> {
-    let mut lifetimes = Punctuated::new();
-    for param in &mut generics.params {
-        if let syn::GenericParam::Lifetime(lifetime_def) = param {
-            lifetimes.push(lifetime_def.lifetime.clone());
-        }
-    }
+fn add_lifetime_if_none(generics: &mut syn::Generics) -> syn::Lifetime {
+    if generics.lifetimes().next().is_none() {
+        generics
+            .params
+            .push(syn::GenericParam::Lifetime(syn::LifetimeParam::new(
+                syn::Lifetime::new("'a", proc_macro2::Span::call_site()),
+            )));
+    };
 
-    lifetimes
-}
-
-fn add_lifetime_if_none(
-    generics: syn::Generics,
-) -> (
-    Punctuated<syn::Lifetime, Comma>,
-    Punctuated<syn::Lifetime, Comma>,
-    syn::Lifetime,
-) {
-    let mut impl_lifetimes = find_lifetimes(generics);
-    let ty_lifetimes = impl_lifetimes.clone();
-    let lifetime = impl_lifetimes.first().cloned().unwrap_or_else(|| {
-        let lifetime = syn::Lifetime::new("'a", proc_macro2::Span::call_site());
-        impl_lifetimes.push(lifetime.clone());
-        lifetime
-    });
-
-    (impl_lifetimes, ty_lifetimes, lifetime)
+    generics.lifetimes().next().unwrap().lifetime.clone()
 }
 
 enum OpType {
