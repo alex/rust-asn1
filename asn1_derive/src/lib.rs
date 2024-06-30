@@ -9,10 +9,14 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
+    let (_, ty_generics, _) = input.generics.split_for_impl();
     let mut generics = input.generics.clone();
     let lifetime_name = add_lifetime_if_none(&mut generics);
-    let (impl_generics, _, _) = generics.split_for_impl();
+    add_bounds(
+        &mut generics,
+        syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
+    );
+    let (impl_generics, _, where_clause) = generics.split_for_impl();
 
     let expanded = match input.data {
         syn::Data::Struct(data) => {
@@ -51,9 +55,10 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 
 #[proc_macro_derive(Asn1Write, attributes(explicit, implicit, default, defined_by))]
 pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+    let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
+    add_bounds(&mut input.generics, syn::parse_quote!(asn1::Asn1Writable));
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let expanded = match input.data {
@@ -253,6 +258,14 @@ fn add_lifetime_if_none(generics: &mut syn::Generics) -> syn::Lifetime {
     };
 
     generics.lifetimes().next().unwrap().lifetime.clone()
+}
+
+fn add_bounds(generics: &mut syn::Generics, bound: syn::TypeParamBound) {
+    for param in &mut generics.params {
+        if let syn::GenericParam::Type(ref mut type_param) = param {
+            type_param.bounds.push(bound.clone());
+        }
+    }
 }
 
 enum OpType {

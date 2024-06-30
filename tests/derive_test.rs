@@ -701,3 +701,22 @@ fn test_defined_by_explicit() {
         b"\x30\x0b\x06\x02\x2a\x03\xa1\x05\x04\x03abc",
     )]);
 }
+
+#[test]
+fn test_generics() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct S<T> {
+        value: T,
+    }
+
+    assert_roundtrips::<S<u64>>(&[(Ok(S { value: 12 }), b"\x30\x03\x02\x01\x0c")]);
+    assert_roundtrips::<S<bool>>(&[(Ok(S { value: true }), b"\x30\x03\x01\x01\xff")]);
+
+    assert_eq!(
+        asn1::write_single(&S {
+            value: asn1::SequenceOfWriter::new([true, true]),
+        })
+        .unwrap(),
+        b"\x30\x08\x30\x06\x01\x01\xff\x01\x01\xff"
+    )
+}
