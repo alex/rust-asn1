@@ -1693,11 +1693,9 @@ mod tests {
                     Err(ParseError::new(ParseErrorKind::InvalidValue)),
                     b"\x30\x00",
                 ),
+                (Ok(vec![3, 1]), b"\x30\x06\x02\x01\x03\x02\x01\x01"),
             ],
-            |p| {
-                Ok(p.read_element::<SequenceOf<'_, i64, 1, 2>>()?
-                    .collect::<Vec<_>>())
-            },
+            |p| Ok(p.read_element::<SequenceOf<'_, i64, 1, 2>>()?.collect()),
         );
     }
 
