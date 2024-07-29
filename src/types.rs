@@ -1279,7 +1279,7 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
     SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
 {
     #[inline]
-    pub(crate) fn new(data: &'a [u8]) -> ParseResult<SequenceOf<'a, T>> {
+    pub(crate) fn new(data: &'a [u8]) -> ParseResult<SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>> {
         let length = parse(data, |p| {
             let mut i = 0;
             while !p.is_empty() {
@@ -1294,7 +1294,7 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
 
-        Ok(SequenceOf {
+        Ok(Self {
             length,
             parser: Parser::new(data),
             _phantom: PhantomData,
@@ -1356,7 +1356,7 @@ impl<'a, T: Asn1Readable<'a> + 'a, const MINIMUM_LEN: usize, const MAXIMUM_LEN: 
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        SequenceOf::<T>::new(data)
+        SequenceOf::new(data)
     }
 }
 
@@ -1862,6 +1862,25 @@ mod tests {
         assert!(seq1.is_empty());
         assert_eq!(seq2.len(), 3);
         assert!(!seq2.is_empty());
+    }
+
+    #[test]
+    fn test_sequence_of_constrained() {
+        let seq1 =
+            parse_single::<SequenceOf<'_, u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03");
+        assert!(seq1.is_ok());
+
+        // Parse fails because minimum length is 4 but sequence contains 3 items.
+        let seq2 =
+            parse_single::<SequenceOf<'_, u64, 4>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03");
+        assert!(seq2.is_err());
+
+        // Parse fails because maximum length is 2 but sequence contains 3 items.
+        // Parse fails because minimum length is 4 but sequence contains 3 items.
+        let seq3 = parse_single::<SequenceOf<'_, u64, 0, 2>>(
+            b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+        );
+        assert!(seq3.is_err());
     }
 
     #[cfg(feature = "std")]
