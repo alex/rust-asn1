@@ -1310,8 +1310,10 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
     }
 }
 
-impl<'a, T: Asn1Readable<'a>> Clone for SequenceOf<'a, T> {
-    fn clone(&self) -> SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> Clone
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
+    fn clone(&self) -> SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN> {
         SequenceOf {
             parser: self.parser.clone_internal(),
             length: self.length,
@@ -1348,7 +1350,9 @@ impl<'a, T: Asn1Readable<'a> + Hash> Hash for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a> + 'a, const MIN: usize, const MAX: usize> SimpleAsn1Readable<'a>
+    for SequenceOf<'a, T, MIN, MAX>
+{
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
@@ -1356,7 +1360,9 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> 
     }
 }
 
-impl<'a, T: Asn1Readable<'a>> Iterator for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> Iterator
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1372,7 +1378,13 @@ impl<'a, T: Asn1Readable<'a>> Iterator for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + Asn1Writable> SimpleAsn1Writable for SequenceOf<'a, T> {
+impl<
+        'a,
+        T: Asn1Readable<'a> + Asn1Writable,
+        const MINIMUM_LEN: usize,
+        const MAXIMUM_LEN: usize,
+    > SimpleAsn1Writable for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     const TAG: Tag = Tag::constructed(0x10);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let mut w = Writer::new(dest);
