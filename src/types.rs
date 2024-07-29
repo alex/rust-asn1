@@ -1264,13 +1264,20 @@ impl<'a> SimpleAsn1Writable for SequenceWriter<'a> {
 
 /// Represents an ASN.1 `SEQUENCE OF`. This is an `Iterator` over values that
 /// are decoded.
-pub struct SequenceOf<'a, T: Asn1Readable<'a>> {
+pub struct SequenceOf<
+    'a,
+    T: Asn1Readable<'a>,
+    const MINIMUM_LEN: usize = 0,
+    const MAXIMUM_LEN: usize = { usize::MAX },
+> {
     parser: Parser<'a>,
     length: usize,
     _phantom: PhantomData<T>,
 }
 
-impl<'a, T: Asn1Readable<'a>> SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize>
+    SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     #[inline]
     pub(crate) fn new(data: &'a [u8]) -> ParseResult<SequenceOf<'a, T>> {
         let length = parse(data, |p| {
@@ -1282,6 +1289,10 @@ impl<'a, T: Asn1Readable<'a>> SequenceOf<'a, T> {
             }
             Ok(i)
         })?;
+
+        if length < MINIMUM_LEN || length > MAXIMUM_LEN {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
+        }
 
         Ok(SequenceOf {
             length,
@@ -1341,7 +1352,7 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> 
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        SequenceOf::new(data)
+        SequenceOf::<T>::new(data)
     }
 }
 
