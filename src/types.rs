@@ -1322,7 +1322,9 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + PartialEq> PartialEq for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a> + PartialEq, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize>
+    PartialEq for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     fn eq(&self, other: &Self) -> bool {
         let mut it1 = self.clone();
         let mut it2 = other.clone();
@@ -1340,9 +1342,14 @@ impl<'a, T: Asn1Readable<'a> + PartialEq> PartialEq for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + Eq> Eq for SequenceOf<'a, T> {}
+impl<'a, T: Asn1Readable<'a> + Eq, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> Eq
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
+}
 
-impl<'a, T: Asn1Readable<'a> + Hash> Hash for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a> + Hash, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> Hash
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     fn hash<H: Hasher>(&self, state: &mut H) {
         for val in self.clone() {
             val.hash(state);
@@ -1862,25 +1869,6 @@ mod tests {
         assert!(seq1.is_empty());
         assert_eq!(seq2.len(), 3);
         assert!(!seq2.is_empty());
-    }
-
-    #[test]
-    fn test_sequence_of_constrained() {
-        let seq1 =
-            parse_single::<SequenceOf<'_, u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03");
-        assert!(seq1.is_ok());
-
-        // Parse fails because minimum length is 4 but sequence contains 3 items.
-        let seq2 =
-            parse_single::<SequenceOf<'_, u64, 4>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03");
-        assert!(seq2.is_err());
-
-        // Parse fails because maximum length is 2 but sequence contains 3 items.
-        // Parse fails because minimum length is 4 but sequence contains 3 items.
-        let seq3 = parse_single::<SequenceOf<'_, u64, 0, 2>>(
-            b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
-        );
-        assert!(seq3.is_err());
     }
 
     #[cfg(feature = "std")]

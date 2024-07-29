@@ -1666,6 +1666,42 @@ mod tests {
     }
 
     #[test]
+    fn test_sequence_of_constrained_lengths() {
+        // Minimum only.
+        assert_parses_cb(
+            &[
+                (
+                    Ok(vec![1, 2, 3]),
+                    b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                    b"\x30\x00",
+                ),
+            ],
+            |p| Ok(p.read_element::<SequenceOf<'_, i64, 1>>()?.collect()),
+        );
+
+        // Minimum and maximum.
+        assert_parses_cb(
+            &[
+                (
+                    Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                    b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                    b"\x30\x00",
+                ),
+            ],
+            |p| {
+                Ok(p.read_element::<SequenceOf<'_, i64, 1, 2>>()?
+                    .collect::<Vec<_>>())
+            },
+        );
+    }
+
+    #[test]
     fn parse_set_of() {
         assert_parses_cb(
             &[
