@@ -1350,8 +1350,8 @@ impl<'a, T: Asn1Readable<'a> + Hash> Hash for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + 'a, const MIN: usize, const MAX: usize> SimpleAsn1Readable<'a>
-    for SequenceOf<'a, T, MIN, MAX>
+impl<'a, T: Asn1Readable<'a> + 'a, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize>
+    SimpleAsn1Readable<'a> for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
 {
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
