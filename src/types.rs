@@ -1292,6 +1292,8 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
 
         if length < MINIMUM_LEN || length > MAXIMUM_LEN {
             return Err(ParseError::new(ParseErrorKind::InvalidSize {
+                min: MINIMUM_LEN,
+                max: MAXIMUM_LEN,
                 actual: length,
             }));
         }
