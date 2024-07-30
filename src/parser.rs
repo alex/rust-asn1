@@ -13,6 +13,9 @@ pub enum ParseErrorKind {
     /// encoding, or that a TLV was longer than 4GB, which is the maximum
     /// length that rust-asn1 supports.
     InvalidLength,
+    /// A container's size was invalid. This typically indicates an empty
+    /// or oversized structure.
+    InvalidSize { actual: usize },
     /// An unexpected tag was encountered.
     UnexpectedTag { actual: Tag },
     /// There was not enough data available to complete parsing. `needed`
@@ -130,6 +133,9 @@ impl fmt::Display for ParseError {
             ParseErrorKind::InvalidValue => write!(f, "invalid value"),
             ParseErrorKind::InvalidTag => write!(f, "invalid tag"),
             ParseErrorKind::InvalidLength => write!(f, "invalid length"),
+            ParseErrorKind::InvalidSize { actual } => {
+                write!(f, "invalid container size: (got {:?})", actual)
+            }
             ParseErrorKind::UnexpectedTag { actual } => {
                 write!(f, "unexpected tag (got {:?})", actual)
             }
@@ -1675,7 +1681,7 @@ mod tests {
                     b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
                 ),
                 (
-                    Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                    Err(ParseError::new(ParseErrorKind::InvalidSize { actual: 0 })),
                     b"\x30\x00",
                 ),
             ],
@@ -1686,11 +1692,11 @@ mod tests {
         assert_parses_cb(
             &[
                 (
-                    Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                    Err(ParseError::new(ParseErrorKind::InvalidSize { actual: 3 })),
                     b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
                 ),
                 (
-                    Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                    Err(ParseError::new(ParseErrorKind::InvalidSize { actual: 0 })),
                     b"\x30\x00",
                 ),
                 (Ok(vec![3, 1]), b"\x30\x06\x02\x01\x03\x02\x01\x01"),
