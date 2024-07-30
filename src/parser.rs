@@ -134,7 +134,7 @@ impl fmt::Display for ParseError {
             ParseErrorKind::InvalidTag => write!(f, "invalid tag"),
             ParseErrorKind::InvalidLength => write!(f, "invalid length"),
             ParseErrorKind::InvalidSize { actual } => {
-                write!(f, "invalid container size: (got {:?})", actual)
+                write!(f, "invalid container size (got {:?})", actual)
             }
             ParseErrorKind::UnexpectedTag { actual } => {
                 write!(f, "unexpected tag (got {:?})", actual)
@@ -421,6 +421,10 @@ mod tests {
             (
                 ParseError::new(ParseErrorKind::InvalidLength),
                 "ASN.1 parsing error: invalid length"
+            ),
+            (
+                ParseError::new(ParseErrorKind::InvalidSize { actual: 0 }),
+                "ASN.1 parsing error: invalid container size (got 0)",
             ),
             (
                 ParseError::new(ParseErrorKind::IntegerOverflow),
