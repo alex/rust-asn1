@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![forbid(unsafe_code)]
 #![deny(rust_2018_idioms)]
+#![allow(clippy::result_large_err)]
 
 //! This crate provides you with the ability to generate and parse ASN.1
 //! encoded data. More precisely, it provides you with the ability to generate
