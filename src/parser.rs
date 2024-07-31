@@ -13,6 +13,13 @@ pub enum ParseErrorKind {
     /// encoding, or that a TLV was longer than 4GB, which is the maximum
     /// length that rust-asn1 supports.
     InvalidLength,
+    /// A container's size was invalid. This typically indicates an empty
+    /// or oversized structure.
+    InvalidSize {
+        min: usize,
+        max: usize,
+        actual: usize,
+    },
     /// An unexpected tag was encountered.
     UnexpectedTag { actual: Tag },
     /// There was not enough data available to complete parsing. `needed`
@@ -130,6 +137,13 @@ impl fmt::Display for ParseError {
             ParseErrorKind::InvalidValue => write!(f, "invalid value"),
             ParseErrorKind::InvalidTag => write!(f, "invalid tag"),
             ParseErrorKind::InvalidLength => write!(f, "invalid length"),
+            ParseErrorKind::InvalidSize { min, max, actual } => {
+                write!(
+                    f,
+                    "invalid container size (expected between {} and {}, got {})",
+                    min, max, actual
+                )
+            }
             ParseErrorKind::UnexpectedTag { actual } => {
                 write!(f, "unexpected tag (got {:?})", actual)
             }
@@ -415,6 +429,10 @@ mod tests {
             (
                 ParseError::new(ParseErrorKind::InvalidLength),
                 "ASN.1 parsing error: invalid length"
+            ),
+            (
+                ParseError::new(ParseErrorKind::InvalidSize { min: 1, max: 5, actual: 0 }),
+                "ASN.1 parsing error: invalid container size (expected between 1 and 5, got 0)",
             ),
             (
                 ParseError::new(ParseErrorKind::IntegerOverflow),
@@ -1662,6 +1680,52 @@ mod tests {
                 ),
             ],
             |p| Ok(p.read_element::<SequenceOf<'_, i64>>()?.collect()),
+        );
+    }
+
+    #[test]
+    fn test_sequence_of_constrained_lengths() {
+        // Minimum only.
+        assert_parses_cb(
+            &[
+                (
+                    Ok(vec![1, 2, 3]),
+                    b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::InvalidSize {
+                        min: 1,
+                        max: usize::MAX,
+                        actual: 0,
+                    })),
+                    b"\x30\x00",
+                ),
+            ],
+            |p| Ok(p.read_element::<SequenceOf<'_, i64, 1>>()?.collect()),
+        );
+
+        // Minimum and maximum.
+        assert_parses_cb(
+            &[
+                (
+                    Err(ParseError::new(ParseErrorKind::InvalidSize {
+                        min: 1,
+                        max: 2,
+                        actual: 3,
+                    })),
+                    b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::InvalidSize {
+                        min: 1,
+                        max: 2,
+                        actual: 0,
+                    })),
+                    b"\x30\x00",
+                ),
+                (Ok(vec![3, 1]), b"\x30\x06\x02\x01\x03\x02\x01\x01"),
+            ],
+            |p| Ok(p.read_element::<SequenceOf<'_, i64, 1, 2>>()?.collect()),
         );
     }
 

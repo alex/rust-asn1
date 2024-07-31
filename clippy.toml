@@ -1,0 +1,4 @@
+# `ParseError` is larger (136 bytes) than the default clippy limit (128 bytes)
+# for error variants; this allows it to pass while catching any future
+# unintended growth. Note that the limit below is exclusive.
+large-error-threshold = 137

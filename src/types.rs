@@ -1264,15 +1264,22 @@ impl<'a> SimpleAsn1Writable for SequenceWriter<'a> {
 
 /// Represents an ASN.1 `SEQUENCE OF`. This is an `Iterator` over values that
 /// are decoded.
-pub struct SequenceOf<'a, T: Asn1Readable<'a>> {
+pub struct SequenceOf<
+    'a,
+    T: Asn1Readable<'a>,
+    const MINIMUM_LEN: usize = 0,
+    const MAXIMUM_LEN: usize = { usize::MAX },
+> {
     parser: Parser<'a>,
     length: usize,
     _phantom: PhantomData<T>,
 }
 
-impl<'a, T: Asn1Readable<'a>> SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize>
+    SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     #[inline]
-    pub(crate) fn new(data: &'a [u8]) -> ParseResult<SequenceOf<'a, T>> {
+    pub(crate) fn new(data: &'a [u8]) -> ParseResult<SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>> {
         let length = parse(data, |p| {
             let mut i = 0;
             while !p.is_empty() {
@@ -1283,7 +1290,15 @@ impl<'a, T: Asn1Readable<'a>> SequenceOf<'a, T> {
             Ok(i)
         })?;
 
-        Ok(SequenceOf {
+        if length < MINIMUM_LEN || length > MAXIMUM_LEN {
+            return Err(ParseError::new(ParseErrorKind::InvalidSize {
+                min: MINIMUM_LEN,
+                max: MAXIMUM_LEN,
+                actual: length,
+            }));
+        }
+
+        Ok(Self {
             length,
             parser: Parser::new(data),
             _phantom: PhantomData,
@@ -1299,8 +1314,10 @@ impl<'a, T: Asn1Readable<'a>> SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a>> Clone for SequenceOf<'a, T> {
-    fn clone(&self) -> SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> Clone
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
+    fn clone(&self) -> SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN> {
         SequenceOf {
             parser: self.parser.clone_internal(),
             length: self.length,
@@ -1309,7 +1326,9 @@ impl<'a, T: Asn1Readable<'a>> Clone for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + PartialEq> PartialEq for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a> + PartialEq, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize>
+    PartialEq for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     fn eq(&self, other: &Self) -> bool {
         let mut it1 = self.clone();
         let mut it2 = other.clone();
@@ -1327,9 +1346,14 @@ impl<'a, T: Asn1Readable<'a> + PartialEq> PartialEq for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + Eq> Eq for SequenceOf<'a, T> {}
+impl<'a, T: Asn1Readable<'a> + Eq, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> Eq
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
+}
 
-impl<'a, T: Asn1Readable<'a> + Hash> Hash for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a> + Hash, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> Hash
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     fn hash<H: Hasher>(&self, state: &mut H) {
         for val in self.clone() {
             val.hash(state);
@@ -1337,7 +1361,9 @@ impl<'a, T: Asn1Readable<'a> + Hash> Hash for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a> + 'a, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize>
+    SimpleAsn1Readable<'a> for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
@@ -1345,7 +1371,9 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SequenceOf<'a, T> 
     }
 }
 
-impl<'a, T: Asn1Readable<'a>> Iterator for SequenceOf<'a, T> {
+impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> Iterator
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     type Item = T;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -1361,7 +1389,13 @@ impl<'a, T: Asn1Readable<'a>> Iterator for SequenceOf<'a, T> {
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + Asn1Writable> SimpleAsn1Writable for SequenceOf<'a, T> {
+impl<
+        'a,
+        T: Asn1Readable<'a> + Asn1Writable,
+        const MINIMUM_LEN: usize,
+        const MAXIMUM_LEN: usize,
+    > SimpleAsn1Writable for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+{
     const TAG: Tag = Tag::constructed(0x10);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let mut w = Writer::new(dest);
