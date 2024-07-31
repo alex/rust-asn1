@@ -14,7 +14,7 @@ Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
 asn1 = "0.16"
 ```
 
-Builds on Rust 1.56.0 and newer.
+Builds on Rust 1.59.0 and newer.
 
 `rust-asn1` is compatible with `#![no_std]` environments:
 
