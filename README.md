@@ -11,7 +11,7 @@ Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
 
 ```toml
 [dependencies]
-asn1 = "0.16"
+asn1 = "0.17"
 ```
 
 Builds on Rust 1.59.0 and newer.
