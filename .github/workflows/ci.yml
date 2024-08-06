@@ -143,7 +143,7 @@ jobs:
 
           genhtml cargo-test.lcov -o coverage-html | tee output.log
 
-      - uses: actions/upload-artifact@v4.3.5
+      - uses: actions/upload-artifact@v4.3.6
         with:
           name: coverage-html
           path: coverage-html
