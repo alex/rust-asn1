@@ -1202,9 +1202,12 @@ declare_choice!(Choice1 => (T1 ChoiceA));
 declare_choice!(Choice2 => (T1 ChoiceA), (T2 ChoiceB));
 declare_choice!(Choice3 => (T1 ChoiceA), (T2 ChoiceB), (T3 ChoiceC));
 
-/// Represents an ASN.1 `SEQUENCE`. By itself, this merely indicates a sequence of bytes that are
-/// claimed to form an ASN1 sequence. In almost any circumstance, you'll want to immediately call
-/// `Sequence.parse` on this value to decode the actual contents therein.
+/// Represents an ASN.1 `SEQUENCE`.
+///
+/// By itself, this merely indicates a sequence of bytes that are claimed to
+// form an ASN1 sequence. In almost any circumstance, you'll want to
+/// immediately call `Sequence.parse` on this value to decode the actual
+/// contents therein.
 #[derive(Debug, PartialEq, Hash, Clone, Eq)]
 pub struct Sequence<'a> {
     data: &'a [u8],
