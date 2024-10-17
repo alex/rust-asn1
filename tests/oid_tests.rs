@@ -7,6 +7,15 @@ fn test_oid_value() {
 }
 
 #[test]
+fn test_oid_with_uuid() {
+    assert_eq!(
+        asn1::oid!(2, 25, 223663413560230117710484359924050447509),
+        asn1::ObjectIdentifier::from_string("2.25.223663413560230117710484359924050447509")
+            .unwrap()
+    );
+}
+
+#[test]
 fn test_match_statement() {
     const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3, 4);
     const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3, 5);
