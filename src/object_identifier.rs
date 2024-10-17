@@ -30,8 +30,8 @@ impl ObjectIdentifier {
     pub fn from_string(oid: &str) -> Option<ObjectIdentifier> {
         let mut parts = oid.split('.');
 
-        let first = parts.next()?.parse::<u32>().ok()?;
-        let second = parts.next()?.parse::<u32>().ok()?;
+        let first = parts.next()?.parse::<u128>().ok()?;
+        let second = parts.next()?.parse::<u128>().ok()?;
         if first > 2 || (first < 2 && second >= 40) {
             return None;
         }
@@ -43,7 +43,7 @@ impl ObjectIdentifier {
         for part in parts {
             der_data_len += base128::write_base128_int(
                 &mut der_data[der_data_len..],
-                part.parse::<u32>().ok()?,
+                part.parse::<u128>().ok()?,
             )?;
         }
         Some(ObjectIdentifier {
@@ -165,6 +165,9 @@ mod tests {
             "1.2.3.4",
             "1.2.840.133549.1.1.5",
             "2.100.3",
+            "2.1.750304883",
+            "2.25.223663413560230117710484359924050447509",
+            "2.25.340282366920938463463374607431768211455",
         ] {
             assert!(ObjectIdentifier::from_string(val).is_some());
         }
@@ -204,6 +207,8 @@ mod tests {
             "1.2.840.133549.1.1.5",
             "2.100.3",
             "2.1.750304883",
+            "2.25.223663413560230117710484359924050447509",
+            "2.25.340282366920938463463374607431768211455",
         ] {
             assert_eq!(
                 &ObjectIdentifier::from_string(val).unwrap().to_string(),

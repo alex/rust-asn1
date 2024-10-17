@@ -678,7 +678,7 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
 
 // TODO: Duplicate of this function in src/object_identifier.rs, can we
 // de-dupe?
-fn _write_base128_int(data: &mut Vec<u8>, n: u32) {
+fn _write_base128_int(data: &mut Vec<u8>, n: u128) {
     if n == 0 {
         data.push(0);
         return;
@@ -709,11 +709,11 @@ pub fn oid(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut arcs = p_arcs.iter();
 
     let mut der_encoded = vec![];
-    let first = arcs.next().unwrap().base10_parse::<u32>().unwrap();
-    let second = arcs.next().unwrap().base10_parse::<u32>().unwrap();
+    let first = arcs.next().unwrap().base10_parse::<u128>().unwrap();
+    let second = arcs.next().unwrap().base10_parse::<u128>().unwrap();
     _write_base128_int(&mut der_encoded, 40 * first + second);
     for arc in arcs {
-        _write_base128_int(&mut der_encoded, arc.base10_parse().unwrap());
+        _write_base128_int(&mut der_encoded, arc.base10_parse::<u128>().unwrap());
     }
 
     let der_len = der_encoded.len();
