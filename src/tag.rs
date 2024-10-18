@@ -53,7 +53,10 @@ impl Tag {
                 }
             })?;
             // MSRV of 1.59 required for `(value, data) = ...;`
-            value = result.0;
+            value = result
+                .0
+                .try_into()
+                .map_err(|_| ParseError::new(ParseErrorKind::InvalidTag))?;
             data = result.1;
             // Tags must be encoded in minimal form.
             if value < 0x1f {
@@ -109,12 +112,12 @@ impl Tag {
         if self.value >= 0x1f {
             b |= 0x1f;
             dest.push_byte(b)?;
-            let len = base128::base128_length(self.value);
+            let len = base128::base128_length(self.value.into());
             let orig_len = dest.len();
             for _ in 0..len {
                 dest.push_byte(0)?;
             }
-            base128::write_base128_int(&mut dest.as_mut_slice()[orig_len..], self.value);
+            base128::write_base128_int(&mut dest.as_mut_slice()[orig_len..], self.value.into());
         } else {
             b |= self.value as u8;
             dest.push_byte(b)?;
