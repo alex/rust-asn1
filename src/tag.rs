@@ -3,7 +3,7 @@ use crate::parser::{ParseError, ParseErrorKind, ParseResult};
 use crate::writer::{WriteBuf, WriteResult};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum TagClass {
+pub enum TagClass {
     Universal = 0b00,
     Application = 0b01,
     ContextSpecific = 0b10,
@@ -126,8 +126,16 @@ impl Tag {
         Ok(())
     }
 
-    pub(crate) const fn is_constructed(self) -> bool {
+    pub const fn is_constructed(self) -> bool {
         self.constructed
+    }
+
+    pub fn class(self) -> TagClass {
+        self.class
+    }
+
+    pub fn value(self) -> u32 {
+        self.value
     }
 }
 
@@ -153,5 +161,18 @@ mod tests {
         ] {
             assert_eq!(&t.as_u8(), expected);
         }
+    }
+
+    #[test]
+    fn test_class() {
+        assert_eq!(
+            Tag::new(5, TagClass::Application, true).class(),
+            TagClass::Application
+        );
+    }
+
+    #[test]
+    fn test_value() {
+        assert_eq!(Tag::new(5, TagClass::Application, true).value(), 5);
     }
 }
