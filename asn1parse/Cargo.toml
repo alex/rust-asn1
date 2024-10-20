@@ -1,0 +1,10 @@
+[package]
+name = "asn1parse"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+asn1 = { version = "0.17", path = ".." }
+clap = { version = "4.5.15", features = ["derive"] }
+hex = "0.4.3"
+pem = { version = "3.0.4", default-features = false, features = ["std"] }
