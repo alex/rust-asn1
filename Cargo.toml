@@ -21,4 +21,4 @@ asn1_derive = { path = "asn1_derive/", version = "0.18.0" }
 libc = "0.2.11"
 
 [workspace]
-members = ["asn1_derive"]
+members = ["asn1_derive", "asn1parse"]
