@@ -914,7 +914,8 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
 }
 
 /// A structure representing a (UTC timezone) date and time.
-/// Wrapped by `UtcTime` and `GeneralizedTime`.
+/// Wrapped by `UtcTime` and `GeneralizedTime` and used in
+/// `GeneralizedTimeFractional`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd)]
 pub struct DateTime {
     year: u16,
@@ -1081,6 +1082,129 @@ impl SimpleAsn1Writable for GeneralizedTime {
         push_two_digits(dest, dt.hour())?;
         push_two_digits(dest, dt.minute())?;
         push_two_digits(dest, dt.second())?;
+
+        dest.push_byte(b'Z')
+    }
+}
+
+/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values accepting
+/// fractional seconds value.
+/// See https://github.com/alex/rust-asn1/issues/491 for discussion.
+#[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq)]
+pub struct GeneralizedTimeFractional {
+    pub datetime: DateTime,
+    pub fraction: Option<u32>, // Up to 1 ns precision (10^9)
+}
+
+impl GeneralizedTimeFractional {
+    pub fn new(dt: DateTime, fraction: Option<u32>) -> ParseResult<GeneralizedTimeFractional> {
+        Ok(GeneralizedTimeFractional {
+            datetime: dt,
+            fraction,
+        })
+    }
+
+    pub fn as_datetime(&self) -> &DateTime {
+        &self.datetime
+    }
+
+    pub fn fraction(&self) -> Option<u32> {
+        // Fractional time: between 1 and 10^9 (nanoseconds)
+        self.fraction
+    }
+}
+
+fn read_byte_no_advance(data: &[u8]) -> ParseResult<u8> {
+    if data.is_empty() {
+        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+    }
+    let result = Ok(data[0]);
+    result
+}
+
+fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
+    // We cannot use read_byte here because it will advance the pointer
+    // However, we know that the is suffixed by 'Z' so reading into an empty
+    // data should lead to an error.
+    if read_byte_no_advance(data)? == b'.' {
+        *data = &data[1..];
+
+        let mut fraction = 0u32;
+        let mut digits = 0u8;
+
+        // Read up to 9 digits
+        while digits < 9 {
+            let b = read_byte_no_advance(data)?;
+            if !b.is_ascii_digit() {
+                if digits == 0 {
+                    // We must have at least one digit
+                    return Err(ParseError::new(ParseErrorKind::InvalidValue));
+                }
+                break;
+            }
+
+            *data = &data[1..];
+            // Leading digit cannot be 0
+            if digits == 0 && (b - b'0') == 0 {
+                return Err(ParseError::new(ParseErrorKind::InvalidValue));
+            }
+
+            fraction = fraction * 10 + (b - b'0') as u32;
+            digits += 1;
+        }
+
+        Ok(Some(fraction))
+    } else {
+        Ok(None)
+    }
+}
+
+impl SimpleAsn1Readable<'_> for GeneralizedTimeFractional {
+    const TAG: Tag = Tag::primitive(0x18);
+    fn parse_data(mut data: &[u8]) -> ParseResult<GeneralizedTimeFractional> {
+        let year = read_4_digits(&mut data)?;
+        let month = read_2_digits(&mut data)?;
+        let day = read_2_digits(&mut data)?;
+        let hour = read_2_digits(&mut data)?;
+        let minute = read_2_digits(&mut data)?;
+        let second = read_2_digits(&mut data)?;
+
+        let fraction = read_fractional_time(&mut data)?;
+        read_tz_and_finish(&mut data)?;
+
+        GeneralizedTimeFractional::new(
+            DateTime::new(year, month, day, hour, minute, second)?,
+            fraction,
+        )
+    }
+}
+
+impl SimpleAsn1Writable for GeneralizedTimeFractional {
+    const TAG: Tag = Tag::primitive(0x18);
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        let dt = self.as_datetime();
+        push_four_digits(dest, dt.year())?;
+        push_two_digits(dest, dt.month())?;
+        push_two_digits(dest, dt.day())?;
+
+        push_two_digits(dest, dt.hour())?;
+        push_two_digits(dest, dt.minute())?;
+        push_two_digits(dest, dt.second())?;
+
+        if let Some(fraction) = self.fraction() {
+            dest.push_byte(b'.')?;
+
+            let mut digits = Vec::new();
+            let mut value = fraction;
+            while value > 0 {
+                digits.push(b'0' + ((value % 10) as u8));
+                value /= 10;
+            }
+
+            for digit in digits.iter().rev() {
+                dest.push_byte(*digit)?;
+            }
+        }
 
         dest.push_byte(b'Z')
     }
@@ -1724,9 +1848,9 @@ impl<T> DefinedByMarker<T> {
 mod tests {
     use crate::{
         parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
-        IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
-        ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
-        Tlv, UtcTime, Utf8String, VisibleString,
+        GeneralizedTimeFractional, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt,
+        OwnedBigUint, ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter,
+        SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
     };
     use crate::{Explicit, Implicit};
     #[cfg(not(feature = "std"))]
@@ -2001,6 +2125,53 @@ mod tests {
     #[test]
     fn test_generalized_time_new() {
         assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap()).is_ok());
+    }
+
+    #[test]
+    fn test_generalized_time_fractional_new() {
+        assert!(GeneralizedTimeFractional::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            Some(1234)
+        )
+        .is_ok());
+        assert!(GeneralizedTimeFractional::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            None
+        )
+        .is_ok());
+    }
+
+    #[test]
+    fn test_generalized_time_fractional_partial_ord() {
+        let point = GeneralizedTimeFractional::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            Some(1234),
+        )
+        .unwrap();
+        assert!(
+            point
+                < GeneralizedTimeFractional::new(
+                    DateTime::new(2023, 6, 30, 23, 59, 59).unwrap(),
+                    Some(1234)
+                )
+                .unwrap()
+        );
+        assert!(
+            point
+                < GeneralizedTimeFractional::new(
+                    DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+                    Some(1235)
+                )
+                .unwrap()
+        );
+        assert!(
+            point
+                > GeneralizedTimeFractional::new(
+                    DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+                    None
+                )
+                .unwrap()
+        );
     }
 
     #[test]

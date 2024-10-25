@@ -347,10 +347,10 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime, Enumerated,
-        Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded,
-        OwnedBigInt, OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation,
-        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
-        UtcTime, Utf8String, VisibleString,
+        Explicit, GeneralizedTime, GeneralizedTimeFractional, IA5String, Implicit,
+        ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString,
+        ParseError, ParseErrorKind, ParseLocation, ParseResult, PrintableString, Sequence,
+        SequenceOf, SetOf, Tag, Tlv, UniversalString, UtcTime, Utf8String, VisibleString,
     };
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1586,6 +1586,59 @@ mod tests {
                 b"\x18\x0d0 1204000060Z",
             ),
         ]);
+    }
+
+    #[test]
+    fn test_generalized_time_fractional() {
+        assert_parses::<GeneralizedTimeFractional>(&[
+            (
+                // General case
+                Ok(GeneralizedTimeFractional::new(
+                    DateTime::new(2010, 01, 02, 03, 04, 05).unwrap(),
+                    Some(123456),
+                )
+                .unwrap()),
+                b"\x18\x1620100102030405.123456Z",
+            ),
+            (
+                // No fractional time
+                Ok(GeneralizedTimeFractional::new(
+                    DateTime::new(2010, 01, 02, 03, 04, 05).unwrap(),
+                    None,
+                )
+                .unwrap()),
+                b"\x18\x0f20100102030405Z",
+            ),
+            (
+                // Ending with 0 is OK
+                Ok(GeneralizedTimeFractional::new(
+                    DateTime::new(2010, 01, 02, 03, 04, 05).unwrap(),
+                    Some(10),
+                )
+                .unwrap()),
+                b"\x18\x1220100102030405.10Z",
+            ),
+            (
+                // Starting with 0 is not
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1720100102030405.0123456Z",
+            ),
+            (
+                // Too many digits
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1a20100102030405.0123456789Z",
+            ),
+            (
+                // Missing timezone
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1520100102030405.123456",
+            ),
+            (
+                // Invalid fractional second
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x18\x1020100102030405.Z",
+            ),
+        ])
     }
 
     #[test]

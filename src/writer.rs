@@ -216,10 +216,10 @@ mod tests {
     use crate::types::Asn1Writable;
     use crate::{
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime,
-        Enumerated, Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier,
-        OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString, PrintableString, Sequence,
-        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString,
-        UtcTime, Utf8String, VisibleString, WriteError,
+        Enumerated, Explicit, GeneralizedTime, GeneralizedTimeFractional, IA5String, Implicit,
+        ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString,
+        PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, SetOf,
+        SetOfWriter, Tlv, UniversalString, UtcTime, Utf8String, VisibleString, WriteError,
     };
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
@@ -566,6 +566,33 @@ mod tests {
             (
                 GeneralizedTime::new(DateTime::new(2009, 11, 15, 22, 56, 16).unwrap()).unwrap(),
                 b"\x18\x0f20091115225616Z",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_write_generalizedtime_fractional() {
+        assert_writes(&[
+            (
+                GeneralizedTimeFractional::new(
+                    DateTime::new(1991, 5, 6, 23, 45, 40).unwrap(),
+                    Some(1234),
+                )
+                .unwrap(),
+                b"\x18\x1419910506234540.1234Z",
+            ),
+            (
+                GeneralizedTimeFractional::new(DateTime::new(1970, 1, 1, 0, 0, 0).unwrap(), None)
+                    .unwrap(),
+                b"\x18\x0f19700101000000Z",
+            ),
+            (
+                GeneralizedTimeFractional::new(
+                    DateTime::new(2009, 11, 15, 22, 56, 16).unwrap(),
+                    Some(10),
+                )
+                .unwrap(),
+                b"\x18\x1220091115225616.10Z",
             ),
         ]);
     }
