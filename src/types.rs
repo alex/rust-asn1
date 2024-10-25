@@ -1128,28 +1128,20 @@ fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
         *data = &data[1..];
 
         let mut fraction = 0u32;
-        // Read up to 9 digits
         let mut digits = 0;
-        while digits < 9 {
-            match data.first() {
-                Some(b) => {
-                    if !b.is_ascii_digit() {
-                        if digits == 0 {
-                            // We must have at least one digit
-                            return Err(ParseError::new(ParseErrorKind::InvalidValue));
-                        }
-                        break;
-                    }
-
-                    *data = &data[1..];
-                    fraction = fraction * 10 + (b - b'0') as u32;
-                }
-                None => {
+        // Read up to 9 digits
+        for b in data.iter().take(9) {
+            if !b.is_ascii_digit() {
+                if digits == 0 {
+                    // We must have at least one digit
                     return Err(ParseError::new(ParseErrorKind::InvalidValue));
                 }
+                break;
             }
+            fraction = fraction * 10 + (b - b'0') as u32;
             digits += 1;
         }
+        *data = &data[digits..];
 
         // No trailing zero
         if fraction % 10 == 0 {
@@ -1157,7 +1149,7 @@ fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
         }
 
         // Now let scale up in nanoseconds
-        let nanoseconds: u32 = fraction * 10u32.pow(9 - digits);
+        let nanoseconds: u32 = fraction * 10u32.pow(9 - digits as u32);
         Ok(Some(nanoseconds))
     } else {
         Ok(None)
