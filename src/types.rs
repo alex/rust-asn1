@@ -2133,6 +2133,11 @@ mod tests {
             None
         )
         .is_ok());
+        assert!(GeneralizedTimeFractional::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            Some(1e9 as u32 + 1)
+        )
+        .is_err());
     }
 
     #[test]
