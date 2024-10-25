@@ -1127,13 +1127,14 @@ fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
     if data.first() == Some(&b'.') {
         *data = &data[1..];
 
-        let mut nanoseconds = 0u32;
+        let mut fraction = 0u32;
         // Read up to 9 digits
-        for digit in 0..8 {
+        let mut digits = 0;
+        while digits < 9 {
             match data.first() {
                 Some(b) => {
                     if !b.is_ascii_digit() {
-                        if digit == 0 {
+                        if digits == 0 {
                             // We must have at least one digit
                             return Err(ParseError::new(ParseErrorKind::InvalidValue));
                         }
@@ -1141,19 +1142,22 @@ fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
                     }
 
                     *data = &data[1..];
-                    // Leading digit cannot be 0
-                    if digit == 0 && b == &b'0' {
-                        return Err(ParseError::new(ParseErrorKind::InvalidValue));
-                    }
-
-                    nanoseconds = nanoseconds * 10 + (b - b'0') as u32;
+                    fraction = fraction * 10 + (b - b'0') as u32;
                 }
                 None => {
                     return Err(ParseError::new(ParseErrorKind::InvalidValue));
                 }
             }
+            digits += 1;
         }
 
+        // No trailing zero
+        if fraction % 10 == 0 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
+        }
+
+        // Now let scale up in nanoseconds
+        let nanoseconds: u32 = fraction * 10u32.pow(9 - digits);
         Ok(Some(nanoseconds))
     } else {
         Ok(None)
@@ -1195,7 +1199,10 @@ impl SimpleAsn1Writable for GeneralizedTimeFractional {
         if let Some(nanoseconds) = self.nanoseconds() {
             dest.push_byte(b'.')?;
 
-            for digit in format!("{}", nanoseconds).as_bytes() {
+            for digit in format!("{:09}", nanoseconds)
+                .trim_end_matches('0')
+                .as_bytes()
+            {
                 dest.push_byte(*digit)?;
             }
         }

@@ -576,10 +576,18 @@ mod tests {
             (
                 GeneralizedTimeFractional::new(
                     DateTime::new(1991, 5, 6, 23, 45, 40).unwrap(),
-                    Some(1234),
+                    Some(1_234),
                 )
                 .unwrap(),
-                b"\x18\x1419910506234540.1234Z",
+                b"\x18\x1919910506234540.000001234Z",
+            ),
+            (
+                GeneralizedTimeFractional::new(
+                    DateTime::new(1991, 5, 6, 23, 45, 40).unwrap(),
+                    Some(1),
+                )
+                .unwrap(),
+                b"\x18\x1919910506234540.000000001Z",
             ),
             (
                 GeneralizedTimeFractional::new(DateTime::new(1970, 1, 1, 0, 0, 0).unwrap(), None)
@@ -589,10 +597,18 @@ mod tests {
             (
                 GeneralizedTimeFractional::new(
                     DateTime::new(2009, 11, 15, 22, 56, 16).unwrap(),
-                    Some(10),
+                    Some(100_000_000),
                 )
                 .unwrap(),
-                b"\x18\x1220091115225616.10Z",
+                b"\x18\x1120091115225616.1Z",
+            ),
+            (
+                GeneralizedTimeFractional::new(
+                    DateTime::new(2009, 11, 15, 22, 56, 16).unwrap(),
+                    Some(999_999_999),
+                )
+                .unwrap(),
+                b"\x18\x1920091115225616.999999999Z",
             ),
         ]);
     }

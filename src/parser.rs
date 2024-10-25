@@ -1595,7 +1595,7 @@ mod tests {
                 // General case
                 Ok(GeneralizedTimeFractional::new(
                     DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
-                    Some(123456),
+                    Some(123_456_000),
                 )
                 .unwrap()),
                 b"\x18\x1620100102030405.123456Z",
@@ -1610,18 +1610,18 @@ mod tests {
                 b"\x18\x0f20100102030405Z",
             ),
             (
-                // Ending with 0 is OK
+                // Starting with 0 is ok
                 Ok(GeneralizedTimeFractional::new(
                     DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
-                    Some(10),
+                    Some(12_375_600),
                 )
                 .unwrap()),
-                b"\x18\x1220100102030405.10Z",
+                b"\x18\x1720100102030405.0123756Z",
             ),
             (
-                // Starting with 0 is not
+                // But ending with 0 is not OK
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
-                b"\x18\x1720100102030405.0123456Z",
+                b"\x18\x1220100102030405.10Z",
             ),
             (
                 // Too many digits
