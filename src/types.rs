@@ -1,5 +1,6 @@
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
+use alloc::format;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 #[cfg(not(feature = "std"))]
