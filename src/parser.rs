@@ -347,10 +347,10 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime, Enumerated,
-        Explicit, GeneralizedTime, GeneralizedTimeFractional, IA5String, Implicit,
-        ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString,
-        ParseError, ParseErrorKind, ParseLocation, ParseResult, PrintableString, Sequence,
-        SequenceOf, SetOf, Tag, Tlv, UniversalString, UtcTime, Utf8String, VisibleString,
+        Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded,
+        OwnedBigInt, OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation,
+        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
+        UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1440,9 +1440,9 @@ mod tests {
 
     #[test]
     fn test_generalizedtime() {
-        assert_parses::<GeneralizedTime>(&[
+        assert_parses::<X509GeneralizedTime>(&[
             (
-                Ok(GeneralizedTime::new(DateTime::new(2010, 1, 2, 3, 4, 5).unwrap()).unwrap()),
+                Ok(X509GeneralizedTime::new(DateTime::new(2010, 1, 2, 3, 4, 5).unwrap()).unwrap()),
                 b"\x18\x0f20100102030405Z",
             ),
             (
@@ -1459,7 +1459,7 @@ mod tests {
             ),
             (
                 // 29th of February (Leap Year)
-                Ok(GeneralizedTime::new(DateTime::new(2000, 2, 29, 3, 4, 5).unwrap()).unwrap()),
+                Ok(X509GeneralizedTime::new(DateTime::new(2000, 2, 29, 3, 4, 5).unwrap()).unwrap()),
                 b"\x18\x0f20000229030405Z",
             ),
             (
@@ -1590,10 +1590,10 @@ mod tests {
 
     #[test]
     fn test_generalized_time_fractional() {
-        assert_parses::<GeneralizedTimeFractional>(&[
+        assert_parses::<GeneralizedTime>(&[
             (
                 // General case
-                Ok(GeneralizedTimeFractional::new(
+                Ok(GeneralizedTime::new(
                     DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
                     Some(123_456_000),
                 )
@@ -1602,16 +1602,15 @@ mod tests {
             ),
             (
                 // No fractional time
-                Ok(GeneralizedTimeFractional::new(
-                    DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
-                    None,
-                )
-                .unwrap()),
+                Ok(
+                    GeneralizedTime::new(DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(), None)
+                        .unwrap(),
+                ),
                 b"\x18\x0f20100102030405Z",
             ),
             (
                 // Starting with 0 is ok
-                Ok(GeneralizedTimeFractional::new(
+                Ok(GeneralizedTime::new(
                     DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
                     Some(12_375_600),
                 )
