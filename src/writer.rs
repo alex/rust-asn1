@@ -553,7 +553,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_generalizedtime_x509() {
+    fn test_write_x509_generalizedtime() {
         assert_writes(&[
             (
                 X509GeneralizedTime::new(DateTime::new(1991, 5, 6, 23, 45, 40).unwrap()).unwrap(),
@@ -571,7 +571,7 @@ mod tests {
     }
 
     #[test]
-    fn test_write_generalizedtime_fractional() {
+    fn test_write_generalizedtime() {
         assert_writes(&[
             (
                 GeneralizedTime::new(DateTime::new(1991, 5, 6, 23, 45, 40).unwrap(), Some(1_234))

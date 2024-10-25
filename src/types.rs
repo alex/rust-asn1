@@ -2119,12 +2119,12 @@ mod tests {
     }
 
     #[test]
-    fn test_generalized_time_new() {
+    fn test_x509_generalized_time_new() {
         assert!(X509GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap()).is_ok());
     }
 
     #[test]
-    fn test_generalized_time_fractional_new() {
+    fn test_generalized_time_new() {
         assert!(
             GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234))
                 .is_ok()
@@ -2140,7 +2140,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generalized_time_fractional_partial_ord() {
+    fn test_generalized_time_partial_ord() {
         let point =
             GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234))
                 .unwrap();

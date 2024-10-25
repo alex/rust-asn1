@@ -1439,7 +1439,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generalizedtime() {
+    fn test_x509_generalizedtime() {
         assert_parses::<X509GeneralizedTime>(&[
             (
                 Ok(X509GeneralizedTime::new(DateTime::new(2010, 1, 2, 3, 4, 5).unwrap()).unwrap()),
@@ -1560,7 +1560,7 @@ mod tests {
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x1019000228030405Z ",
             ),
-            // Tests for fractional seconds, which we currently don't support
+            // Tests for fractional seconds which are forbidden
             (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x18\x1620100102030405.123456Z",
@@ -1589,7 +1589,7 @@ mod tests {
     }
 
     #[test]
-    fn test_generalized_time_fractional() {
+    fn test_generalized_time() {
         assert_parses::<GeneralizedTime>(&[
             (
                 // General case
