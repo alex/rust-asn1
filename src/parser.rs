@@ -1594,7 +1594,7 @@ mod tests {
             (
                 // General case
                 Ok(GeneralizedTimeFractional::new(
-                    DateTime::new(2010, 01, 02, 03, 04, 05).unwrap(),
+                    DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
                     Some(123456),
                 )
                 .unwrap()),
@@ -1603,7 +1603,7 @@ mod tests {
             (
                 // No fractional time
                 Ok(GeneralizedTimeFractional::new(
-                    DateTime::new(2010, 01, 02, 03, 04, 05).unwrap(),
+                    DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
                     None,
                 )
                 .unwrap()),
@@ -1612,7 +1612,7 @@ mod tests {
             (
                 // Ending with 0 is OK
                 Ok(GeneralizedTimeFractional::new(
-                    DateTime::new(2010, 01, 02, 03, 04, 05).unwrap(),
+                    DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
                     Some(10),
                 )
                 .unwrap()),

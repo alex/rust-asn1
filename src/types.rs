@@ -1118,8 +1118,8 @@ fn read_byte_no_advance(data: &[u8]) -> ParseResult<u8> {
     if data.is_empty() {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
-    let result = Ok(data[0]);
-    result
+
+    Ok(data[0])
 }
 
 fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
