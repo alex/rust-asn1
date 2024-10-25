@@ -26,3 +26,11 @@ asn1 = { version = "0.18", default-features = false }
 [deps-rs-link]: https://deps.rs/repo/github/alex/rust-asn1
 [docs-rs-image]: https://docs.rs/asn1/badge.svg
 [docs-rs-link]: https://docs.rs/asn1/
+
+## Changelog
+
+### [0.19.0]
+
+#### :rotating_light: Breaking changes
+
+- The behavior of `GeneralizedTime` has changed. It now accepts fractional seconds which were previously rejected as invalid values. To fallback to the previous behavior, use `X509GeneralizedTime`. ( [492](https://github.com/alex/rust-asn1/pull/492) )
