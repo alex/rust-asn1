@@ -1092,15 +1092,21 @@ impl SimpleAsn1Writable for GeneralizedTime {
 /// See https://github.com/alex/rust-asn1/issues/491 for discussion.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq)]
 pub struct GeneralizedTimeFractional {
-    pub datetime: DateTime,
-    pub fraction: Option<u32>, // Up to 1 ns precision (10^9)
+    datetime: DateTime,
+    nanoseconds: Option<u32>, // Up to 1 ns precision (10^9)
 }
 
 impl GeneralizedTimeFractional {
-    pub fn new(dt: DateTime, fraction: Option<u32>) -> ParseResult<GeneralizedTimeFractional> {
+    pub fn new(dt: DateTime, nanoseconds: Option<u32>) -> ParseResult<GeneralizedTimeFractional> {
+        if let Some(val) = nanoseconds {
+            if val < 1 || val >= 1e9 as u32 {
+                return Err(ParseError::new(ParseErrorKind::InvalidValue));
+            }
+        }
+
         Ok(GeneralizedTimeFractional {
             datetime: dt,
-            fraction,
+            nanoseconds,
         })
     }
 
@@ -1108,52 +1114,46 @@ impl GeneralizedTimeFractional {
         &self.datetime
     }
 
-    pub fn fraction(&self) -> Option<u32> {
-        // Fractional time: between 1 and 10^9 (nanoseconds)
-        self.fraction
+    pub fn nanoseconds(&self) -> Option<u32> {
+        self.nanoseconds
     }
-}
-
-fn read_byte_no_advance(data: &[u8]) -> ParseResult<u8> {
-    if data.is_empty() {
-        return Err(ParseError::new(ParseErrorKind::InvalidValue));
-    }
-
-    Ok(data[0])
 }
 
 fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
     // We cannot use read_byte here because it will advance the pointer
     // However, we know that the is suffixed by 'Z' so reading into an empty
     // data should lead to an error.
-    if read_byte_no_advance(data)? == b'.' {
+    if data.first() == Some(&b'.') {
         *data = &data[1..];
 
-        let mut fraction = 0u32;
-        let mut digits = 0u8;
-
+        let mut nanoseconds = 0u32;
         // Read up to 9 digits
-        while digits < 9 {
-            let b = read_byte_no_advance(data)?;
-            if !b.is_ascii_digit() {
-                if digits == 0 {
-                    // We must have at least one digit
+        for digit in 0..8 {
+            match data.first() {
+                Some(b) => {
+                    if !b.is_ascii_digit() {
+                        if digit == 0 {
+                            // We must have at least one digit
+                            return Err(ParseError::new(ParseErrorKind::InvalidValue));
+                        }
+                        break;
+                    }
+
+                    *data = &data[1..];
+                    // Leading digit cannot be 0
+                    if digit == 0 && b == &b'0' {
+                        return Err(ParseError::new(ParseErrorKind::InvalidValue));
+                    }
+
+                    nanoseconds = nanoseconds * 10 + (b - b'0') as u32;
+                }
+                None => {
                     return Err(ParseError::new(ParseErrorKind::InvalidValue));
                 }
-                break;
             }
-
-            *data = &data[1..];
-            // Leading digit cannot be 0
-            if digits == 0 && (b - b'0') == 0 {
-                return Err(ParseError::new(ParseErrorKind::InvalidValue));
-            }
-
-            fraction = fraction * 10 + (b - b'0') as u32;
-            digits += 1;
         }
 
-        Ok(Some(fraction))
+        Ok(Some(nanoseconds))
     } else {
         Ok(None)
     }
@@ -1191,17 +1191,10 @@ impl SimpleAsn1Writable for GeneralizedTimeFractional {
         push_two_digits(dest, dt.minute())?;
         push_two_digits(dest, dt.second())?;
 
-        if let Some(fraction) = self.fraction() {
+        if let Some(nanoseconds) = self.nanoseconds() {
             dest.push_byte(b'.')?;
 
-            let mut digits = Vec::new();
-            let mut value = fraction;
-            while value > 0 {
-                digits.push(b'0' + ((value % 10) as u8));
-                value /= 10;
-            }
-
-            for digit in digits.iter().rev() {
+            for digit in format!("{}", nanoseconds).as_bytes() {
                 dest.push_byte(*digit)?;
             }
         }
