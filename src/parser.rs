@@ -347,10 +347,10 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime, Enumerated,
-        Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded, OwnedBigInt,
-        OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation, ParseResult,
-        PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString, UtcTime,
-        Utf8String, VisibleString, X509GeneralizedTime,
+        Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded,
+        OwnedBigInt, OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation,
+        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
+        UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1602,11 +1602,10 @@ mod tests {
             ),
             (
                 // No fractional time
-                Ok(GeneralizedTime::new(
-                    DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(),
-                    None,
-                )
-                .unwrap()),
+                Ok(
+                    GeneralizedTime::new(DateTime::new(2010, 1, 2, 3, 4, 5).unwrap(), None)
+                        .unwrap(),
+                ),
                 b"\x18\x0f20100102030405Z",
             ),
             (

@@ -916,7 +916,7 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
 
 /// A structure representing a (UTC timezone) date and time.
 /// Wrapped by `UtcTime` and `X509GeneralizedTime` and used in
-/// `GeneralizedTime`..
+/// `GeneralizedTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd)]
 pub struct DateTime {
     year: u16,
@@ -1842,10 +1842,10 @@ impl<T> DefinedByMarker<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, IA5String,
-        ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
+        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
+        IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
         ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
-        Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime, GeneralizedTime,
+        Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
     use crate::{Explicit, Implicit};
     #[cfg(not(feature = "std"))]
@@ -2124,16 +2124,13 @@ mod tests {
 
     #[test]
     fn test_generalized_time_new() {
-        assert!(GeneralizedTime::new(
-            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-            Some(1234)
-        )
-        .is_ok());
-        assert!(GeneralizedTime::new(
-            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-            None
-        )
-        .is_ok());
+        assert!(
+            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234))
+                .is_ok()
+        );
+        assert!(
+            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None).is_ok()
+        );
         assert!(GeneralizedTime::new(
             DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
             Some(1e9 as u32 + 1)
@@ -2143,34 +2140,23 @@ mod tests {
 
     #[test]
     fn test_generalized_time_partial_ord() {
-        let point = GeneralizedTime::new(
-            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-            Some(1234),
-        )
-        .unwrap();
+        let point =
+            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234))
+                .unwrap();
         assert!(
             point
-                < GeneralizedTime::new(
-                    DateTime::new(2023, 6, 30, 23, 59, 59).unwrap(),
-                    Some(1234)
-                )
-                .unwrap()
+                < GeneralizedTime::new(DateTime::new(2023, 6, 30, 23, 59, 59).unwrap(), Some(1234))
+                    .unwrap()
         );
         assert!(
             point
-                < GeneralizedTime::new(
-                    DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-                    Some(1235)
-                )
-                .unwrap()
+                < GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1235))
+                    .unwrap()
         );
         assert!(
             point
-                > GeneralizedTime::new(
-                    DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-                    None
-                )
-                .unwrap()
+                > GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None)
+                    .unwrap()
         );
     }
 
