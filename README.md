@@ -22,6 +22,17 @@ Builds on Rust 1.59.0 and newer.
 asn1 = { version = "0.18", default-features = false }
 ```
 
+## Changelog
+
+### [0.19.0]
+
+#### :rotating_light: Breaking changes
+
+- `GeneralizedTime` has been renamed to `X509GeneralizedTime`. The type does
+  not allow fractional seconds, however this restriction is not actually a DER
+  rule, it is specific to X.509.
+  ([#494](https://github.com/alex/rust-asn1/pull/494))
+
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
 [deps-rs-link]: https://deps.rs/repo/github/alex/rust-asn1
 [docs-rs-image]: https://docs.rs/asn1/badge.svg

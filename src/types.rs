@@ -915,8 +915,8 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
 }
 
 /// A structure representing a (UTC timezone) date and time.
-/// Wrapped by `UtcTime` and `GeneralizedTime` and used in
-/// `GeneralizedTimeFractional`.
+/// Wrapped by `UtcTime` and `X509GeneralizedTime` and used in
+/// `GeneralizedTime`..
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd)]
 pub struct DateTime {
     year: u16,
@@ -1041,14 +1041,14 @@ impl SimpleAsn1Writable for UtcTime {
     }
 }
 
-/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
-/// `DateTime`.
+/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values used in X.509.
+/// Wraps a `DateTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct GeneralizedTime(DateTime);
+pub struct X509GeneralizedTime(DateTime);
 
-impl GeneralizedTime {
-    pub fn new(dt: DateTime) -> ParseResult<GeneralizedTime> {
-        Ok(GeneralizedTime(dt))
+impl X509GeneralizedTime {
+    pub fn new(dt: DateTime) -> ParseResult<X509GeneralizedTime> {
+        Ok(X509GeneralizedTime(dt))
     }
 
     pub fn as_datetime(&self) -> &DateTime {
@@ -1056,9 +1056,9 @@ impl GeneralizedTime {
     }
 }
 
-impl SimpleAsn1Readable<'_> for GeneralizedTime {
+impl SimpleAsn1Readable<'_> for X509GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
-    fn parse_data(mut data: &[u8]) -> ParseResult<GeneralizedTime> {
+    fn parse_data(mut data: &[u8]) -> ParseResult<X509GeneralizedTime> {
         let year = read_4_digits(&mut data)?;
         let month = read_2_digits(&mut data)?;
         let day = read_2_digits(&mut data)?;
@@ -1066,13 +1066,15 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
         let minute = read_2_digits(&mut data)?;
         let second = read_2_digits(&mut data)?;
 
+        // Fractionals are forbidden (RFC5280)
+
         read_tz_and_finish(&mut data)?;
 
-        GeneralizedTime::new(DateTime::new(year, month, day, hour, minute, second)?)
+        X509GeneralizedTime::new(DateTime::new(year, month, day, hour, minute, second)?)
     }
 }
 
-impl SimpleAsn1Writable for GeneralizedTime {
+impl SimpleAsn1Writable for X509GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let dt = self.as_datetime();
@@ -1092,20 +1094,20 @@ impl SimpleAsn1Writable for GeneralizedTime {
 /// fractional seconds value.
 /// See https://github.com/alex/rust-asn1/issues/491 for discussion.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq)]
-pub struct GeneralizedTimeFractional {
+pub struct GeneralizedTime {
     datetime: DateTime,
     nanoseconds: Option<u32>, // Up to 1 ns precision (10^9)
 }
 
-impl GeneralizedTimeFractional {
-    pub fn new(dt: DateTime, nanoseconds: Option<u32>) -> ParseResult<GeneralizedTimeFractional> {
+impl GeneralizedTime {
+    pub fn new(dt: DateTime, nanoseconds: Option<u32>) -> ParseResult<GeneralizedTime> {
         if let Some(val) = nanoseconds {
             if val < 1 || val >= 1e9 as u32 {
                 return Err(ParseError::new(ParseErrorKind::InvalidValue));
             }
         }
 
-        Ok(GeneralizedTimeFractional {
+        Ok(GeneralizedTime {
             datetime: dt,
             nanoseconds,
         })
@@ -1156,9 +1158,9 @@ fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
     }
 }
 
-impl SimpleAsn1Readable<'_> for GeneralizedTimeFractional {
+impl SimpleAsn1Readable<'_> for GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
-    fn parse_data(mut data: &[u8]) -> ParseResult<GeneralizedTimeFractional> {
+    fn parse_data(mut data: &[u8]) -> ParseResult<GeneralizedTime> {
         let year = read_4_digits(&mut data)?;
         let month = read_2_digits(&mut data)?;
         let day = read_2_digits(&mut data)?;
@@ -1169,14 +1171,14 @@ impl SimpleAsn1Readable<'_> for GeneralizedTimeFractional {
         let fraction = read_fractional_time(&mut data)?;
         read_tz_and_finish(&mut data)?;
 
-        GeneralizedTimeFractional::new(
+        GeneralizedTime::new(
             DateTime::new(year, month, day, hour, minute, second)?,
             fraction,
         )
     }
 }
 
-impl SimpleAsn1Writable for GeneralizedTimeFractional {
+impl SimpleAsn1Writable for GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let dt = self.as_datetime();
@@ -1840,10 +1842,10 @@ impl<T> DefinedByMarker<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
-        GeneralizedTimeFractional, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt,
-        OwnedBigUint, ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter,
-        SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString,
+        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, IA5String,
+        ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
+        ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
+        Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime, GeneralizedTime,
     };
     use crate::{Explicit, Implicit};
     #[cfg(not(feature = "std"))]
@@ -2116,23 +2118,23 @@ mod tests {
     }
 
     #[test]
-    fn test_generalized_time_new() {
-        assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap()).is_ok());
+    fn test_x509_generalizedtime_new() {
+        assert!(X509GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap()).is_ok());
     }
 
     #[test]
-    fn test_generalized_time_fractional_new() {
-        assert!(GeneralizedTimeFractional::new(
+    fn test_generalized_time_new() {
+        assert!(GeneralizedTime::new(
             DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
             Some(1234)
         )
         .is_ok());
-        assert!(GeneralizedTimeFractional::new(
+        assert!(GeneralizedTime::new(
             DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
             None
         )
         .is_ok());
-        assert!(GeneralizedTimeFractional::new(
+        assert!(GeneralizedTime::new(
             DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
             Some(1e9 as u32 + 1)
         )
@@ -2140,15 +2142,15 @@ mod tests {
     }
 
     #[test]
-    fn test_generalized_time_fractional_partial_ord() {
-        let point = GeneralizedTimeFractional::new(
+    fn test_generalized_time_partial_ord() {
+        let point = GeneralizedTime::new(
             DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
             Some(1234),
         )
         .unwrap();
         assert!(
             point
-                < GeneralizedTimeFractional::new(
+                < GeneralizedTime::new(
                     DateTime::new(2023, 6, 30, 23, 59, 59).unwrap(),
                     Some(1234)
                 )
@@ -2156,7 +2158,7 @@ mod tests {
         );
         assert!(
             point
-                < GeneralizedTimeFractional::new(
+                < GeneralizedTime::new(
                     DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
                     Some(1235)
                 )
@@ -2164,7 +2166,7 @@ mod tests {
         );
         assert!(
             point
-                > GeneralizedTimeFractional::new(
+                > GeneralizedTime::new(
                     DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
                     None
                 )
