@@ -1039,8 +1039,8 @@ impl SimpleAsn1Writable for UtcTime {
     }
 }
 
-/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
-/// `DateTime`.
+/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values used in X.509.
+/// Wraps a `DateTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub struct X509GeneralizedTime(DateTime);
 
@@ -1063,6 +1063,8 @@ impl SimpleAsn1Readable<'_> for X509GeneralizedTime {
         let hour = read_2_digits(&mut data)?;
         let minute = read_2_digits(&mut data)?;
         let second = read_2_digits(&mut data)?;
+
+        // Fractionals are forbidden (RFC5280)
 
         read_tz_and_finish(&mut data)?;
 
