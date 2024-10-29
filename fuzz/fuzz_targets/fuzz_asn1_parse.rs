@@ -17,7 +17,7 @@ enum Data<'a> {
     ObjectIdentifier(asn1::ObjectIdentifier),
 
     UtcTime(asn1::UtcTime),
-    GeneralizedTime(asn1::GeneralizedTime),
+    X509GeneralizedTime(asn1::X509GeneralizedTime),
 
     Enumerated(asn1::Enumerated),
 

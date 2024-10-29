@@ -22,6 +22,16 @@ Builds on Rust 1.59.0 and newer.
 asn1 = { version = "0.18", default-features = false }
 ```
 
+## Changelog
+
+### [0.19.0]
+
+#### :rotating_light: Breaking changes
+
+- `GeneralizedTime` has been renamed to `X509GeneralizedTime`. Indeed, for X.509, RFC5280
+ stipulates that GeneralizedTime must not include fractionals but DER encoding allows 
+ them ( [XXX](https://github.com/alex/rust-asn1/pull/XXX) )
+
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
 [deps-rs-link]: https://deps.rs/repo/github/alex/rust-asn1
 [docs-rs-image]: https://docs.rs/asn1/badge.svg
