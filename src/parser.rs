@@ -347,10 +347,10 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime, Enumerated,
-        Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded,
-        OwnedBigInt, OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation,
-        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
-        UtcTime, Utf8String, VisibleString,
+        Explicit, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded, OwnedBigInt,
+        OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation, ParseResult,
+        PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString, UtcTime,
+        Utf8String, VisibleString, X509GeneralizedTime,
     };
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1439,10 +1439,10 @@ mod tests {
     }
 
     #[test]
-    fn test_generalizedtime() {
-        assert_parses::<GeneralizedTime>(&[
+    fn test_x509_generalizedtime() {
+        assert_parses::<X509GeneralizedTime>(&[
             (
-                Ok(GeneralizedTime::new(DateTime::new(2010, 1, 2, 3, 4, 5).unwrap()).unwrap()),
+                Ok(X509GeneralizedTime::new(DateTime::new(2010, 1, 2, 3, 4, 5).unwrap()).unwrap()),
                 b"\x18\x0f20100102030405Z",
             ),
             (
@@ -1459,7 +1459,7 @@ mod tests {
             ),
             (
                 // 29th of February (Leap Year)
-                Ok(GeneralizedTime::new(DateTime::new(2000, 2, 29, 3, 4, 5).unwrap()).unwrap()),
+                Ok(X509GeneralizedTime::new(DateTime::new(2000, 2, 29, 3, 4, 5).unwrap()).unwrap()),
                 b"\x18\x0f20000229030405Z",
             ),
             (

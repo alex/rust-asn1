@@ -914,7 +914,7 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
 }
 
 /// A structure representing a (UTC timezone) date and time.
-/// Wrapped by `UtcTime` and `GeneralizedTime`.
+/// Wrapped by `UtcTime` and `X509GeneralizedTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd)]
 pub struct DateTime {
     year: u16,
@@ -1039,14 +1039,14 @@ impl SimpleAsn1Writable for UtcTime {
     }
 }
 
-/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values. Wraps a
-/// `DateTime`.
+/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values used in X.509.
+/// Wraps a `DateTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
-pub struct GeneralizedTime(DateTime);
+pub struct X509GeneralizedTime(DateTime);
 
-impl GeneralizedTime {
-    pub fn new(dt: DateTime) -> ParseResult<GeneralizedTime> {
-        Ok(GeneralizedTime(dt))
+impl X509GeneralizedTime {
+    pub fn new(dt: DateTime) -> ParseResult<X509GeneralizedTime> {
+        Ok(X509GeneralizedTime(dt))
     }
 
     pub fn as_datetime(&self) -> &DateTime {
@@ -1054,9 +1054,9 @@ impl GeneralizedTime {
     }
 }
 
-impl SimpleAsn1Readable<'_> for GeneralizedTime {
+impl SimpleAsn1Readable<'_> for X509GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
-    fn parse_data(mut data: &[u8]) -> ParseResult<GeneralizedTime> {
+    fn parse_data(mut data: &[u8]) -> ParseResult<X509GeneralizedTime> {
         let year = read_4_digits(&mut data)?;
         let month = read_2_digits(&mut data)?;
         let day = read_2_digits(&mut data)?;
@@ -1064,13 +1064,15 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
         let minute = read_2_digits(&mut data)?;
         let second = read_2_digits(&mut data)?;
 
+        // Fractionals are forbidden (RFC5280)
+
         read_tz_and_finish(&mut data)?;
 
-        GeneralizedTime::new(DateTime::new(year, month, day, hour, minute, second)?)
+        X509GeneralizedTime::new(DateTime::new(year, month, day, hour, minute, second)?)
     }
 }
 
-impl SimpleAsn1Writable for GeneralizedTime {
+impl SimpleAsn1Writable for X509GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let dt = self.as_datetime();
@@ -1723,10 +1725,10 @@ impl<T> DefinedByMarker<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
-        IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
+        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, IA5String,
+        ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
         ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
-        Tlv, UtcTime, Utf8String, VisibleString,
+        Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
     use crate::{Explicit, Implicit};
     #[cfg(not(feature = "std"))]
@@ -1999,8 +2001,8 @@ mod tests {
     }
 
     #[test]
-    fn test_generalized_time_new() {
-        assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap()).is_ok());
+    fn test_x509_generalizedtime_new() {
+        assert!(X509GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap()).is_ok());
     }
 
     #[test]
