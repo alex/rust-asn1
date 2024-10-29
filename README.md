@@ -30,7 +30,7 @@ asn1 = { version = "0.18", default-features = false }
 
 - `GeneralizedTime` has been renamed to `X509GeneralizedTime`. Indeed, for X.509, RFC5280
  stipulates that GeneralizedTime must not include fractionals but DER encoding allows 
- them ( [XXX](https://github.com/alex/rust-asn1/pull/XXX) )
+ them ( [494](https://github.com/alex/rust-asn1/pull/494) )
 
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
 [deps-rs-link]: https://deps.rs/repo/github/alex/rust-asn1
