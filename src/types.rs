@@ -1096,7 +1096,7 @@ impl SimpleAsn1Writable for X509GeneralizedTime {
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq)]
 pub struct GeneralizedTime {
     datetime: DateTime,
-    nanoseconds: Option<u32>, // Up to 1 ns precision (10^9)
+    nanoseconds: Option<u32>,
 }
 
 impl GeneralizedTime {
