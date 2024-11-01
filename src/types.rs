@@ -1,6 +1,5 @@
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
-use alloc::format;
 #[cfg(not(feature = "std"))]
 use alloc::vec;
 #[cfg(not(feature = "std"))]
@@ -1193,12 +1192,16 @@ impl SimpleAsn1Writable for GeneralizedTime {
         if let Some(nanoseconds) = self.nanoseconds() {
             dest.push_byte(b'.')?;
 
-            for digit in format!("{:09}", nanoseconds)
-                .trim_end_matches('0')
-                .as_bytes()
-            {
-                dest.push_byte(*digit)?;
+            let mut buf = itoa::Buffer::new();
+            let nanos = buf.format(nanoseconds);
+            let pad = 9 - nanos.len();
+            let nanos = nanos.trim_end_matches('0');
+
+            for _ in 0..pad {
+                dest.push_byte(b'0')?;
             }
+
+            dest.push_slice(nanos.as_bytes())?;
         }
 
         dest.push_byte(b'Z')
@@ -2131,6 +2134,17 @@ mod tests {
         assert!(
             GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None).is_ok()
         );
+        // Maximum fractional time is 999,999,999 nanos.
+        assert!(GeneralizedTime::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            Some(999_999_999 as u32)
+        )
+        .is_ok());
+        assert!(GeneralizedTime::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            Some(1e9 as u32)
+        )
+        .is_err());
         assert!(GeneralizedTime::new(
             DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
             Some(1e9 as u32 + 1)

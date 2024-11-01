@@ -16,6 +16,7 @@ std = []
 
 [dependencies]
 asn1_derive = { path = "asn1_derive/", version = "0.18.0" }
+itoa = "1.0.11"
 
 [dev-dependencies]
 libc = "0.2.11"
