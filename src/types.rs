@@ -2137,7 +2137,7 @@ mod tests {
         // Maximum fractional time is 999,999,999 nanos.
         assert!(GeneralizedTime::new(
             DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-            Some(999_999_999 as u32)
+            Some(999_999_999_u32)
         )
         .is_ok());
         assert!(GeneralizedTime::new(
