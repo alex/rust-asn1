@@ -914,7 +914,8 @@ fn push_four_digits(dest: &mut WriteBuf, val: u16) -> WriteResult {
 }
 
 /// A structure representing a (UTC timezone) date and time.
-/// Wrapped by `UtcTime` and `X509GeneralizedTime`.
+/// Wrapped by `UtcTime` and `X509GeneralizedTime` and used in
+/// `GeneralizedTime`.
 #[derive(Debug, Clone, PartialEq, Hash, Eq, PartialOrd)]
 pub struct DateTime {
     year: u16,
@@ -1083,6 +1084,125 @@ impl SimpleAsn1Writable for X509GeneralizedTime {
         push_two_digits(dest, dt.hour())?;
         push_two_digits(dest, dt.minute())?;
         push_two_digits(dest, dt.second())?;
+
+        dest.push_byte(b'Z')
+    }
+}
+
+/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values,
+/// including values with fractional seconds of up to nanosecond
+/// precision.
+#[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq)]
+pub struct GeneralizedTime {
+    datetime: DateTime,
+    nanoseconds: Option<u32>,
+}
+
+impl GeneralizedTime {
+    pub fn new(dt: DateTime, nanoseconds: Option<u32>) -> ParseResult<GeneralizedTime> {
+        if let Some(val) = nanoseconds {
+            if val < 1 || val >= 1e9 as u32 {
+                return Err(ParseError::new(ParseErrorKind::InvalidValue));
+            }
+        }
+
+        Ok(GeneralizedTime {
+            datetime: dt,
+            nanoseconds,
+        })
+    }
+
+    pub fn as_datetime(&self) -> &DateTime {
+        &self.datetime
+    }
+
+    pub fn nanoseconds(&self) -> Option<u32> {
+        self.nanoseconds
+    }
+}
+
+fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
+    // We cannot use read_byte here because it will advance the pointer
+    // However, we know that the is suffixed by 'Z' so reading into an empty
+    // data should lead to an error.
+    if data.first() == Some(&b'.') {
+        *data = &data[1..];
+
+        let mut fraction = 0u32;
+        let mut digits = 0;
+        // Read up to 9 digits
+        for b in data.iter().take(9) {
+            if !b.is_ascii_digit() {
+                if digits == 0 {
+                    // We must have at least one digit
+                    return Err(ParseError::new(ParseErrorKind::InvalidValue));
+                }
+                break;
+            }
+            fraction = fraction * 10 + (b - b'0') as u32;
+            digits += 1;
+        }
+        *data = &data[digits..];
+
+        // No trailing zero
+        if fraction % 10 == 0 {
+            return Err(ParseError::new(ParseErrorKind::InvalidValue));
+        }
+
+        // Now let scale up in nanoseconds
+        let nanoseconds: u32 = fraction * 10u32.pow(9 - digits as u32);
+        Ok(Some(nanoseconds))
+    } else {
+        Ok(None)
+    }
+}
+
+impl SimpleAsn1Readable<'_> for GeneralizedTime {
+    const TAG: Tag = Tag::primitive(0x18);
+    fn parse_data(mut data: &[u8]) -> ParseResult<GeneralizedTime> {
+        let year = read_4_digits(&mut data)?;
+        let month = read_2_digits(&mut data)?;
+        let day = read_2_digits(&mut data)?;
+        let hour = read_2_digits(&mut data)?;
+        let minute = read_2_digits(&mut data)?;
+        let second = read_2_digits(&mut data)?;
+
+        let fraction = read_fractional_time(&mut data)?;
+        read_tz_and_finish(&mut data)?;
+
+        GeneralizedTime::new(
+            DateTime::new(year, month, day, hour, minute, second)?,
+            fraction,
+        )
+    }
+}
+
+impl SimpleAsn1Writable for GeneralizedTime {
+    const TAG: Tag = Tag::primitive(0x18);
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        let dt = self.as_datetime();
+        push_four_digits(dest, dt.year())?;
+        push_two_digits(dest, dt.month())?;
+        push_two_digits(dest, dt.day())?;
+
+        push_two_digits(dest, dt.hour())?;
+        push_two_digits(dest, dt.minute())?;
+        push_two_digits(dest, dt.second())?;
+
+        if let Some(nanoseconds) = self.nanoseconds() {
+            dest.push_byte(b'.')?;
+
+            let mut buf = itoa::Buffer::new();
+            let nanos = buf.format(nanoseconds);
+            let pad = 9 - nanos.len();
+            let nanos = nanos.trim_end_matches('0');
+
+            for _ in 0..pad {
+                dest.push_byte(b'0')?;
+            }
+
+            dest.push_slice(nanos.as_bytes())?;
+        }
 
         dest.push_byte(b'Z')
     }
@@ -1725,8 +1845,8 @@ impl<T> DefinedByMarker<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, IA5String,
-        ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
+        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
+        IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
         ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
         Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
@@ -2003,6 +2123,55 @@ mod tests {
     #[test]
     fn test_x509_generalizedtime_new() {
         assert!(X509GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap()).is_ok());
+    }
+
+    #[test]
+    fn test_generalized_time_new() {
+        assert!(
+            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234))
+                .is_ok()
+        );
+        assert!(
+            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None).is_ok()
+        );
+        // Maximum fractional time is 999,999,999 nanos.
+        assert!(GeneralizedTime::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            Some(999_999_999_u32)
+        )
+        .is_ok());
+        assert!(GeneralizedTime::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            Some(1e9 as u32)
+        )
+        .is_err());
+        assert!(GeneralizedTime::new(
+            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
+            Some(1e9 as u32 + 1)
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn test_generalized_time_partial_ord() {
+        let point =
+            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234))
+                .unwrap();
+        assert!(
+            point
+                < GeneralizedTime::new(DateTime::new(2023, 6, 30, 23, 59, 59).unwrap(), Some(1234))
+                    .unwrap()
+        );
+        assert!(
+            point
+                < GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1235))
+                    .unwrap()
+        );
+        assert!(
+            point
+                > GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None)
+                    .unwrap()
+        );
     }
 
     #[test]

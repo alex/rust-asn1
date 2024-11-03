@@ -33,6 +33,10 @@ asn1 = { version = "0.18", default-features = false }
   rule, it is specific to X.509.
   ([#494](https://github.com/alex/rust-asn1/pull/494))
 
+- `GeneralizedTime` is a new type that accepts fractional seconds
+  replacing the old `GeneralizedTime`.
+  ([#492](https://github.com/alex/rust-asn1/pull/492))
+
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
 [deps-rs-link]: https://deps.rs/repo/github/alex/rust-asn1
 [docs-rs-image]: https://docs.rs/asn1/badge.svg
