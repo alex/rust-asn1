@@ -1271,7 +1271,7 @@ impl SimpleAsn1Writable for SequenceWriter<'_> {
 /// are decoded.
 pub struct SequenceOf<
     'a,
-    T: Asn1Readable<'a>,
+    T,
     const MINIMUM_LEN: usize = 0,
     const MAXIMUM_LEN: usize = { usize::MAX },
 > {
@@ -1414,7 +1414,7 @@ impl<
 
 /// Writes a `SEQUENCE OF` ASN.1 structure from a slice of `T`.
 #[derive(Hash, PartialEq, Eq, Clone)]
-pub struct SequenceOfWriter<'a, T: Asn1Writable, V: Borrow<[T]> = &'a [T]> {
+pub struct SequenceOfWriter<'a, T, V: Borrow<[T]> = &'a [T]> {
     vals: V,
     _phantom: PhantomData<&'a T>,
 }
@@ -1442,7 +1442,7 @@ impl<T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SequenceOfWriter<'_
 
 /// Represents an ASN.1 `SET OF`. This is an `Iterator` over values that
 /// are decoded.
-pub struct SetOf<'a, T: Asn1Readable<'a>> {
+pub struct SetOf<'a, T> {
     parser: Parser<'a>,
     _phantom: PhantomData<T>,
 }
@@ -1555,7 +1555,7 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable> SimpleAsn1Writable for SetOf<'a, T>
 /// Writes an ASN.1 `SET OF` whose contents is a slice of `T`. This type handles
 /// ensuring that the values are properly ordered when written as DER.
 #[derive(Hash, PartialEq, Eq, Clone)]
-pub struct SetOfWriter<'a, T: Asn1Writable, V: Borrow<[T]> = &'a [T]> {
+pub struct SetOfWriter<'a, T, V: Borrow<[T]> = &'a [T]> {
     vals: V,
     _phantom: PhantomData<&'a T>,
 }
