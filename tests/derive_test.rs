@@ -720,3 +720,23 @@ fn test_generics() {
         b"\x30\x08\x30\x06\x01\x01\xff\x01\x01\xff"
     )
 }
+
+#[test]
+fn test_perfect_derive() {
+    trait X {
+        type Type: PartialEq + std::fmt::Debug;
+    }
+
+    #[derive(PartialEq, Debug)]
+    struct Op;
+    impl X for Op {
+        type Type = u64;
+    }
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct S<T: X> {
+        value: T::Type,
+    }
+
+    assert_roundtrips::<S<Op>>(&[(Ok(S { value: 12 }), b"\x30\x03\x02\x01\x0c")]);
+}
