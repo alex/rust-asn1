@@ -1089,9 +1089,9 @@ impl SimpleAsn1Writable for X509GeneralizedTime {
     }
 }
 
-/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values accepting
-/// fractional seconds value.
-/// See https://github.com/alex/rust-asn1/issues/491 for discussion.
+/// Used for parsing and writing ASN.1 `GENERALIZED TIME` values,
+/// including values with fractional seconds of up to nanosecond
+/// precision.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Hash, Eq)]
 pub struct GeneralizedTime {
     datetime: DateTime,
