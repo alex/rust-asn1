@@ -376,8 +376,9 @@ fn generate_read_element(
         },
     };
     if let Some(default) = default {
+        let f_type = &f.ty;
         read_op = quote::quote! {{
-            asn1::from_optional_default(#read_op, #default.into())#add_error_location?
+            asn1::from_optional_default::<#f_type>(#read_op, #default.into())#add_error_location?
         }};
     }
     read_op
