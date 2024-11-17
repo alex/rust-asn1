@@ -11,7 +11,7 @@ Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
 
 ```toml
 [dependencies]
-asn1 = "0.18"
+asn1 = "0.19"
 ```
 
 Builds on Rust 1.59.0 and newer.
@@ -19,7 +19,7 @@ Builds on Rust 1.59.0 and newer.
 `rust-asn1` is compatible with `#![no_std]` environments:
 
 ```toml
-asn1 = { version = "0.18", default-features = false }
+asn1 = { version = "0.19", default-features = false }
 ```
 
 ## Changelog
