@@ -47,6 +47,9 @@ enum Data<'a> {
     SequenceOf(asn1::SequenceOf<'a, i64>),
     #[explicit(10)]
     Struct(StructData<'a>),
+
+    #[explicit(11)]
+    GeneralizedTime(asn1::GeneralizedTime),
 }
 
 #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq)]
