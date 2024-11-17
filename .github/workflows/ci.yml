@@ -86,6 +86,11 @@ jobs:
             target/
           key: ${{ runner.os }}-${{ matrix.RUST.VERSION }}-cargo-2-${{ hashFiles('**/Cargo.toml') }}
 
+      - run: |
+          cargo generate-lockfile
+          cargo update -p libc --precise 0.2.163
+        if: matrix.RUST.VERSION == '1.59.0'
+
       - run: cargo check --workspace --tests ${{ matrix.RUST.FLAGS }}
       - run: cargo test --workspace ${{ matrix.RUST.FLAGS }}
         if: "${{ !matrix.RUST.SKIP_TESTS }}"
