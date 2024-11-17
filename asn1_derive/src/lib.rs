@@ -14,7 +14,9 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let lifetime_name = add_lifetime_if_none(&mut generics);
     add_bounds(
         &mut generics,
+        all_field_types(&input.data),
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
+        syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
     );
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
@@ -58,7 +60,12 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    add_bounds(&mut input.generics, syn::parse_quote!(asn1::Asn1Writable));
+    add_bounds(
+        &mut input.generics,
+        all_field_types(&input.data),
+        syn::parse_quote!(asn1::Asn1Writable),
+        syn::parse_quote!(asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier>),
+    );
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let expanded = match input.data {
@@ -260,11 +267,77 @@ fn add_lifetime_if_none(generics: &mut syn::Generics) -> syn::Lifetime {
     generics.lifetimes().next().unwrap().lifetime.clone()
 }
 
-fn add_bounds(generics: &mut syn::Generics, bound: syn::TypeParamBound) {
-    for param in &mut generics.params {
-        if let syn::GenericParam::Type(ref mut type_param) = param {
-            type_param.bounds.push(bound.clone());
+fn all_field_types(data: &syn::Data) -> Vec<(syn::Type, bool)> {
+    let mut field_types = vec![];
+    match data {
+        syn::Data::Struct(v) => {
+            add_field_types(&mut field_types, &v.fields);
         }
+        syn::Data::Enum(v) => {
+            for variant in &v.variants {
+                add_field_types(&mut field_types, &variant.fields);
+            }
+        }
+        syn::Data::Union(_) => panic!("Unions not supported"),
+    }
+    field_types
+}
+
+fn add_field_types(field_types: &mut Vec<(syn::Type, bool)>, fields: &syn::Fields) {
+    match fields {
+        syn::Fields::Named(v) => {
+            for f in &v.named {
+                add_field_type(field_types, f);
+            }
+        }
+        syn::Fields::Unnamed(v) => {
+            for f in &v.unnamed {
+                add_field_type(field_types, f);
+            }
+        }
+        syn::Fields::Unit => {}
+    }
+}
+
+fn add_field_type(field_types: &mut Vec<(syn::Type, bool)>, f: &syn::Field) {
+    let (op_type, _) = extract_field_properties(&f.attrs);
+    field_types.push((f.ty.clone(), matches!(op_type, OpType::DefinedBy(_))));
+}
+
+fn add_bounds(
+    generics: &mut syn::Generics,
+    field_types: Vec<(syn::Type, bool)>,
+    bound: syn::TypeParamBound,
+    defined_by_bound: syn::TypeParamBound,
+) {
+    let where_clause = if field_types.is_empty() {
+        return;
+    } else {
+        generics
+            .where_clause
+            .get_or_insert_with(|| syn::WhereClause {
+                where_token: Default::default(),
+                predicates: syn::punctuated::Punctuated::new(),
+            })
+    };
+
+    for (f, is_defined_by) in field_types {
+        where_clause
+            .predicates
+            .push(syn::WherePredicate::Type(syn::PredicateType {
+                lifetimes: None,
+                bounded_ty: f,
+                colon_token: Default::default(),
+                bounds: {
+                    let mut p = syn::punctuated::Punctuated::new();
+                    if is_defined_by {
+                        p.push(defined_by_bound.clone());
+                    } else {
+                        p.push(bound.clone());
+                    }
+                    p
+                },
+            }))
     }
 }
 

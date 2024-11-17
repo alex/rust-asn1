@@ -1842,13 +1842,28 @@ impl<T> DefinedByMarker<T> {
     }
 }
 
+impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for DefinedByMarker<T> {
+    fn parse(_: &mut Parser<'a>) -> ParseResult<Self> {
+        panic!("parse() should never be called on a DefinedByMarker")
+    }
+    fn can_parse(_: Tag) -> bool {
+        panic!("can_parse() should never be called on a DefinedByMarker")
+    }
+}
+
+impl<T: Asn1Writable> Asn1Writable for DefinedByMarker<T> {
+    fn write(&self, _: &mut Writer<'_>) -> WriteResult {
+        panic!("write() should never be called on a DefinedByMarker")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated, GeneralizedTime,
-        IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
-        ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag,
-        Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
+        parse_single, Asn1Readable, Asn1Writable, BigInt, BigUint, DateTime, DefinedByMarker,
+        Enumerated, GeneralizedTime, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt,
+        OwnedBigUint, ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter,
+        SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
     use crate::{Explicit, Implicit};
     #[cfg(not(feature = "std"))]
@@ -2192,5 +2207,23 @@ mod tests {
     #[test]
     fn test_const() {
         const _: DefinedByMarker<ObjectIdentifier> = DefinedByMarker::marker();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_defined_by_marker_parse() {
+        crate::parse(b"", DefinedByMarker::<ObjectIdentifier>::parse).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_defined_by_marker_can_parse() {
+        DefinedByMarker::<ObjectIdentifier>::can_parse(Tag::primitive(2));
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_defined_by_marker_write() {
+        crate::write(|w| DefinedByMarker::<ObjectIdentifier>::marker().write(w)).unwrap();
     }
 }
