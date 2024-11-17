@@ -1809,6 +1809,13 @@ impl<T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<T, { TAG }
     }
 }
 
+impl<const TAG: u32> SimpleAsn1Writable for Explicit<&'_ Tlv<'_>, { TAG }> {
+    const TAG: Tag = crate::explicit_tag(TAG);
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        self.inner.write(&mut Writer::new(dest))
+    }
+}
+
 impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32>
     Asn1DefinedByReadable<'a, T> for Explicit<U, { TAG }>
 {

@@ -1,4 +1,4 @@
-use crate::types::{Asn1Writable, SimpleAsn1Writable};
+use crate::types::Asn1Writable;
 use crate::Tag;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -105,50 +105,6 @@ impl Writer<'_> {
     #[inline]
     pub fn write_element<T: Asn1Writable>(&mut self, val: &T) -> WriteResult {
         val.write(self)
-    }
-
-    /// This is an alias for `write_element::<Explicit<T, tag>>`.
-    pub fn write_explicit_element<T: Asn1Writable>(&mut self, val: &T, tag: u32) -> WriteResult {
-        let tag = crate::explicit_tag(tag);
-        self.write_tlv(tag, |dest| Writer::new(dest).write_element(val))
-    }
-
-    /// This is an alias for `write_element::<Option<Explicit<T, tag>>>`.
-    pub fn write_optional_explicit_element<T: Asn1Writable>(
-        &mut self,
-        val: &Option<T>,
-        tag: u32,
-    ) -> WriteResult {
-        if let Some(v) = val {
-            let tag = crate::explicit_tag(tag);
-            self.write_tlv(tag, |dest| Writer::new(dest).write_element(v))
-        } else {
-            Ok(())
-        }
-    }
-
-    /// This is an alias for `write_element::<Implicit<T, tag>>`.
-    pub fn write_implicit_element<T: SimpleAsn1Writable>(
-        &mut self,
-        val: &T,
-        tag: u32,
-    ) -> WriteResult {
-        let tag = crate::implicit_tag(tag, T::TAG);
-        self.write_tlv(tag, |dest| val.write_data(dest))
-    }
-
-    /// This is an alias for `write_element::<Option<Implicit<T, tag>>>`.
-    pub fn write_optional_implicit_element<T: SimpleAsn1Writable>(
-        &mut self,
-        val: &Option<T>,
-        tag: u32,
-    ) -> WriteResult {
-        if let Some(v) = val {
-            let tag = crate::implicit_tag(tag, T::TAG);
-            self.write_tlv(tag, |dest| v.write_data(dest))
-        } else {
-            Ok(())
-        }
     }
 
     /// Writes a TLV with the specified tag where the value is any bytes
@@ -716,39 +672,6 @@ mod tests {
             (Implicit::new(true), b"\x82\x01\xff"),
             (Implicit::new(false), b"\x82\x01\x00"),
         ]);
-
-        assert_eq!(
-            write(|w| { w.write_optional_implicit_element(&Some(true), 2) }).unwrap(),
-            b"\x82\x01\xff"
-        );
-        assert_eq!(
-            write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }).unwrap(),
-            b""
-        );
-
-        assert_eq!(
-            write(|w| {
-                w.write_optional_implicit_element(&Some(SequenceWriter::new(&|_w| Ok(()))), 2)
-            })
-            .unwrap(),
-            b"\xa2\x00"
-        );
-        assert_eq!(
-            write(|w| { w.write_optional_explicit_element::<SequenceWriter<'_>>(&None, 2) })
-                .unwrap(),
-            b""
-        );
-
-        assert_eq!(
-            write(|w| { w.write_implicit_element(&true, 2) }).unwrap(),
-            b"\x82\x01\xff"
-        );
-
-        assert_eq!(
-            write(|w| { w.write_implicit_element(&SequenceWriter::new(&|_w| { Ok(()) }), 2) })
-                .unwrap(),
-            b"\xa2\x00"
-        );
     }
 
     #[test]
@@ -757,20 +680,6 @@ mod tests {
             (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
             (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
         ]);
-
-        assert_eq!(
-            write(|w| { w.write_optional_explicit_element(&Some(true), 2) }).unwrap(),
-            b"\xa2\x03\x01\x01\xff"
-        );
-        assert_eq!(
-            write(|w| { w.write_optional_explicit_element::<u8>(&None, 2) }).unwrap(),
-            b""
-        );
-
-        assert_eq!(
-            write(|w| { w.write_explicit_element(&true, 2) }).unwrap(),
-            b"\xa2\x03\x01\x01\xff"
-        );
     }
 
     #[test]
