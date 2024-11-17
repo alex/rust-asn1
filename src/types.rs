@@ -1546,7 +1546,7 @@ pub struct SequenceOfWriter<'a, T, V: Borrow<[T]> = &'a [T]> {
     _phantom: PhantomData<&'a T>,
 }
 
-impl<T: Asn1Writable, V: Borrow<[T]>> SequenceOfWriter<'_, T, V> {
+impl<T, V: Borrow<[T]>> SequenceOfWriter<'_, T, V> {
     pub fn new(vals: V) -> Self {
         SequenceOfWriter {
             vals,
