@@ -118,6 +118,25 @@ fn test_explicit() {
 }
 
 #[test]
+fn test_explicit_tlv() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    struct ExplicitTlv<'a> {
+        #[explicit(5)]
+        a: Option<asn1::Tlv<'a>>,
+    }
+
+    assert_roundtrips(&[
+        (Ok(ExplicitTlv { a: None }), b"\x30\x00"),
+        (
+            Ok(ExplicitTlv {
+                a: asn1::parse_single(b"\x05\x00").unwrap(),
+            }),
+            b"\x30\x04\xa5\x02\x05\x00",
+        ),
+    ]);
+}
+
+#[test]
 fn test_implicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
     struct EmptySequence;

@@ -626,11 +626,13 @@ fn generate_write_element(
             let value = arg.value;
             if arg.required {
                 quote::quote_spanned! {f.span() =>
-                    w.write_explicit_element(#field_read, #value)?;
+                    w.write_element(&asn1::Explicit::<_, #value>::new(#field_read))?;
                 }
             } else {
                 quote::quote_spanned! {f.span() =>
-                    w.write_optional_explicit_element(#field_read, #value)?;
+                    if let Some(v) = #field_read {
+                        w.write_element(&asn1::Explicit::<_, #value>::new(v))?;
+                    }
                 }
             }
         }
@@ -638,11 +640,13 @@ fn generate_write_element(
             let value = arg.value;
             if arg.required {
                 quote::quote_spanned! {f.span() =>
-                    w.write_implicit_element(#field_read, #value)?;
+                    w.write_element(&asn1::Implicit::<_, #value>::new(#field_read))?;
                 }
             } else {
                 quote::quote_spanned! {f.span() =>
-                    w.write_optional_implicit_element(#field_read, #value)?;
+                    if let Some(v) = #field_read {
+                        w.write_element(&asn1::Implicit::<_, #value>::new(v))?;
+                    }
                 }
             }
         }
@@ -731,13 +735,13 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
             OpType::Explicit(arg) => {
                 let tag = arg.value;
                 quote::quote! {
-                    #name::#ident(value) => w.write_explicit_element(&value, #tag),
+                    #name::#ident(value) => w.write_element(&asn1::Explicit::<_, #tag>::new(value)),
                 }
             }
             OpType::Implicit(arg) => {
                 let tag = arg.value;
                 quote::quote! {
-                    #name::#ident(value) => w.write_implicit_element(&value, #tag),
+                    #name::#ident(value) => w.write_element(&asn1::Implicit::<_, #tag>::new(value)),
                 }
             }
             OpType::DefinedBy(_) => panic!("Can't use #[defined_by] in an Asn1Write on an enum"),

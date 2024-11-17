@@ -24,6 +24,14 @@ asn1 = { version = "0.19", default-features = false }
 
 ## Changelog
 
+### [0.20.0]
+
+#### :rotating_light: Breaking changes
+
+- Removed `Writer::{write_explicit_element, write_optional_explicit_element, write_implicit_element, write_optional_implicit_element}`.
+  These can all be better accomplished with the `asn1::Explicit` and
+  `asn1::Implicit` types.
+
 ### [0.19.0]
 
 #### :rotating_light: Breaking changes
