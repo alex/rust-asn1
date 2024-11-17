@@ -37,6 +37,10 @@ asn1 = { version = "0.18", default-features = false }
   replacing the old `GeneralizedTime`.
   ([#492](https://github.com/alex/rust-asn1/pull/492))
 
+- `#[derive(asn1::Asn1Read)]` and `#[derive(asn1::Asn1Write)]` now implement
+  ["perfect derives"](https://smallcultfollowing.com/babysteps/blog/2022/04/12/implied-bounds-and-perfect-derive/).
+  ([#496](https://github.com/alex/rust-asn1/pull/496))
+
 [deps-rs-image]: https://deps.rs/repo/github/alex/rust-asn1/status.svg
 [deps-rs-link]: https://deps.rs/repo/github/alex/rust-asn1
 [docs-rs-image]: https://docs.rs/asn1/badge.svg
