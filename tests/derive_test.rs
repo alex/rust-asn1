@@ -442,6 +442,30 @@ fn test_enum_implicit() {
 }
 
 #[test]
+fn test_enum_in_explicit() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    enum BasicChoice {
+        A(u64),
+    }
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct StructWithExplicitChoice {
+        #[explicit(0)]
+        c: Option<BasicChoice>,
+    }
+
+    assert_roundtrips(&[
+        (Ok(StructWithExplicitChoice { c: None }), b"\x30\x00"),
+        (
+            Ok(StructWithExplicitChoice {
+                c: Some(BasicChoice::A(3)),
+            }),
+            b"\x30\x05\xa0\x03\x02\x01\x03",
+        ),
+    ]);
+}
+
+#[test]
 fn test_error_parse_location() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     struct InnerSeq(u64);
