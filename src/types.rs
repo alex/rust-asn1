@@ -145,6 +145,13 @@ impl Asn1Writable for Tlv<'_> {
     }
 }
 
+impl Asn1Writable for &Tlv<'_> {
+    #[inline]
+    fn write(&self, w: &mut Writer<'_>) -> WriteResult {
+        Tlv::write(self, w)
+    }
+}
+
 /// The ASN.1 NULL type, for use with `Parser.read_element` and
 /// `Writer.write_element`.
 pub type Null = ();
@@ -1806,13 +1813,6 @@ impl<T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<T, { TAG }
     const TAG: Tag = crate::explicit_tag(TAG);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         Writer::new(dest).write_element(&self.inner)
-    }
-}
-
-impl<const TAG: u32> SimpleAsn1Writable for Explicit<&'_ Tlv<'_>, { TAG }> {
-    const TAG: Tag = crate::explicit_tag(TAG);
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        self.inner.write(&mut Writer::new(dest))
     }
 }
 

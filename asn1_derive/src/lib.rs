@@ -90,6 +90,12 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
                         #write_block
                     }
                 }
+
+                impl #impl_generics asn1::Asn1Writable for &#name #ty_generics #where_clause {
+                    fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
+                        #name::write(self, w)
+                    }
+                }
             }
         }
         _ => unimplemented!("Not supported for unions"),
