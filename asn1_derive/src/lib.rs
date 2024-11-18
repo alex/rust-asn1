@@ -566,7 +566,7 @@ fn generate_enum_read_block(
             OpType::Explicit(arg) => {
                 let tag = arg.value;
                 read_blocks.push(quote::quote! {
-                    if tlv.tag() == asn1::explicit_tag(#tag) {
+                    if asn1::Explicit::<#ty, #tag>::can_parse(tlv.tag()) {
                         return Ok(#name::#ident(asn1::parse(
                             tlv.full_data(),
                             |p| Ok(p.read_element::<asn1::Explicit<_, #tag>>()#add_error_location?.into_inner())
@@ -574,7 +574,7 @@ fn generate_enum_read_block(
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
-                    if tag == asn1::explicit_tag(#tag) {
+                    if asn1::Explicit::<#ty, #tag>::can_parse(tag) {
                         return true;
                     }
                 });
@@ -582,7 +582,7 @@ fn generate_enum_read_block(
             OpType::Implicit(arg) => {
                 let tag = arg.value;
                 read_blocks.push(quote::quote! {
-                    if tlv.tag() == asn1::implicit_tag(#tag, <#ty as asn1::SimpleAsn1Readable>::TAG) {
+                    if asn1::Implicit::<#ty, #tag>::can_parse(tlv.tag()) {
                         return Ok(#name::#ident(asn1::parse(
                             tlv.full_data(),
                             |p| Ok(p.read_element::<asn1::Implicit<_, #tag>>()#add_error_location?.into_inner())
@@ -590,7 +590,7 @@ fn generate_enum_read_block(
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
-                    if tag == asn1::implicit_tag(#tag, <#ty as asn1::SimpleAsn1Readable>::TAG) {
+                    if asn1::Implicit::<#ty, #tag>::can_parse(tag) {
                         return true;
                     }
                 });

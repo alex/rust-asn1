@@ -231,3 +231,14 @@ pub fn write_defined_by<T: Asn1Writable, U: Asn1DefinedByWritable<T>>(
 pub fn writable_defined_by_item<T: Asn1Writable, U: Asn1DefinedByWritable<T>>(v: &U) -> &T {
     v.item()
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_implicit_tag() {
+        let t = crate::implicit_tag(3, crate::Tag::primitive(2));
+        assert_eq!(t.as_u8(), Some(0x83));
+        let t = crate::implicit_tag(3, crate::Tag::constructed(2));
+        assert_eq!(t.as_u8(), Some(0xa3));
+    }
+}
