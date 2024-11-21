@@ -32,6 +32,12 @@ asn1 = { version = "0.19", default-features = false }
   These can all be better accomplished with the `asn1::Explicit` and
   `asn1::Implicit` types.
 
+#### Fixes
+
+- Fixed ["perfect derives"](https://smallcultfollowing.com/babysteps/blog/2022/04/12/implied-bounds-and-perfect-derive/)
+  in conjunction with `#[implicit]` and `#[explicit]`.
+  ([#502](https://github.com/alex/rust-asn1/pull/502))
+
 ### [0.19.0]
 
 #### :rotating_light: Breaking changes

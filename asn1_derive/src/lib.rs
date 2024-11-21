@@ -17,6 +17,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
         all_field_types(&input.data),
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
         syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
+        false,
     );
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
@@ -65,6 +66,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
         all_field_types(&input.data),
         syn::parse_quote!(asn1::Asn1Writable),
         syn::parse_quote!(asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier>),
+        true,
     );
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -93,7 +95,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 
                 impl #impl_generics asn1::Asn1Writable for &#name #ty_generics #where_clause {
                     fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
-                        #name::write(self, w)
+                        (*self).write(w)
                     }
                 }
             }
@@ -273,15 +275,16 @@ fn add_lifetime_if_none(generics: &mut syn::Generics) -> syn::Lifetime {
     generics.lifetimes().next().unwrap().lifetime.clone()
 }
 
-fn all_field_types(data: &syn::Data) -> Vec<(syn::Type, bool)> {
+fn all_field_types(data: &syn::Data) -> Vec<(syn::Type, OpType, bool)> {
     let mut field_types = vec![];
     match data {
         syn::Data::Struct(v) => {
-            add_field_types(&mut field_types, &v.fields);
+            add_field_types(&mut field_types, &v.fields, None);
         }
         syn::Data::Enum(v) => {
             for variant in &v.variants {
-                add_field_types(&mut field_types, &variant.fields);
+                let (op_type, _) = extract_field_properties(&variant.attrs);
+                add_field_types(&mut field_types, &variant.fields, Some(op_type));
             }
         }
         syn::Data::Union(_) => panic!("Unions not supported"),
@@ -289,32 +292,52 @@ fn all_field_types(data: &syn::Data) -> Vec<(syn::Type, bool)> {
     field_types
 }
 
-fn add_field_types(field_types: &mut Vec<(syn::Type, bool)>, fields: &syn::Fields) {
+fn add_field_types(
+    field_types: &mut Vec<(syn::Type, OpType, bool)>,
+    fields: &syn::Fields,
+    op_type: Option<OpType>,
+) {
     match fields {
         syn::Fields::Named(v) => {
             for f in &v.named {
-                add_field_type(field_types, f);
+                add_field_type(field_types, f, op_type.clone());
             }
         }
         syn::Fields::Unnamed(v) => {
             for f in &v.unnamed {
-                add_field_type(field_types, f);
+                add_field_type(field_types, f, op_type.clone());
             }
         }
         syn::Fields::Unit => {}
     }
 }
 
-fn add_field_type(field_types: &mut Vec<(syn::Type, bool)>, f: &syn::Field) {
-    let (op_type, _) = extract_field_properties(&f.attrs);
-    field_types.push((f.ty.clone(), matches!(op_type, OpType::DefinedBy(_))));
+fn add_field_type(
+    field_types: &mut Vec<(syn::Type, OpType, bool)>,
+    f: &syn::Field,
+    op_type: Option<OpType>,
+) {
+    // If we have an op_type here, it means it came from an enum variant. In
+    // that case, even though it wasn't marked "required", it is for the
+    // purposes of how we're using it.
+    let (op_type, default) = if let Some(OpType::Explicit(mut args)) = op_type {
+        args.required = true;
+        (OpType::Explicit(args), None)
+    } else if let Some(OpType::Implicit(mut args)) = op_type {
+        args.required = true;
+        (OpType::Implicit(args), None)
+    } else {
+        extract_field_properties(&f.attrs)
+    };
+    field_types.push((f.ty.clone(), op_type, default.is_some()));
 }
 
 fn add_bounds(
     generics: &mut syn::Generics,
-    field_types: Vec<(syn::Type, bool)>,
+    field_types: Vec<(syn::Type, OpType, bool)>,
     bound: syn::TypeParamBound,
     defined_by_bound: syn::TypeParamBound,
+    add_ref: bool,
 ) {
     let where_clause = if field_types.is_empty() {
         return;
@@ -327,26 +350,66 @@ fn add_bounds(
             })
     };
 
-    for (f, is_defined_by) in field_types {
+    for (f, op_type, has_default) in field_types {
+        let (bounded_ty, required_bound) = match (op_type, add_ref) {
+            (OpType::Regular, _) => (f, bound.clone()),
+            (OpType::DefinedBy(_), _) => (f, defined_by_bound.clone()),
+
+            (OpType::Implicit(OpTypeArgs { value, required }), false) => {
+                let ty = if required || has_default {
+                    syn::parse_quote!(asn1::Implicit::<#f, #value>)
+                } else {
+                    syn::parse_quote!(asn1::Implicit::<<#f as asn1::OptionExt>::T, #value>)
+                };
+
+                (ty, bound.clone())
+            }
+            (OpType::Implicit(OpTypeArgs { value, required }), true) => {
+                let ty = if required || has_default {
+                    syn::parse_quote!(for<'asn1_internal> asn1::Implicit::<&'asn1_internal #f, #value>)
+                } else {
+                    syn::parse_quote!(for<'asn1_internal> asn1::Implicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value>)
+                };
+
+                (ty, bound.clone())
+            }
+
+            (OpType::Explicit(OpTypeArgs { value, required }), false) => {
+                let ty = if required || has_default {
+                    syn::parse_quote!(asn1::Explicit::<#f, #value>)
+                } else {
+                    syn::parse_quote!(asn1::Explicit::<<#f as asn1::OptionExt>::T, #value>)
+                };
+
+                (ty, bound.clone())
+            }
+            (OpType::Explicit(OpTypeArgs { value, required }), true) => {
+                let ty = if required || has_default {
+                    syn::parse_quote!(for<'asn1_internal> asn1::Explicit::<&'asn1_internal #f, #value>)
+                } else {
+                    syn::parse_quote!(for<'asn1_internal> asn1::Explicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value>)
+                };
+
+                (ty, bound.clone())
+            }
+        };
+
         where_clause
             .predicates
             .push(syn::WherePredicate::Type(syn::PredicateType {
                 lifetimes: None,
-                bounded_ty: f,
+                bounded_ty,
                 colon_token: Default::default(),
                 bounds: {
                     let mut p = syn::punctuated::Punctuated::new();
-                    if is_defined_by {
-                        p.push(defined_by_bound.clone());
-                    } else {
-                        p.push(bound.clone());
-                    }
+                    p.push(required_bound);
                     p
                 },
             }))
     }
 }
 
+#[derive(Clone)]
 enum OpType {
     Regular,
     Explicit(OpTypeArgs),
@@ -354,6 +417,7 @@ enum OpType {
     DefinedBy(syn::Ident),
 }
 
+#[derive(Clone)]
 struct OpTypeArgs {
     value: proc_macro2::Literal,
     required: bool,

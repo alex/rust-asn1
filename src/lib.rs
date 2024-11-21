@@ -232,6 +232,17 @@ pub fn writable_defined_by_item<T: Asn1Writable, U: Asn1DefinedByWritable<T>>(v:
     v.item()
 }
 
+/// Utility for use in `asn1_derive`. Not considered part of the public API.
+#[doc(hidden)]
+pub trait OptionExt {
+    type T;
+}
+
+#[doc(hidden)]
+impl<T> OptionExt for Option<T> {
+    type T = T;
+}
+
 #[cfg(test)]
 mod tests {
     #[test]

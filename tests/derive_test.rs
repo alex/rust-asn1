@@ -782,4 +782,49 @@ fn test_perfect_derive() {
     }
 
     assert_roundtrips::<S<Op>>(&[(Ok(S { value: 12 }), b"\x30\x03\x02\x01\x0c")]);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct TaggedRequiredFields<T: X> {
+        #[implicit(1, required)]
+        a: T::Type,
+        #[explicit(2, required)]
+        b: T::Type,
+    }
+
+    assert_roundtrips::<TaggedRequiredFields<Op>>(&[(
+        Ok(TaggedRequiredFields { a: 1, b: 3 }),
+        b"\x30\x08\x81\x01\x01\xa2\x03\x02\x01\x03",
+    )]);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct TaggedOptionalFields<T: X> {
+        #[implicit(1)]
+        a: Option<T::Type>,
+        #[explicit(2)]
+        b: Option<T::Type>,
+    }
+
+    assert_roundtrips::<TaggedOptionalFields<Op>>(&[
+        (
+            Ok(TaggedOptionalFields {
+                a: Some(1),
+                b: Some(3),
+            }),
+            b"\x30\x08\x81\x01\x01\xa2\x03\x02\x01\x03",
+        ),
+        (Ok(TaggedOptionalFields { a: None, b: None }), b"\x30\x00"),
+    ]);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    enum TaggedEnum<T: X> {
+        #[implicit(0)]
+        Implicit(T::Type),
+        #[explicit(1)]
+        Explicit(T::Type),
+    }
+
+    assert_roundtrips::<TaggedEnum<Op>>(&[
+        (Ok(TaggedEnum::Implicit(1)), b"\x80\x01\x01"),
+        (Ok(TaggedEnum::Explicit(1)), b"\xa1\x03\x02\x01\x01"),
+    ]);
 }
