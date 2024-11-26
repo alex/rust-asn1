@@ -14,7 +14,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     let lifetime_name = add_lifetime_if_none(&mut generics);
     add_bounds(
         &mut generics,
-        all_field_types(&input.data, &input.generics),
+        all_field_types(&input.data, false, &input.generics),
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
         syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
         false,
@@ -61,7 +61,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
     let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    let fields = all_field_types(&input.data, &input.generics);
+    let fields = all_field_types(&input.data, false, &input.generics);
     add_bounds(
         &mut input.generics,
         fields,
@@ -146,10 +146,17 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
-    let (_, ty_generics, where_clause) = input.generics.split_for_impl();
+    let (_, ty_generics, _) = input.generics.split_for_impl();
     let mut generics = input.generics.clone();
     let lifetime_name = add_lifetime_if_none(&mut generics);
-    let (impl_generics, _, _) = generics.split_for_impl();
+    add_bounds(
+        &mut generics,
+        all_field_types(&input.data, true, &input.generics),
+        syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
+        syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
+        false,
+    );
+    let (impl_generics, _, where_clause) = generics.split_for_impl();
 
     let mut read_block = vec![];
     let mut default_ident = None;
@@ -204,9 +211,17 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
 
 #[proc_macro_derive(Asn1DefinedByWrite, attributes(default, defined_by))]
 pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = syn::parse_macro_input!(input as syn::DeriveInput);
+    let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let name = input.ident;
+    let fields = all_field_types(&input.data, true, &input.generics);
+    add_bounds(
+        &mut input.generics,
+        fields,
+        syn::parse_quote!(asn1::Asn1Writable),
+        syn::parse_quote!(asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier>),
+        true,
+    );
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
     let mut write_blocks = vec![];
@@ -273,10 +288,19 @@ fn add_lifetime_if_none(generics: &mut syn::Generics) -> syn::Lifetime {
             )));
     };
 
-    generics.lifetimes().next().unwrap().lifetime.clone()
+    generics
+        .lifetimes()
+        .next()
+        .expect("No lifetime found")
+        .lifetime
+        .clone()
 }
 
-fn all_field_types(data: &syn::Data, generics: &syn::Generics) -> Vec<(syn::Type, OpType, bool)> {
+fn all_field_types(
+    data: &syn::Data,
+    ignore_properties: bool,
+    generics: &syn::Generics,
+) -> Vec<(syn::Type, OpType, bool)> {
     let generic_params = generics
         .params
         .iter()
@@ -292,15 +316,27 @@ fn all_field_types(data: &syn::Data, generics: &syn::Generics) -> Vec<(syn::Type
     let mut field_types = vec![];
     match data {
         syn::Data::Struct(v) => {
-            add_field_types(&mut field_types, &v.fields, None, &generic_params);
+            add_field_types(
+                &mut field_types,
+                &v.fields,
+                None,
+                ignore_properties,
+                &generic_params,
+            );
         }
         syn::Data::Enum(v) => {
             for variant in &v.variants {
-                let (op_type, _) = extract_field_properties(&variant.attrs);
+                let op_type = if ignore_properties {
+                    None
+                } else {
+                    let (op_type, _) = extract_field_properties(&variant.attrs);
+                    Some(op_type)
+                };
                 add_field_types(
                     &mut field_types,
                     &variant.fields,
-                    Some(op_type),
+                    op_type,
+                    ignore_properties,
                     &generic_params,
                 );
             }
@@ -314,17 +350,30 @@ fn add_field_types(
     field_types: &mut Vec<(syn::Type, OpType, bool)>,
     fields: &syn::Fields,
     op_type: Option<OpType>,
+    ignore_properties: bool,
     generic_params: &[syn::Ident],
 ) {
     match fields {
         syn::Fields::Named(v) => {
             for f in &v.named {
-                add_field_type(field_types, f, op_type.clone(), generic_params);
+                add_field_type(
+                    field_types,
+                    f,
+                    op_type.clone(),
+                    ignore_properties,
+                    generic_params,
+                );
             }
         }
         syn::Fields::Unnamed(v) => {
             for f in &v.unnamed {
-                add_field_type(field_types, f, op_type.clone(), generic_params);
+                add_field_type(
+                    field_types,
+                    f,
+                    op_type.clone(),
+                    ignore_properties,
+                    generic_params,
+                );
             }
         }
         syn::Fields::Unit => {}
@@ -376,6 +425,7 @@ fn add_field_type(
     field_types: &mut Vec<(syn::Type, OpType, bool)>,
     f: &syn::Field,
     op_type: Option<OpType>,
+    ignore_properties: bool,
     generic_params: &[syn::Ident],
 ) {
     if !type_contains_generic_param(&f.ty, generic_params) {
@@ -391,6 +441,8 @@ fn add_field_type(
     } else if let Some(OpType::Implicit(mut args)) = op_type {
         args.required = true;
         (OpType::Implicit(args), None)
+    } else if ignore_properties {
+        (OpType::Regular, None)
     } else {
         extract_field_properties(&f.attrs)
     };
@@ -508,21 +560,33 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Ex
     for attr in attrs {
         if attr.path().is_ident("explicit") {
             if let OpType::Regular = op_type {
-                op_type = OpType::Explicit(attr.parse_args::<OpTypeArgs>().unwrap());
+                op_type = OpType::Explicit(
+                    attr.parse_args::<OpTypeArgs>()
+                        .expect("Error parsing #[explicit]"),
+                );
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
         } else if attr.path().is_ident("implicit") {
             if let OpType::Regular = op_type {
-                op_type = OpType::Implicit(attr.parse_args::<OpTypeArgs>().unwrap());
+                op_type = OpType::Implicit(
+                    attr.parse_args::<OpTypeArgs>()
+                        .expect("Error parsing #[implicit]"),
+                );
             } else {
                 panic!("Can't specify #[explicit] or #[implicit] more than once")
             }
         } else if attr.path().is_ident("default") {
             assert!(default.is_none(), "Can't specify #[default] more than once");
-            default = Some(attr.parse_args::<syn::Expr>().unwrap());
+            default = Some(
+                attr.parse_args::<syn::Expr>()
+                    .expect("Error parsing #[default]"),
+            );
         } else if attr.path().is_ident("defined_by") {
-            op_type = OpType::DefinedBy(attr.parse_args::<syn::Ident>().unwrap());
+            op_type = OpType::DefinedBy(
+                attr.parse_args::<syn::Ident>()
+                    .expect("Error parsing #[defined_by]"),
+            );
         }
     }
 

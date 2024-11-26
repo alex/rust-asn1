@@ -828,3 +828,51 @@ fn test_perfect_derive() {
         (Ok(TaggedEnum::Explicit(1)), b"\xa1\x03\x02\x01\x01"),
     ]);
 }
+
+#[test]
+fn test_defined_by_perfect_derive() {
+    trait X {
+        type Type: PartialEq + std::fmt::Debug;
+    }
+
+    #[derive(PartialEq, Debug)]
+    struct Op;
+    impl X for Op {
+        type Type = u64;
+    }
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    struct S<T: X> {
+        oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
+        #[defined_by(oid)]
+        value: Value<T>,
+    }
+
+    pub const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
+    pub const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 4);
+
+    #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug)]
+    enum Value<T: X> {
+        #[defined_by(OID1)]
+        A(T::Type),
+        #[defined_by(OID2)]
+        B(T::Type),
+    }
+
+    assert_roundtrips::<S<Op>>(&[
+        (
+            Ok(S {
+                oid: asn1::DefinedByMarker::marker(),
+                value: Value::A(5),
+            }),
+            b"\x30\x07\x06\x02\x2a\x03\x02\x01\x05",
+        ),
+        (
+            Ok(S {
+                oid: asn1::DefinedByMarker::marker(),
+                value: Value::B(7),
+            }),
+            b"\x30\x07\x06\x02\x2a\x04\x02\x01\x07",
+        ),
+    ]);
+}

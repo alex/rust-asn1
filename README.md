@@ -24,6 +24,15 @@ asn1 = { version = "0.20", default-features = false }
 
 ## Changelog
 
+### [0.20.1]
+
+#### Fixes
+
+- Fixed ["perfect derives"](https://smallcultfollowing.com/babysteps/blog/2022/04/12/implied-bounds-and-perfect-derive/)
+  in conjunction with `#[derive(Asn1DefinedByRead)]` and
+  `#[derive(Asn1DefinedByWrite)]`.
+  ([#506](https://github.com/alex/rust-asn1/pull/506))
+
 ### [0.20.0]
 
 #### :rotating_light: Breaking changes
