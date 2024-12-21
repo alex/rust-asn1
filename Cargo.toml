@@ -8,7 +8,7 @@ license = "BSD-3-Clause"
 description = "ASN.1 (DER) parser and writer for Rust."
 edition = "2021"
 # This specifies the MSRV
-rust-version = "1.59.0"
+rust-version = "1.65.0"
 
 [features]
 default = ["std"]
@@ -22,4 +22,4 @@ itoa = "1.0.11"
 libc = "0.2.11"
 
 [workspace]
-members = ["asn1_derive"]
+members = ["asn1_derive", "asn1parse"]

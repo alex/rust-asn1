@@ -14,7 +14,7 @@ Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
 asn1 = "0.20"
 ```
 
-Builds on Rust 1.59.0 and newer.
+Builds on Rust 1.65.0 and newer.
 
 `rust-asn1` is compatible with `#![no_std]` environments:
 
@@ -24,7 +24,11 @@ asn1 = { version = "0.20", default-features = false }
 
 ## Changelog
 
-### [0.20.1]
+### Unreleased
+
+#### Changes
+
+- Updated MSRV to 1.65.0.
 
 #### Fixes
 
