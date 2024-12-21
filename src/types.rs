@@ -82,13 +82,6 @@ impl<T: SimpleAsn1Writable> Asn1Writable for T {
     }
 }
 
-impl<T: SimpleAsn1Writable> SimpleAsn1Writable for &T {
-    const TAG: Tag = T::TAG;
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-        T::write_data(self, dest)
-    }
-}
-
 impl<T: SimpleAsn1Writable> SimpleAsn1Writable for Box<T> {
     const TAG: Tag = T::TAG;
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
@@ -142,13 +135,6 @@ impl Asn1Writable for Tlv<'_> {
     #[inline]
     fn write(&self, w: &mut Writer<'_>) -> WriteResult {
         w.write_tlv(self.tag, move |dest| dest.push_slice(self.data))
-    }
-}
-
-impl Asn1Writable for &Tlv<'_> {
-    #[inline]
-    fn write(&self, w: &mut Writer<'_>) -> WriteResult {
-        Tlv::write(self, w)
     }
 }
 
@@ -1734,6 +1720,7 @@ impl<T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'_, T, 
 /// `Implicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `IMPLICIT`. This will generally be used with `Option` or `Choice`.
 #[derive(PartialEq, Eq, Debug)]
+#[repr(transparent)]
 pub struct Implicit<T, const TAG: u32> {
     inner: T,
 }
@@ -1741,6 +1728,10 @@ pub struct Implicit<T, const TAG: u32> {
 impl<T, const TAG: u32> Implicit<T, { TAG }> {
     pub fn new(v: T) -> Self {
         Implicit { inner: v }
+    }
+
+    pub fn from_ref(v: &T) -> &Self {
+        unsafe { &*(v as *const T as *const Self) }
     }
 
     pub fn as_inner(&self) -> &T {
@@ -1778,6 +1769,7 @@ impl<T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<T, {
 /// `Explicit` is a type which wraps another ASN.1 type, indicating that the tag is an ASN.1
 /// `EXPLICIT`. This will generally be used with `Option` or `Choice`.
 #[derive(PartialEq, Eq, Debug)]
+#[repr(transparent)]
 pub struct Explicit<T, const TAG: u32> {
     inner: T,
 }
@@ -1785,6 +1777,10 @@ pub struct Explicit<T, const TAG: u32> {
 impl<T, const TAG: u32> Explicit<T, { TAG }> {
     pub fn new(v: T) -> Self {
         Explicit { inner: v }
+    }
+
+    pub fn from_ref(v: &T) -> &Self {
+        unsafe { &*(v as *const T as *const Self) }
     }
 
     pub fn as_inner(&self) -> &T {
