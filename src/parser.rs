@@ -272,7 +272,7 @@ impl<'a> Parser<'a> {
             }
             0x82 => {
                 let length_bytes = self.read_bytes(2)?;
-                let length = usize::from(length_bytes[0]) << 8 | usize::from(length_bytes[1]);
+                let length = (usize::from(length_bytes[0]) << 8) | usize::from(length_bytes[1]);
                 // Enforce that we're not using long form for values <0x80,
                 // and that the first byte of the length is not zero (i.e.
                 // that we're minimally encoded)
@@ -283,8 +283,8 @@ impl<'a> Parser<'a> {
             }
             0x83 => {
                 let length_bytes = self.read_bytes(3)?;
-                let length = usize::from(length_bytes[0]) << 16
-                    | usize::from(length_bytes[1]) << 8
+                let length = (usize::from(length_bytes[0]) << 16)
+                    | (usize::from(length_bytes[1]) << 8)
                     | usize::from(length_bytes[2]);
                 // Same thing as the 0x82 case
                 if length < 0x10000 {
@@ -294,9 +294,9 @@ impl<'a> Parser<'a> {
             }
             0x84 => {
                 let length_bytes = self.read_bytes(4)?;
-                let length = usize::from(length_bytes[0]) << 24
-                    | usize::from(length_bytes[1]) << 16
-                    | usize::from(length_bytes[2]) << 8
+                let length = (usize::from(length_bytes[0]) << 24)
+                    | (usize::from(length_bytes[1]) << 16)
+                    | (usize::from(length_bytes[2]) << 8)
                     | usize::from(length_bytes[3]);
                 // Same thing as the 0x82 case
                 if length < 0x1000000 {
