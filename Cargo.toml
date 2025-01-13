@@ -6,6 +6,8 @@ repository = "https://github.com/alex/rust-asn1"
 keywords = ["asn1"]
 license = "BSD-3-Clause"
 description = "ASN.1 (DER) parser and writer for Rust."
+categories = ["parser-implementations", "encoding", "no-std"]
+
 edition = "2021"
 # This specifies the MSRV
 rust-version = "1.65.0"
