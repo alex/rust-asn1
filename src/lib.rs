@@ -137,6 +137,7 @@
 //! - **Security**
 //! - **Correctness**
 //! - **Performance**
+//! - **Generality**
 //! - **Ergonomics**
 
 extern crate alloc;
