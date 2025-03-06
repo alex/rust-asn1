@@ -8,7 +8,13 @@ use syn::spanned::Spanned;
 pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    let name = input.ident;
+    derive_asn1_read_expand(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let name = &input.ident;
     let (_, ty_generics, _) = input.generics.split_for_impl();
     let mut generics = input.generics.clone();
     let lifetime_name = add_lifetime_if_none(&mut generics);
@@ -21,9 +27,9 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
     );
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
-    let expanded = match input.data {
+    let expanded = match &input.data {
         syn::Data::Struct(data) => {
-            let read_block = generate_struct_read_block(&name, &data);
+            let read_block = generate_struct_read_block(name, data);
             quote::quote! {
                 impl #impl_generics asn1::SimpleAsn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     const TAG: asn1::Tag = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
@@ -34,7 +40,7 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
             }
         }
         syn::Data::Enum(data) => {
-            let (read_block, can_parse_block) = generate_enum_read_block(&name, &data);
+            let (read_block, can_parse_block) = generate_enum_read_block(name, data);
             quote::quote! {
                 impl #impl_generics asn1::Asn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     fn parse(parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
@@ -50,17 +56,23 @@ pub fn derive_asn1_read(input: proc_macro::TokenStream) -> proc_macro::TokenStre
                 }
             }
         }
-        _ => unimplemented!("Not supported for unions"),
+        _ => return Err(syn::Error::new_spanned(input, "Not supported for unions")),
     };
 
-    proc_macro::TokenStream::from(expanded)
+    Ok(expanded)
 }
 
 #[proc_macro_derive(Asn1Write, attributes(explicit, implicit, default, defined_by))]
 pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    let name = input.ident;
+    derive_asn1_write_expand(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+    let name = &input.ident;
     let fields = all_field_types(&input.data, false, &input.generics);
     add_bounds(
         &mut input.generics,
@@ -86,7 +98,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
             }
         }
         syn::Data::Enum(data) => {
-            let write_block = generate_enum_write_block(&name, &data);
+            let write_block = generate_enum_write_block(name, &data);
             quote::quote! {
                 impl #impl_generics asn1::Asn1Writable for #name #ty_generics #where_clause {
                     fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
@@ -101,10 +113,10 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
                 }
             }
         }
-        _ => unimplemented!("Not supported for unions"),
+        _ => return Err(syn::Error::new_spanned(input, "Not supported for unions")),
     };
 
-    proc_macro::TokenStream::from(expanded)
+    Ok(expanded)
 }
 
 enum DefinedByVariant {
@@ -145,7 +157,15 @@ fn extract_defined_by_property(variant: &syn::Variant) -> DefinedByVariant {
 pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    let name = input.ident;
+    derive_asn1_defined_by_read_expand(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+fn derive_asn1_defined_by_read_expand(
+    input: syn::DeriveInput,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let name = &input.ident;
     let (_, ty_generics, _) = input.generics.split_for_impl();
     let mut generics = input.generics.clone();
     let lifetime_name = add_lifetime_if_none(&mut generics);
@@ -186,7 +206,7 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
                 };
             }
         }
-        _ => panic!("Only support for enums"),
+        _ => return Err(syn::Error::new_spanned(input, "Only supported for enums")),
     }
 
     let fallback_block = if let Some(ident) = default_ident {
@@ -198,7 +218,8 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
             Err(asn1::ParseError::new(asn1::ParseErrorKind::UnknownDefinedBy))
         }
     };
-    proc_macro::TokenStream::from(quote::quote! {
+
+    Ok(quote::quote! {
         impl #impl_generics asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier> for #name #ty_generics #where_clause {
             fn parse(item: asn1::ObjectIdentifier, parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
                 #(#read_block)*
@@ -211,9 +232,17 @@ pub fn derive_asn1_defined_by_read(input: proc_macro::TokenStream) -> proc_macro
 
 #[proc_macro_derive(Asn1DefinedByWrite, attributes(default, defined_by))]
 pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut input = syn::parse_macro_input!(input as syn::DeriveInput);
+    let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
-    let name = input.ident;
+    derive_asn1_defined_by_write_expand(input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+fn derive_asn1_defined_by_write_expand(
+    mut input: syn::DeriveInput,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let name = &input.ident;
     let fields = all_field_types(&input.data, true, &input.generics);
     add_bounds(
         &mut input.generics,
@@ -259,10 +288,10 @@ pub fn derive_asn1_defined_by_write(input: proc_macro::TokenStream) -> proc_macr
                 };
             }
         }
-        _ => panic!("Only support for enums"),
+        _ => return Err(syn::Error::new_spanned(input, "Only supported for enums")),
     }
 
-    proc_macro::TokenStream::from(quote::quote! {
+    Ok(quote::quote! {
         impl #impl_generics asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier> for #name #ty_generics #where_clause {
             fn item(&self) -> &asn1::ObjectIdentifier {
                 match self {
@@ -980,27 +1009,48 @@ fn _write_base128_int(data: &mut Vec<u8>, n: u128) {
 
 #[proc_macro]
 pub fn oid(item: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let item = item.clone();
+
+    oid_expand(item)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+fn oid_expand(item: proc_macro::TokenStream) -> syn::Result<proc_macro2::TokenStream> {
     let p_arcs = Punctuated::<syn::LitInt, syn::Token![,]>::parse_terminated
         .parse(item)
-        .unwrap();
+        .map_err(|e| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!("Error parsing OID: {}", e),
+            )
+        })?;
+
     let mut arcs = p_arcs.iter();
 
-    let mut der_encoded = vec![];
     let first = arcs.next().unwrap().base10_parse::<u128>().unwrap();
     let second = arcs.next().unwrap().base10_parse::<u128>().unwrap();
+
+    let mut der_encoded = vec![];
     _write_base128_int(&mut der_encoded, 40 * first + second);
+
     for arc in arcs {
         _write_base128_int(&mut der_encoded, arc.base10_parse::<u128>().unwrap());
     }
 
     let der_len = der_encoded.len();
     // TODO: is there a way to use the `MAX_OID_LENGTH` constant here?
-    assert!(der_len <= 63);
+    if der_len > 63 {
+        return Err(syn::Error::new(
+            proc_macro2::Span::call_site(),
+            format!("OID too long: {} bytes > 63 bytes", der_len),
+        ));
+    }
+
     der_encoded.resize(63, 0);
     let der_lit = syn::LitByteStr::new(&der_encoded, proc_macro2::Span::call_site());
-    let expanded = quote::quote! {
-        asn1::ObjectIdentifier::from_der_unchecked(*#der_lit, #der_len as u8)
-    };
 
-    proc_macro::TokenStream::from(expanded)
+    Ok(quote::quote! {
+        asn1::ObjectIdentifier::from_der_unchecked(*#der_lit, #der_len as u8)
+    })
 }
