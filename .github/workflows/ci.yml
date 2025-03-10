@@ -95,6 +95,7 @@ jobs:
           cargo update -p clap_builder --precise 4.3.24
           cargo update -p clap_lex --precise 0.5.0
           cargo update -p colorchoice --precise 1.0.2
+          cargo update -p once_cell --precise 1.20.3
         if: matrix.RUST.VERSION == '1.65.0'
 
       - run: cargo check --workspace --tests ${{ matrix.RUST.FLAGS }}

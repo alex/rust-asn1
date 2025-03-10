@@ -7,24 +7,23 @@ This is a Rust library for parsing and generating ASN.1 data (DER only).
 
 ## Installation
 
-Add `asn1` to the `[dependencies]` section of your `Cargo.toml`:
+Add `asn1` to your `Cargo.toml`:
 
-```toml
-[dependencies]
-asn1 = "0.20"
+```console
+$ cargo add asn1
 ```
 
 Builds on Rust 1.65.0 and newer.
 
 `rust-asn1` is compatible with `#![no_std]` environments:
 
-```toml
-asn1 = { version = "0.20", default-features = false }
+```console
+$ cargo add asn1 --no-default-features
 ```
 
 ## Changelog
 
-### Unreleased
+### [0.21.0]
 
 #### Changes
 

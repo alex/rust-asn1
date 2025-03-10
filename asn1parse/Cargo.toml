@@ -5,7 +5,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-asn1 = { version = "0.20", path = ".." }
+asn1 = { version = "0.21", path = ".." }
 clap = { version = "4.3", features = ["derive"] }
 hex = "0.4.3"
 pem = { version = "3.0.4", default-features = false, features = ["std"] }
