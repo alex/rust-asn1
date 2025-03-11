@@ -18,9 +18,10 @@ fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::
     let (_, ty_generics, _) = input.generics.split_for_impl();
     let mut generics = input.generics.clone();
     let lifetime_name = add_lifetime_if_none(&mut generics);
+
     add_bounds(
         &mut generics,
-        all_field_types(&input.data, false, &input.generics),
+        all_field_types(&input.data, false, &input.generics)?,
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
         syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
         false,
@@ -29,7 +30,7 @@ fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::
 
     let expanded = match &input.data {
         syn::Data::Struct(data) => {
-            let read_block = generate_struct_read_block(name, data);
+            let read_block = generate_struct_read_block(name, data)?;
             quote::quote! {
                 impl #impl_generics asn1::SimpleAsn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     const TAG: asn1::Tag = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
@@ -40,7 +41,7 @@ fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::
             }
         }
         syn::Data::Enum(data) => {
-            let (read_block, can_parse_block) = generate_enum_read_block(name, data);
+            let (read_block, can_parse_block) = generate_enum_read_block(name, data)?;
             quote::quote! {
                 impl #impl_generics asn1::Asn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     fn parse(parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
@@ -73,7 +74,7 @@ pub fn derive_asn1_write(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 
 fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
-    let fields = all_field_types(&input.data, false, &input.generics);
+    let fields = all_field_types(&input.data, false, &input.generics)?;
     add_bounds(
         &mut input.generics,
         fields,
@@ -85,7 +86,7 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
 
     let expanded = match input.data {
         syn::Data::Struct(data) => {
-            let write_block = generate_struct_write_block(&data);
+            let write_block = generate_struct_write_block(&data)?;
             quote::quote! {
                 impl #impl_generics asn1::SimpleAsn1Writable for #name #ty_generics #where_clause {
                     const TAG: asn1::Tag = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
@@ -98,7 +99,7 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
             }
         }
         syn::Data::Enum(data) => {
-            let write_block = generate_enum_write_block(name, &data);
+            let write_block = generate_enum_write_block(name, &data)?;
             quote::quote! {
                 impl #impl_generics asn1::Asn1Writable for #name #ty_generics #where_clause {
                     fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
@@ -124,9 +125,9 @@ enum DefinedByVariant {
     Default,
 }
 
-fn extract_defined_by_property(variant: &syn::Variant) -> DefinedByVariant {
+fn extract_defined_by_property(variant: &syn::Variant) -> syn::Result<DefinedByVariant> {
     if variant.attrs.iter().any(|a| a.path().is_ident("default")) {
-        return DefinedByVariant::Default;
+        return Ok(DefinedByVariant::Default);
     }
     let has_field = match &variant.fields {
         syn::Fields::Unnamed(fields) => {
@@ -134,10 +135,15 @@ fn extract_defined_by_property(variant: &syn::Variant) -> DefinedByVariant {
             true
         }
         syn::Fields::Unit => false,
-        _ => panic!("enum elements must have a single field"),
+        _ => {
+            return Err(syn::Error::new_spanned(
+                variant,
+                "enum elements must have a single field",
+            ))
+        }
     };
 
-    DefinedByVariant::DefinedBy(
+    Ok(DefinedByVariant::DefinedBy(
         variant
             .attrs
             .iter()
@@ -150,7 +156,7 @@ fn extract_defined_by_property(variant: &syn::Variant) -> DefinedByVariant {
             })
             .expect("Variant must have #[defined_by]"),
         has_field,
-    )
+    ))
 }
 
 #[proc_macro_derive(Asn1DefinedByRead, attributes(default, defined_by))]
@@ -171,7 +177,7 @@ fn derive_asn1_defined_by_read_expand(
     let lifetime_name = add_lifetime_if_none(&mut generics);
     add_bounds(
         &mut generics,
-        all_field_types(&input.data, true, &input.generics),
+        all_field_types(&input.data, true, &input.generics)?,
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
         syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
         false,
@@ -185,7 +191,7 @@ fn derive_asn1_defined_by_read_expand(
         syn::Data::Enum(data) => {
             for variant in &data.variants {
                 let ident = &variant.ident;
-                match extract_defined_by_property(variant) {
+                match extract_defined_by_property(variant)? {
                     DefinedByVariant::DefinedBy(defined_by, has_field) => {
                         let read_op = if has_field {
                             quote::quote! { #name::#ident(parser.read_element()?) }
@@ -243,7 +249,7 @@ fn derive_asn1_defined_by_write_expand(
     mut input: syn::DeriveInput,
 ) -> syn::Result<proc_macro2::TokenStream> {
     let name = &input.ident;
-    let fields = all_field_types(&input.data, true, &input.generics);
+    let fields = all_field_types(&input.data, true, &input.generics)?;
     add_bounds(
         &mut input.generics,
         fields,
@@ -259,7 +265,7 @@ fn derive_asn1_defined_by_write_expand(
         syn::Data::Enum(data) => {
             for variant in &data.variants {
                 let ident = &variant.ident;
-                match extract_defined_by_property(variant) {
+                match extract_defined_by_property(variant)? {
                     DefinedByVariant::DefinedBy(defined_by, has_field) => {
                         if has_field {
                             write_blocks.push(quote::quote! {
@@ -329,7 +335,7 @@ fn all_field_types(
     data: &syn::Data,
     ignore_properties: bool,
     generics: &syn::Generics,
-) -> Vec<(syn::Type, OpType, bool)> {
+) -> syn::Result<Vec<(syn::Type, OpType, bool)>> {
     let generic_params = generics
         .params
         .iter()
@@ -351,14 +357,14 @@ fn all_field_types(
                 None,
                 ignore_properties,
                 &generic_params,
-            );
+            )?;
         }
         syn::Data::Enum(v) => {
             for variant in &v.variants {
                 let op_type = if ignore_properties {
                     None
                 } else {
-                    let (op_type, _) = extract_field_properties(&variant.attrs);
+                    let (op_type, _) = extract_field_properties(&variant.attrs)?;
                     Some(op_type)
                 };
                 add_field_types(
@@ -367,12 +373,17 @@ fn all_field_types(
                     op_type,
                     ignore_properties,
                     &generic_params,
-                );
+                )?;
             }
         }
-        syn::Data::Union(_) => panic!("Unions not supported"),
+        syn::Data::Union(_) => {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "Unions not supported",
+            ))
+        }
     }
-    field_types
+    Ok(field_types)
 }
 
 fn add_field_types(
@@ -381,7 +392,7 @@ fn add_field_types(
     op_type: Option<OpType>,
     ignore_properties: bool,
     generic_params: &[syn::Ident],
-) {
+) -> syn::Result<()> {
     match fields {
         syn::Fields::Named(v) => {
             for f in &v.named {
@@ -391,7 +402,7 @@ fn add_field_types(
                     op_type.clone(),
                     ignore_properties,
                     generic_params,
-                );
+                )?;
             }
         }
         syn::Fields::Unnamed(v) => {
@@ -402,11 +413,12 @@ fn add_field_types(
                     op_type.clone(),
                     ignore_properties,
                     generic_params,
-                );
+                )?;
             }
         }
         syn::Fields::Unit => {}
     }
+    Ok(())
 }
 
 fn type_contains_generic_param(t: &syn::Type, generic_params: &[syn::Ident]) -> bool {
@@ -456,9 +468,9 @@ fn add_field_type(
     op_type: Option<OpType>,
     ignore_properties: bool,
     generic_params: &[syn::Ident],
-) {
+) -> syn::Result<()> {
     if !type_contains_generic_param(&f.ty, generic_params) {
-        return;
+        return Ok(());
     }
 
     // If we have an op_type here, it means it came from an enum variant. In
@@ -473,9 +485,10 @@ fn add_field_type(
     } else if ignore_properties {
         (OpType::Regular, None)
     } else {
-        extract_field_properties(&f.attrs)
+        extract_field_properties(&f.attrs)?
     };
     field_types.push((f.ty.clone(), op_type, default.is_some()));
+    Ok(())
 }
 
 fn add_bounds(
@@ -583,7 +596,7 @@ impl syn::parse::Parse for OpTypeArgs {
     }
 }
 
-fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Expr>) {
+fn extract_field_properties(attrs: &[syn::Attribute]) -> syn::Result<(OpType, Option<syn::Expr>)> {
     let mut op_type = OpType::Regular;
     let mut default = None;
     for attr in attrs {
@@ -594,7 +607,10 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Ex
                         .expect("Error parsing #[explicit]"),
                 );
             } else {
-                panic!("Can't specify #[explicit] or #[implicit] more than once")
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "Can't specify #[explicit] or #[implicit] more than once",
+                ));
             }
         } else if attr.path().is_ident("implicit") {
             if let OpType::Regular = op_type {
@@ -603,7 +619,10 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Ex
                         .expect("Error parsing #[implicit]"),
                 );
             } else {
-                panic!("Can't specify #[explicit] or #[implicit] more than once")
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "Can't specify #[explicit] or #[implicit] more than once",
+                ));
             }
         } else if attr.path().is_ident("default") {
             assert!(default.is_none(), "Can't specify #[default] more than once");
@@ -619,7 +638,7 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> (OpType, Option<syn::Ex
         }
     }
 
-    (op_type, default)
+    Ok((op_type, default))
 }
 
 fn generate_read_element(
@@ -627,8 +646,8 @@ fn generate_read_element(
     f: &syn::Field,
     f_name: &str,
     is_defined_by_marker: bool,
-) -> proc_macro2::TokenStream {
-    let (read_type, default) = extract_field_properties(&f.attrs);
+) -> syn::Result<proc_macro2::TokenStream> {
+    let (read_type, default) = extract_field_properties(&f.attrs)?;
 
     let error_location = format!("{}::{}", struct_name, f_name);
     let add_error_location = quote::quote! {
@@ -682,26 +701,23 @@ fn generate_read_element(
             asn1::from_optional_default::<#f_type>(#read_op, #default.into())#add_error_location?
         }};
     }
-    read_op
+    Ok(read_op)
 }
 
 fn generate_struct_read_block(
     struct_name: &syn::Ident,
     data: &syn::DataStruct,
-) -> proc_macro2::TokenStream {
+) -> syn::Result<proc_macro2::TokenStream> {
     match data.fields {
         syn::Fields::Named(ref fields) => {
-            let defined_by_markers = fields
-                .named
-                .iter()
-                .filter_map(|f| {
-                    let (op_type, _) = extract_field_properties(&f.attrs);
-                    match op_type {
-                        OpType::DefinedBy(ident) => Some(ident),
-                        _ => None,
-                    }
-                })
-                .collect::<Vec<_>>();
+            let mut defined_by_markers = vec![];
+
+            for f in fields.named.iter() {
+                let (op_type, _) = extract_field_properties(&f.attrs)?;
+                if let OpType::DefinedBy(ident) = op_type {
+                    defined_by_markers.push(ident);
+                }
+            }
 
             let defined_by_markers_definitions = defined_by_markers.iter().map(|f| {
                 quote::quote! {
@@ -709,7 +725,9 @@ fn generate_struct_read_block(
                 }
             });
 
-            let recurse = fields.named.iter().map(|f| {
+            let mut recurse = vec![];
+
+            for f in fields.named.iter() {
                 let name = &f.ident;
                 let is_defined_by_marker = name
                     .as_ref()
@@ -719,44 +737,46 @@ fn generate_struct_read_block(
                     f,
                     &format!("{}", name.as_ref().unwrap()),
                     is_defined_by_marker,
-                );
-                quote::quote_spanned! {f.span() =>
-                    #name: #read_op,
-                }
-            });
+                )?;
 
-            quote::quote! {
+                recurse.push(quote::quote_spanned! {f.span() =>
+                    #name: #read_op,
+                });
+            }
+
+            Ok(quote::quote! {
                 #(#defined_by_markers_definitions)*
 
                 Ok(Self {
                     #(#recurse)*
                 })
-            }
+            })
         }
         syn::Fields::Unnamed(ref fields) => {
-            let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                let read_op = generate_read_element(struct_name, f, &format!("{}", i), false);
-                quote::quote_spanned! {f.span() =>
-                    #read_op,
-                }
-            });
+            let mut recurse = vec![];
 
-            quote::quote! {
+            for (i, f) in fields.unnamed.iter().enumerate() {
+                let read_op = generate_read_element(struct_name, f, &format!("{}", i), false)?;
+
+                recurse.push(quote::quote_spanned! {f.span() =>
+                    #read_op,
+                });
+            }
+
+            Ok(quote::quote! {
                 Ok(Self(
                     #(#recurse)*
                 ))
-            }
+            })
         }
-        syn::Fields::Unit => {
-            quote::quote! { Ok(Self) }
-        }
+        syn::Fields::Unit => Ok(quote::quote! { Ok(Self) }),
     }
 }
 
 fn generate_enum_read_block(
     name: &syn::Ident,
     data: &syn::DataEnum,
-) -> (proc_macro2::TokenStream, proc_macro2::TokenStream) {
+) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
     let mut read_blocks = vec![];
     let mut can_parse_blocks = vec![];
 
@@ -766,9 +786,14 @@ fn generate_enum_read_block(
                 assert_eq!(fields.unnamed.len(), 1);
                 &fields.unnamed[0]
             }
-            _ => panic!("enum elements must have a single field"),
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    variant,
+                    "enum elements must have a single field",
+                ))
+            }
         };
-        let (op_type, default) = extract_field_properties(&variant.attrs);
+        let (op_type, default) = extract_field_properties(&variant.attrs)?;
         assert!(default.is_none());
 
         let ty = &field.ty;
@@ -823,7 +848,12 @@ fn generate_enum_read_block(
                     }
                 });
             }
-            OpType::DefinedBy(_) => panic!("Can't use #[defined_by] in an Asn1Read on an enum"),
+            OpType::DefinedBy(_) => {
+                return Err(syn::Error::new_spanned(
+                    variant,
+                    "Can't use #[defined_by] in an Asn1Read on an enum",
+                ))
+            }
         };
     }
 
@@ -833,15 +863,15 @@ fn generate_enum_read_block(
     let can_parse_block = quote::quote! {
         #(#can_parse_blocks)*
     };
-    (read_block, can_parse_block)
+    Ok((read_block, can_parse_block))
 }
 
 fn generate_write_element(
     f: &syn::Field,
     mut field_read: proc_macro2::TokenStream,
     defined_by_marker_origin: Option<proc_macro2::TokenStream>,
-) -> proc_macro2::TokenStream {
-    let (write_type, default) = extract_field_properties(&f.attrs);
+) -> syn::Result<proc_macro2::TokenStream> {
+    let (write_type, default) = extract_field_properties(&f.attrs)?;
 
     if let Some(default) = default {
         field_read = quote::quote! {&{
@@ -849,7 +879,7 @@ fn generate_write_element(
         }}
     }
 
-    match write_type {
+    let result = match write_type {
         OpType::Explicit(arg) => {
             let value = arg.value;
             if arg.required {
@@ -892,69 +922,86 @@ fn generate_write_element(
         OpType::DefinedBy(_) => quote::quote! {
             asn1::write_defined_by(#field_read, &mut w)?;
         },
-    }
+    };
+
+    Ok(result)
 }
 
-fn generate_struct_write_block(data: &syn::DataStruct) -> proc_macro2::TokenStream {
+fn generate_struct_write_block(data: &syn::DataStruct) -> syn::Result<proc_macro2::TokenStream> {
     match data.fields {
         syn::Fields::Named(ref fields) => {
-            let defined_by_markers = fields
-                .named
-                .iter()
-                .filter_map(|f| {
-                    let (op_type, _) = extract_field_properties(&f.attrs);
-                    match op_type {
-                        OpType::DefinedBy(ident) => Some((ident, &f.ident)),
-                        _ => None,
-                    }
-                })
-                .collect::<std::collections::hash_map::HashMap<_, _>>();
+            let mut defined_by_markers = std::collections::hash_map::HashMap::new();
 
-            let recurse = fields.named.iter().map(|f| {
+            for f in fields.named.iter() {
+                let (op_type, _) = extract_field_properties(&f.attrs)?;
+                if let OpType::DefinedBy(ident) = op_type {
+                    defined_by_markers.insert(ident, &f.ident);
+                }
+            }
+
+            let mut recurse = vec![];
+
+            for f in fields.named.iter() {
                 let name = &f.ident;
                 let defined_by_marker_origin = name.as_ref().and_then(|n| {
                     defined_by_markers.get(n).map(|v| {
                         quote::quote! { &self.#v }
                     })
                 });
-                generate_write_element(f, quote::quote! { &self.#name }, defined_by_marker_origin)
-            });
+                let write_op = generate_write_element(
+                    f,
+                    quote::quote! { &self.#name },
+                    defined_by_marker_origin,
+                )?;
+                recurse.push(write_op);
+            }
 
-            quote::quote! {
+            Ok(quote::quote! {
                 let mut w = asn1::Writer::new(dest);
                 #(#recurse)*
-            }
+            })
         }
         syn::Fields::Unnamed(ref fields) => {
-            let recurse = fields.unnamed.iter().enumerate().map(|(i, f)| {
-                let index = syn::Index::from(i);
-                generate_write_element(f, quote::quote! { &self.#index }, None)
-            });
+            let mut recurse = vec![];
 
-            quote::quote! {
+            for (i, f) in fields.unnamed.iter().enumerate() {
+                let index = syn::Index::from(i);
+                let write_op = generate_write_element(f, quote::quote! { &self.#index }, None)?;
+                recurse.push(write_op);
+            }
+
+            Ok(quote::quote! {
                 let mut w = asn1::Writer::new(dest);
                 #(#recurse)*
-            }
+            })
         }
-        syn::Fields::Unit => {
-            quote::quote! {}
-        }
+        syn::Fields::Unit => Ok(quote::quote! {}),
     }
 }
 
-fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_macro2::TokenStream {
-    let write_arms = data.variants.iter().map(|v| {
+fn generate_enum_write_block(
+    name: &syn::Ident,
+    data: &syn::DataEnum,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let mut write_arms = vec![];
+
+    for v in &data.variants {
         match &v.fields {
             syn::Fields::Unnamed(fields) => {
                 assert_eq!(fields.unnamed.len(), 1);
             }
-            _ => panic!("enum elements must have a single field"),
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    v,
+                    "enum elements must have a single field",
+                ))
+            }
         };
-        let (op_type, default) = extract_field_properties(&v.attrs);
+        let (op_type, default) = extract_field_properties(&v.attrs)?;
         assert!(default.is_none());
         let ident = &v.ident;
 
-        match op_type {
+        let arm = match op_type {
             OpType::Regular => {
                 quote::quote! {
                     #name::#ident(value) => w.write_element(value),
@@ -972,14 +1019,21 @@ fn generate_enum_write_block(name: &syn::Ident, data: &syn::DataEnum) -> proc_ma
                     #name::#ident(value) => w.write_element(&asn1::Implicit::<_, #tag>::new(value)),
                 }
             }
-            OpType::DefinedBy(_) => panic!("Can't use #[defined_by] in an Asn1Write on an enum"),
-        }
-    });
-    quote::quote! {
+            OpType::DefinedBy(_) => {
+                return Err(syn::Error::new_spanned(
+                    v,
+                    "Can't use #[defined_by] in an Asn1Write on an enum",
+                ))
+            }
+        };
+        write_arms.push(arm);
+    }
+
+    Ok(quote::quote! {
         match self {
             #(#write_arms)*
         }
-    }
+    })
 }
 
 // TODO: Duplicate of this function in src/object_identifier.rs, can we
