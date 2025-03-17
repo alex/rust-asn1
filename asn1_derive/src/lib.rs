@@ -602,10 +602,7 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> syn::Result<(OpType, Op
     for attr in attrs {
         if attr.path().is_ident("explicit") {
             if let OpType::Regular = op_type {
-                op_type = OpType::Explicit(
-                    attr.parse_args::<OpTypeArgs>()
-                        .expect("Error parsing #[explicit]"),
-                );
+                op_type = OpType::Explicit(attr.parse_args::<OpTypeArgs>()?);
             } else {
                 return Err(syn::Error::new_spanned(
                     attr,
@@ -614,10 +611,7 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> syn::Result<(OpType, Op
             }
         } else if attr.path().is_ident("implicit") {
             if let OpType::Regular = op_type {
-                op_type = OpType::Implicit(
-                    attr.parse_args::<OpTypeArgs>()
-                        .expect("Error parsing #[implicit]"),
-                );
+                op_type = OpType::Implicit(attr.parse_args::<OpTypeArgs>()?);
             } else {
                 return Err(syn::Error::new_spanned(
                     attr,
@@ -626,15 +620,9 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> syn::Result<(OpType, Op
             }
         } else if attr.path().is_ident("default") {
             assert!(default.is_none(), "Can't specify #[default] more than once");
-            default = Some(
-                attr.parse_args::<syn::Expr>()
-                    .expect("Error parsing #[default]"),
-            );
+            default = Some(attr.parse_args::<syn::Expr>()?);
         } else if attr.path().is_ident("defined_by") {
-            op_type = OpType::DefinedBy(
-                attr.parse_args::<syn::Ident>()
-                    .expect("Error parsing #[defined_by]"),
-            );
+            op_type = OpType::DefinedBy(attr.parse_args::<syn::Ident>()?);
         }
     }
 
