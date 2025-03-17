@@ -131,7 +131,12 @@ fn extract_defined_by_property(variant: &syn::Variant) -> syn::Result<DefinedByV
     }
     let has_field = match &variant.fields {
         syn::Fields::Unnamed(fields) => {
-            assert!(fields.unnamed.len() == 1);
+            if fields.unnamed.len() != 1 {
+                return Err(syn::Error::new_spanned(
+                    fields,
+                    "enum variants with unnamed fields must have exactly one field",
+                ));
+            }
             true
         }
         syn::Fields::Unit => false,
@@ -206,7 +211,12 @@ fn derive_asn1_defined_by_read_expand(
                         });
                     }
                     DefinedByVariant::Default => {
-                        assert!(default_ident.is_none());
+                        if default_ident.is_some() {
+                            return Err(syn::Error::new_spanned(
+                                variant,
+                                "multiple default variants found; only one variant can be marked as #[default]",
+                            ));
+                        }
                         default_ident = Some(ident);
                     }
                 };
@@ -587,7 +597,13 @@ impl syn::parse::Parse for OpTypeArgs {
         let value = input.parse::<proc_macro2::Literal>()?;
         let required = if input.lookahead1().peek(syn::Token![,]) {
             input.parse::<syn::Token![,]>()?;
-            assert_eq!(input.parse::<syn::Ident>()?, "required");
+            let ident = input.parse::<syn::Ident>()?;
+            if ident != "required" {
+                return Err(syn::Error::new_spanned(
+                    ident,
+                    "expected 'required' as the second argument",
+                ));
+            }
             true
         } else {
             false
@@ -619,7 +635,12 @@ fn extract_field_properties(attrs: &[syn::Attribute]) -> syn::Result<(OpType, Op
                 ));
             }
         } else if attr.path().is_ident("default") {
-            assert!(default.is_none(), "Can't specify #[default] more than once");
+            if default.is_some() {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    "Can't specify #[default] more than once",
+                ));
+            }
             default = Some(attr.parse_args::<syn::Expr>()?);
         } else if attr.path().is_ident("defined_by") {
             op_type = OpType::DefinedBy(attr.parse_args::<syn::Ident>()?);
@@ -771,7 +792,12 @@ fn generate_enum_read_block(
     for variant in &data.variants {
         let field = match &variant.fields {
             syn::Fields::Unnamed(fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
+                if fields.unnamed.len() != 1 {
+                    return Err(syn::Error::new_spanned(
+                        fields,
+                        "enum variants with unnamed fields must have exactly one field",
+                    ));
+                }
                 &fields.unnamed[0]
             }
             _ => {
@@ -782,7 +808,12 @@ fn generate_enum_read_block(
             }
         };
         let (op_type, default) = extract_field_properties(&variant.attrs)?;
-        assert!(default.is_none());
+        if default.is_some() {
+            return Err(syn::Error::new_spanned(
+                variant,
+                "default values are not supported for enum variants",
+            ));
+        }
 
         let ty = &field.ty;
         let ident = &variant.ident;
@@ -976,7 +1007,12 @@ fn generate_enum_write_block(
     for v in &data.variants {
         match &v.fields {
             syn::Fields::Unnamed(fields) => {
-                assert_eq!(fields.unnamed.len(), 1);
+                if fields.unnamed.len() != 1 {
+                    return Err(syn::Error::new_spanned(
+                        fields,
+                        "enum variants with unnamed fields must have exactly one field",
+                    ));
+                }
             }
             _ => {
                 return Err(syn::Error::new_spanned(
@@ -986,7 +1022,12 @@ fn generate_enum_write_block(
             }
         };
         let (op_type, default) = extract_field_properties(&v.attrs)?;
-        assert!(default.is_none());
+        if default.is_some() {
+            return Err(syn::Error::new_spanned(
+                v,
+                "default values are not supported for enum variants",
+            ));
+        }
         let ident = &v.ident;
 
         let arm = match op_type {
