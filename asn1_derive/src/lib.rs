@@ -148,19 +148,18 @@ fn extract_defined_by_property(variant: &syn::Variant) -> syn::Result<DefinedByV
         }
     };
 
-    Ok(DefinedByVariant::DefinedBy(
-        variant
-            .attrs
-            .iter()
-            .find_map(|a| {
-                if a.path().is_ident("defined_by") {
-                    Some(a.parse_args::<syn::Path>().unwrap())
-                } else {
-                    None
-                }
-            })
-            .expect("Variant must have #[defined_by]"),
-        has_field,
+    // Find the defined_by attribute
+    for attr in &variant.attrs {
+        if attr.path().is_ident("defined_by") {
+            let path = attr.parse_args::<syn::Path>()?;
+            return Ok(DefinedByVariant::DefinedBy(path, has_field));
+        }
+    }
+
+    // No defined_by attribute found
+    Err(syn::Error::new_spanned(
+        variant,
+        "Variant must have #[defined_by] attribute",
     ))
 }
 
@@ -741,10 +740,13 @@ fn generate_struct_read_block(
                 let is_defined_by_marker = name
                     .as_ref()
                     .map_or(false, |n| defined_by_markers.contains(n));
+                let name_str = name
+                    .as_ref()
+                    .ok_or_else(|| syn::Error::new_spanned(f, "Field is missing a name"))?;
                 let read_op = generate_read_element(
                     struct_name,
                     f,
-                    &format!("{}", name.as_ref().unwrap()),
+                    &name_str.to_string(),
                     is_defined_by_marker,
                 )?;
 
@@ -1111,14 +1113,31 @@ fn oid_expand(item: proc_macro::TokenStream) -> syn::Result<proc_macro2::TokenSt
 
     let mut arcs = p_arcs.iter();
 
-    let first = arcs.next().unwrap().base10_parse::<u128>().unwrap();
-    let second = arcs.next().unwrap().base10_parse::<u128>().unwrap();
+    let first = arcs
+        .next()
+        .ok_or_else(|| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "OID must have at least two arcs",
+            )
+        })?
+        .base10_parse::<u128>()?;
+    let second = arcs
+        .next()
+        .ok_or_else(|| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "OID must have at least two arcs",
+            )
+        })?
+        .base10_parse::<u128>()?;
 
     let mut der_encoded = vec![];
     _write_base128_int(&mut der_encoded, 40 * first + second);
 
     for arc in arcs {
-        _write_base128_int(&mut der_encoded, arc.base10_parse::<u128>().unwrap());
+        let arc_value = arc.base10_parse::<u128>()?;
+        _write_base128_int(&mut der_encoded, arc_value);
     }
 
     let der_len = der_encoded.len();
