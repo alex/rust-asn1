@@ -231,7 +231,8 @@ impl<'a> Parser<'a> {
         Parser::new(self.data)
     }
 
-    pub(crate) fn peek_tag(&mut self) -> Option<Tag> {
+    /// Returns the tag of the next element, without consuming it.
+    pub fn peek_tag(&mut self) -> Option<Tag> {
         let (tag, _) = Tag::from_bytes(self.data).ok()?;
         Some(tag)
     }
@@ -560,6 +561,15 @@ mod tests {
     fn test_parse_extra_data() {
         let result = crate::parse(b"\x00", |_| Ok(()));
         assert_eq!(result, Err(ParseError::new(ParseErrorKind::ExtraData)));
+    }
+
+    #[test]
+    fn test_peek_tag() {
+        let result = crate::parse(b"\x02\x01\x7f", |p| {
+            assert_eq!(p.peek_tag(), Some(Tag::primitive(0x02)));
+            p.read_element::<u8>()
+        });
+        assert_eq!(result, Ok(127));
     }
 
     #[test]

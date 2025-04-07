@@ -23,6 +23,14 @@ $ cargo add asn1 --no-default-features
 
 ## Changelog
 
+### [Unreleased]
+
+#### Added
+
+- `Parser` now exposes a `peek_tag` method that returns the tag of the next 
+   element in the parse, without consuming that element.
+   ([#532](https://github.com/alex/rust-asn1/pull/532))
+
 ### [0.21.0]
 
 #### Changes
