@@ -30,6 +30,9 @@ $ cargo add asn1 --no-default-features
 - `Parser` now exposes a `peek_tag` method that returns the tag of the next 
    element in the parse, without consuming that element.
    ([#532](https://github.com/alex/rust-asn1/pull/532))
+- `Parser` now exposes `read_explicit_element` and `read_implicit_element`
+   methods that allow parsing EXPLICIT/IMPLICIT elements when the tag number
+   is not known at compile time.
 
 ### [0.21.0]
 
