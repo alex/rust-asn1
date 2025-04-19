@@ -1272,10 +1272,13 @@ impl<T: Asn1Writable> Asn1Writable for Option<T> {
 
 macro_rules! declare_choice {
     ($count:ident => $(($number:ident $name:ident)),*) => {
-        /// Represents an ASN.1 `CHOICE` with the provided number of potential types.
+        /// Represents an ASN.1 `CHOICE` with the provided number of potential
+        /// types.
         ///
-        /// If you need more variants than are provided, please file an issue or submit a pull
-        /// request!
+        /// If you need more variants than are provided, please file an issue
+        /// or submit a pull request! Arbitrary numbers of variants are
+        /// supported by the `#[derive(asn1::Asn1Readable)]` and
+        /// `#[derive(asn1::Asn1Writable)]` APIs.
         #[derive(Debug, PartialEq, Eq)]
         pub enum $count<
             $($number,)*
