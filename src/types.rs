@@ -1277,8 +1277,8 @@ macro_rules! declare_choice {
         ///
         /// If you need more variants than are provided, please file an issue
         /// or submit a pull request! Arbitrary numbers of variants are
-        /// supported by the `#[derive(asn1::Asn1Readable)]` and
-        /// `#[derive(asn1::Asn1Writable)]` APIs.
+        /// supported by the `#[derive(asn1::Asn1Read)]` and
+        /// `#[derive(asn1::Asn1Write)]` APIs.
         #[derive(Debug, PartialEq, Eq)]
         pub enum $count<
             $($number,)*
