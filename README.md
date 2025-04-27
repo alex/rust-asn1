@@ -33,6 +33,8 @@ $ cargo add asn1 --no-default-features
 - `Parser` now exposes `read_explicit_element` and `read_implicit_element`
    methods that allow parsing EXPLICIT/IMPLICIT elements when the tag number
    is not known at compile time.
+- `PrintableString`, `Utf8String`, `BMPString`, and `UniversalString` now
+  `#[derive(Hash)]`. ([#536](https://github.com/alex/rust-asn1/pull/536))
 
 ### [0.21.0]
 
