@@ -657,7 +657,7 @@ fn generate_read_element(
 ) -> syn::Result<proc_macro2::TokenStream> {
     let (read_type, default) = extract_field_properties(&f.attrs)?;
 
-    let error_location = format!("{}::{}", struct_name, f_name);
+    let error_location = format!("{struct_name}::{f_name}");
     let add_error_location = quote::quote! {
         .map_err(|e| e.add_location(asn1::ParseLocation::Field(#error_location)))
     };
@@ -767,7 +767,7 @@ fn generate_struct_read_block(
             let mut recurse = vec![];
 
             for (i, f) in fields.unnamed.iter().enumerate() {
-                let read_op = generate_read_element(struct_name, f, &format!("{}", i), false)?;
+                let read_op = generate_read_element(struct_name, f, &format!("{i}"), false)?;
 
                 recurse.push(quote::quote_spanned! {f.span() =>
                     #read_op,
@@ -820,7 +820,7 @@ fn generate_enum_read_block(
         let ty = &field.ty;
         let ident = &variant.ident;
 
-        let error_location = format!("{}::{}", name, ident);
+        let error_location = format!("{name}::{ident}");
         let add_error_location = quote::quote! {
             .map_err(|e| e.add_location(asn1::ParseLocation::Field(#error_location)))
         };
@@ -1107,7 +1107,7 @@ fn oid_expand(item: proc_macro::TokenStream) -> syn::Result<proc_macro2::TokenSt
         .map_err(|e| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
-                format!("Error parsing OID: {}", e),
+                format!("Error parsing OID: {e}"),
             )
         })?;
 
@@ -1145,7 +1145,7 @@ fn oid_expand(item: proc_macro::TokenStream) -> syn::Result<proc_macro2::TokenSt
     if der_len > 63 {
         return Err(syn::Error::new(
             proc_macro2::Span::call_site(),
-            format!("OID too long: {} bytes > 63 bytes", der_len),
+            format!("OID too long: {der_len} bytes > 63 bytes"),
         ));
     }
 

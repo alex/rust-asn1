@@ -140,19 +140,14 @@ impl fmt::Display for ParseError {
             ParseErrorKind::InvalidSize { min, max, actual } => {
                 write!(
                     f,
-                    "invalid container size (expected between {} and {}, got {})",
-                    min, max, actual
+                    "invalid container size (expected between {min} and {max}, got {actual})"
                 )
             }
             ParseErrorKind::UnexpectedTag { actual } => {
-                write!(f, "unexpected tag (got {:?})", actual)
+                write!(f, "unexpected tag (got {actual:?})")
             }
             ParseErrorKind::ShortData { needed } => {
-                write!(
-                    f,
-                    "short data (needed at least {} additional bytes)",
-                    needed
-                )
+                write!(f, "short data (needed at least {needed} additional bytes)")
             }
             ParseErrorKind::IntegerOverflow => write!(f, "integer overflow"),
             ParseErrorKind::ExtraData => write!(f, "extra data"),
@@ -438,7 +433,7 @@ mod tests {
                 "ParseError { kind: InvalidValue, location: [\"Abc::123\", 12] }",
             ),
         ] {
-            assert_eq!(&format!("{:?}", e), expected);
+            assert_eq!(&format!("{e:?}"), expected);
         }
     }
 
@@ -500,7 +495,7 @@ mod tests {
             ),
         ]
         {
-            assert_eq!(&format!("{}", e), expected);
+            assert_eq!(&format!("{e}"), expected);
         }
     }
 
