@@ -263,7 +263,7 @@ impl<T: Asn1Writable> SimpleAsn1Writable for OctetStringEncoded<T> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `PrintableString`.  A `PrintableString` contains an `&str`
 /// with only valid characers.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PrintableString<'a>(&'a str);
 
 impl<'a> PrintableString<'a> {
@@ -382,7 +382,7 @@ impl SimpleAsn1Writable for IA5String<'_> {
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `UTF8String`.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Utf8String<'a>(&'a str);
 
 impl<'a> Utf8String<'a> {
@@ -471,7 +471,7 @@ impl SimpleAsn1Writable for VisibleString<'_> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `BMPString`. A `BMPString` contains encoded (UTF-16-BE)
 /// bytes which are known to be valid.
-#[derive(Debug, PartialEq, Clone, Eq)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct BMPString<'a>(&'a [u8]);
 
 impl<'a> BMPString<'a> {
@@ -521,7 +521,7 @@ impl SimpleAsn1Writable for BMPString<'_> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `UniversalString`. A `UniversalString` contains encoded
 /// (UTF-32-BE) bytes which are known to be valid.
-#[derive(Debug, PartialEq, Clone, Eq)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct UniversalString<'a>(&'a [u8]);
 
 impl<'a> UniversalString<'a> {
