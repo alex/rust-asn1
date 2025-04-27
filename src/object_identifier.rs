@@ -193,7 +193,7 @@ mod tests {
     #[test]
     fn test_debug() {
         let oid = ObjectIdentifier::from_string("1.2.3.4").unwrap();
-        assert_eq!(format!("{:?}", oid), "ObjectIdentifier { oid: 1.2.3.4 }");
+        assert_eq!(format!("{oid:?}"), "ObjectIdentifier { oid: 1.2.3.4 }");
     }
 
     #[test]
