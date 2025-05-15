@@ -23,6 +23,12 @@ $ cargo add asn1 --no-default-features
 
 ## Changelog
 
+### [Unreleased]
+
+#### Added
+
+- `BitString::new` is now `const fn`.
+
 ### [0.21.2]
 
 #### Added
