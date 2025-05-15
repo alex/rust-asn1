@@ -23,6 +23,13 @@ $ cargo add asn1 --no-default-features
 
 ## Changelog
 
+### [0.21.2]
+
+#### Added
+
+- `BigInt::new`, `BigUint::new`, and `DateTime::new` are now `const fn`.
+
+
 ### [0.21.1]
 
 #### Added
