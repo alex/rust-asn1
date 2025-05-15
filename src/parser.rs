@@ -62,7 +62,7 @@ pub struct ParseError {
 }
 
 impl ParseError {
-    pub fn new(kind: ParseErrorKind) -> ParseError {
+    pub const fn new(kind: ParseErrorKind) -> ParseError {
         ParseError {
             kind,
             parse_locations: [None, None, None, None],

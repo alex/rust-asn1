@@ -568,7 +568,7 @@ impl SimpleAsn1Writable for UniversalString<'_> {
     }
 }
 
-fn validate_integer(data: &[u8], signed: bool) -> ParseResult<()> {
+const fn validate_integer(data: &[u8], signed: bool) -> ParseResult<()> {
     if data.is_empty() {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
@@ -656,9 +656,11 @@ impl<'a> BigUint<'a> {
     /// as required by DER: minimally and if the high bit would be set in the
     /// first octet, a leading `\x00` should be prepended (to disambiguate from
     /// negative values).
-    pub fn new(data: &'a [u8]) -> Option<Self> {
-        validate_integer(data, false).ok()?;
-        Some(BigUint { data })
+    pub const fn new(data: &'a [u8]) -> Option<Self> {
+        match validate_integer(data, false) {
+            Ok(()) => Some(BigUint { data }),
+            Err(_) => None,
+        }
     }
 
     /// Returns the contents of the integer as big-endian bytes.
@@ -731,9 +733,11 @@ impl<'a> BigInt<'a> {
     /// as required by DER: minimally and if the high bit would be set in the
     /// first octet, a leading `\x00` should be prepended (to disambiguate from
     /// negative values).
-    pub fn new(data: &'a [u8]) -> Option<Self> {
-        validate_integer(data, true).ok()?;
-        Some(BigInt { data })
+    pub const fn new(data: &'a [u8]) -> Option<Self> {
+        match validate_integer(data, true) {
+            Ok(()) => Some(BigInt { data }),
+            Err(_) => None,
+        }
     }
 
     /// Returns the contents of the integer as big-endian bytes.
@@ -874,7 +878,7 @@ fn read_4_digits(data: &mut &[u8]) -> ParseResult<u16> {
         + u16::from(read_digit(data)?))
 }
 
-fn validate_date(year: u16, month: u8, day: u8) -> ParseResult<()> {
+const fn validate_date(year: u16, month: u8, day: u8) -> ParseResult<()> {
     if day < 1 {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
@@ -934,7 +938,7 @@ pub struct DateTime {
 }
 
 impl DateTime {
-    pub fn new(
+    pub const fn new(
         year: u16,
         month: u8,
         day: u8,
@@ -942,18 +946,20 @@ impl DateTime {
         minute: u8,
         second: u8,
     ) -> ParseResult<DateTime> {
-        validate_date(year, month, day)?;
         if hour > 23 || minute > 59 || second > 59 {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        Ok(DateTime {
-            year,
-            month,
-            day,
-            hour,
-            minute,
-            second,
-        })
+        match validate_date(year, month, day) {
+            Ok(()) => Ok(DateTime {
+                year,
+                month,
+                day,
+                hour,
+                minute,
+                second,
+            }),
+            Err(e) => Err(e),
+        }
     }
 
     /// The calendar year.
