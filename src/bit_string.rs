@@ -9,7 +9,7 @@ pub struct BitString<'a> {
 }
 
 impl<'a> BitString<'a> {
-    pub fn new(data: &'a [u8], padding_bits: u8) -> Option<BitString<'a>> {
+    pub const fn new(data: &'a [u8], padding_bits: u8) -> Option<BitString<'a>> {
         if padding_bits > 7 || (data.is_empty() && padding_bits != 0) {
             return None;
         }
