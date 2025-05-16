@@ -23,7 +23,7 @@ $ cargo add asn1 --no-default-features
 
 ## Changelog
 
-### [Unreleased]
+### [0.21.3]
 
 #### Added
 
