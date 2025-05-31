@@ -22,6 +22,20 @@ fn test_i8() {
 }
 
 #[test]
+fn test_u16() {
+    for i in u16::MIN..=u16::MAX {
+        assert_roundtrips::<u16>(i);
+    }
+}
+
+#[test]
+fn test_i16() {
+    for i in i16::MIN..=i16::MAX {
+        assert_roundtrips::<i16>(i);
+    }
+}
+
+#[test]
 fn test_u64() {
     for v in [0, 12356915591483590945, u64::MAX] {
         assert_roundtrips::<u64>(v);
