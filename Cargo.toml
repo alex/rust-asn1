@@ -10,7 +10,7 @@ categories = ["parser-implementations", "encoding", "no-std"]
 
 edition = "2021"
 # This specifies the MSRV
-rust-version = "1.65.0"
+rust-version = "1.74.0"
 
 [features]
 default = ["std"]

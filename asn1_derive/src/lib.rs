@@ -739,7 +739,7 @@ fn generate_struct_read_block(
                 let name = &f.ident;
                 let is_defined_by_marker = name
                     .as_ref()
-                    .map_or(false, |n| defined_by_markers.contains(n));
+                    .is_some_and(|n| defined_by_markers.contains(n));
                 let name_str = name
                     .as_ref()
                     .ok_or_else(|| syn::Error::new_spanned(f, "Field is missing a name"))?;

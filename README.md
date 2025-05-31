@@ -13,7 +13,7 @@ Add `asn1` to your `Cargo.toml`:
 $ cargo add asn1
 ```
 
-Builds on Rust 1.65.0 and newer.
+Builds on Rust 1.74.0 and newer.
 
 `rust-asn1` is compatible with `#![no_std]` environments:
 
@@ -22,6 +22,12 @@ $ cargo add asn1 --no-default-features
 ```
 
 ## Changelog
+
+### Unreleased
+
+#### Changes
+
+- Updated MSRV to 1.74.0.
 
 ### [0.21.3]
 
@@ -34,7 +40,6 @@ $ cargo add asn1 --no-default-features
 #### Added
 
 - `BigInt::new`, `BigUint::new`, and `DateTime::new` are now `const fn`.
-
 
 ### [0.21.1]
 
