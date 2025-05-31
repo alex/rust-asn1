@@ -46,7 +46,7 @@ jobs:
       matrix:
         RUST:
           # MSRV
-          - VERSION: "1.65.0"
+          - VERSION: "1.74.0"
             FLAGS: ""
 
           - VERSION: stable
@@ -86,18 +86,6 @@ jobs:
             target/
           key: ${{ runner.os }}-${{ matrix.RUST.VERSION }}-cargo-2-${{ hashFiles('**/Cargo.toml') }}
 
-      - run: |
-          cargo generate-lockfile
-          cargo update -p anstyle --precise 1.0.8
-          cargo update -p anstyle-parse --precise 0.2.5
-          cargo update -p anstyle-query --precise 1.1.1
-          cargo update -p clap --precise 4.3.24
-          cargo update -p clap_builder --precise 4.3.24
-          cargo update -p clap_lex --precise 0.5.0
-          cargo update -p colorchoice --precise 1.0.2
-          cargo update -p once_cell --precise 1.20.3
-        if: matrix.RUST.VERSION == '1.65.0'
-
       - run: cargo check --workspace --tests ${{ matrix.RUST.FLAGS }}
       - run: cargo test --workspace ${{ matrix.RUST.FLAGS }}
         if: "${{ !matrix.RUST.SKIP_TESTS }}"
@@ -111,7 +99,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@888c2e1ea69ab0d4330cbf0af1ecc7b68f368cc1
         with:
-          toolchain: 1.76.0
+          toolchain: "1.74"
           components: llvm-tools-preview
 
       - run: sudo apt update && sudo apt-get install -y lcov
@@ -119,11 +107,7 @@ jobs:
       - uses: actions/cache@v4.2.3
         id: cargo-cache
         with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
+          path: target/
           key: ${{ runner.os }}-cargo-5-${{ hashFiles('**/Cargo.toml') }}
 
       - run: cargo test

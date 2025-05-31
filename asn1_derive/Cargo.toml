@@ -7,7 +7,7 @@ license = "BSD-3-Clause"
 description = "#[derive] support for asn1"
 edition = "2021"
 # This specifies the MSRV
-rust-version = "1.65.0"
+rust-version = "1.74.0"
 
 [lib]
 proc-macro = true

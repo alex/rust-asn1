@@ -1,6 +1,6 @@
 use crate::parser::{ParseError, ParseErrorKind, ParseResult};
 
-const INT_MAX_BYTES: u32 = (u128::BITS + 6) / 7;
+const INT_MAX_BYTES: u32 = u128::BITS.div_ceil(7);
 
 pub(crate) fn read_base128_int(mut data: &[u8]) -> ParseResult<(u128, &[u8])> {
     let mut ret = 0u128;
@@ -30,7 +30,7 @@ pub(crate) fn read_base128_int(mut data: &[u8]) -> ParseResult<(u128, &[u8])> {
 pub(crate) fn base128_length(n: u128) -> usize {
     // Equivalent to: let bits = if n != 0 { 128 - n.leading_zeros() } else { 1 };
     let bits = u128::BITS - (n | 1).leading_zeros();
-    let bytes = (bits + 6) / 7;
+    let bytes = bits.div_ceil(7);
     bytes as usize
 }
 

@@ -1277,7 +1277,7 @@ impl<T: Asn1Writable> Asn1Writable for Option<T> {
 }
 
 macro_rules! declare_choice {
-    ($count:ident => $(($number:ident $name:ident)),*) => {
+    ($count:ident => $(($number:ident $name:ident)),+) => {
         /// Represents an ASN.1 `CHOICE` with the provided number of potential
         /// types.
         ///
@@ -1287,7 +1287,7 @@ macro_rules! declare_choice {
         /// `#[derive(asn1::Asn1Write)]` APIs.
         #[derive(Debug, PartialEq, Eq)]
         pub enum $count<
-            $($number,)*
+            $($number,)+
         > {
             $(
                 $name($number),
@@ -1299,14 +1299,14 @@ macro_rules! declare_choice {
             $(
                 $number: Asn1Readable<'a>,
             )*
-        > Asn1Readable<'a> for $count<$($number,)*> {
+        > Asn1Readable<'a> for $count<$($number,)+> {
             fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
                 let tlv = parser.read_tlv()?;
                 $(
                     if $number::can_parse(tlv.tag()) {
                         return Ok($count::$name(tlv.parse::<$number>()?));
                     }
-                )*
+                )+
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag{actual: tlv.tag()}))
             }
 
@@ -1315,7 +1315,7 @@ macro_rules! declare_choice {
                     if $number::can_parse(tag) {
                         return true;
                     }
-                )*
+                )+
                 false
             }
         }
@@ -1323,13 +1323,13 @@ macro_rules! declare_choice {
         impl<
             $(
                 $number: Asn1Writable,
-            )*
-        > Asn1Writable for $count<$($number,)*> {
+            )+
+        > Asn1Writable for $count<$($number,)+> {
             fn write(&self, w: &mut Writer<'_>) -> WriteResult {
                 match self {
                     $(
                         $count::$name(v) => w.write_element(v),
-                    )*
+                    )+
                 }
             }
         }

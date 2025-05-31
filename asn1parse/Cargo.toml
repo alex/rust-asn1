@@ -3,6 +3,8 @@ name = "asn1parse"
 version = "0.1.0"
 edition = "2021"
 publish = false
+# This specifies the MSRV
+rust-version = "1.74.0"
 
 [dependencies]
 asn1 = { version = "0.21", path = ".." }
