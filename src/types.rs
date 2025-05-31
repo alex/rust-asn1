@@ -17,14 +17,25 @@ use crate::{
 
 /// Any type that can be parsed as DER ASN.1.
 pub trait Asn1Readable<'a>: Sized {
+    /// Parse a value from the given parser.
+    ///
+    /// This method should read exactly one ASN.1 TLV from the parser,
+    /// consuming the appropriate bytes and returning the parsed value.
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self>;
+
+    /// Returns whether this type can parse values with the given tag.
     fn can_parse(tag: Tag) -> bool;
 }
 
 /// Types with a fixed-tag that can be parsed as DER ASN.1
 pub trait SimpleAsn1Readable<'a>: Sized {
+    /// The ASN.1 tag that this type expects when parsing.
     const TAG: Tag;
 
+    /// Parse the value from the given data bytes.
+    ///
+    /// This method receives the value portion of a TLV (without the tag or
+    /// length) and should parse it into the appropriate type.
     fn parse_data(data: &'a [u8]) -> ParseResult<Self>;
 }
 
@@ -56,22 +67,44 @@ impl<'a, T: SimpleAsn1Readable<'a>> SimpleAsn1Readable<'a> for Box<T> {
 
 /// Any type that can be written as DER ASN.1.
 pub trait Asn1Writable: Sized {
+    /// Write this value to the given writer.
+    ///
+    /// This method should write the complete ASN.1 encoding of this value,
+    /// including the tag, length, and content bytes.
     fn write(&self, dest: &mut Writer<'_>) -> WriteResult;
 }
 
-// Types with a fixed-tag that can be written as DER ASN.1.
+/// Types with a fixed-tag that can be written as DER ASN.1.
 pub trait SimpleAsn1Writable: Sized {
+    /// The ASN.1 tag that this type uses when writing.
     const TAG: Tag;
 
+    /// Write the value's data to the given buffer.
+    ///
+    /// This method should write only the value bytes (without the tag and
+    /// length) to the buffer.
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult;
 }
 
+/// A trait for types that can be parsed based on a `DEFINED BY` value.
+///
+/// `T` is the type of the `DEFINED BY` field (nearly always `ObjectIdentifier`).
 pub trait Asn1DefinedByReadable<'a, T: Asn1Readable<'a>>: Sized {
+    /// Parse a value based on the previously parsed item.
+    ///
+    /// The `item` parameter contains the value that determines how to parse
+    /// the current value from the parser.
     fn parse(item: T, parser: &mut Parser<'a>) -> ParseResult<Self>;
 }
 
+/// A trait for types that can be written based on a `DEFINED BY` value.
+///
+/// `T` is the type of the `DEFINED BY` field (nearly always `ObjectIdentifier`).
 pub trait Asn1DefinedByWritable<T: Asn1Writable>: Sized {
+    /// Get a reference to the `DEFINED BY` value.
     fn item(&self) -> &T;
+
+    /// Write this value to the given writer.
     fn write(&self, dest: &mut Writer<'_>) -> WriteResult;
 }
 
