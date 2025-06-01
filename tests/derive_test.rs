@@ -329,6 +329,64 @@ fn test_default_bool() {
 }
 
 #[test]
+fn test_struct_field_types() {
+    // This test covers encoding a variety of different field types. Mostly to
+    // cover their encoded_length implementations.
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct TlvField<'a> {
+        t: asn1::Tlv<'a>,
+    }
+    assert_roundtrips(&[
+        (
+            Ok(TlvField {
+                t: asn1::parse_single(b"\x05\x00").unwrap(),
+            }),
+            b"\x30\x02\x05\x00",
+        ),
+        (
+            Ok(TlvField {
+                t: asn1::parse_single(b"\x1f\x81\x80\x01\x00").unwrap(),
+            }),
+            b"\x30\x05\x1f\x81\x80\x01\x00",
+        ),
+    ]);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct ChoiceFields<'a> {
+        c1: asn1::Choice1<&'a [u8]>,
+        c2: asn1::Choice2<bool, u64>,
+    }
+    assert_roundtrips(&[
+        (
+            Ok(ChoiceFields {
+                c1: asn1::Choice1::ChoiceA(b""),
+                c2: asn1::Choice2::ChoiceA(true),
+            }),
+            b"\x30\x05\x04\x00\x01\x01\xff",
+        ),
+        (
+            Ok(ChoiceFields {
+                c1: asn1::Choice1::ChoiceA(b""),
+                c2: asn1::Choice2::ChoiceB(12),
+            }),
+            b"\x30\x05\x04\x00\x02\x01\x0c",
+        ),
+    ]);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    struct LongField<'a> {
+        f: &'a [u8],
+    }
+    assert_roundtrips(&[
+        (
+            Ok(LongField{f: b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}),
+            b"\x30\x81\x84\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        )
+    ]);
+}
+
+#[test]
 fn test_enum() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
     enum BasicChoice {
