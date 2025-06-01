@@ -46,21 +46,26 @@ impl WriteBuf {
         self.0.as_mut_slice()
     }
 
+    // Reserve space for up to `len` additional bytes.
     #[inline]
-    pub fn push_byte(&mut self, b: u8) -> WriteResult {
+    pub fn reserve_additional(&mut self, len: usize) -> WriteResult {
         self.0
-            .try_reserve(1)
+            .try_reserve(len)
             .map_err(|_| WriteError::AllocationError)?;
 
+        Ok(())
+    }
+
+    #[inline]
+    pub fn push_byte(&mut self, b: u8) -> WriteResult {
+        self.reserve_additional(1)?;
         self.0.push(b);
         Ok(())
     }
 
     #[inline]
     pub fn push_slice(&mut self, data: &[u8]) -> WriteResult {
-        self.0
-            .try_reserve(data.len())
-            .map_err(|_| WriteError::AllocationError)?;
+        self.reserve_additional(data.len())?;
 
         self.0.extend_from_slice(data);
         Ok(())
@@ -75,6 +80,16 @@ fn _length_length(length: usize) -> u8 {
         i >>= 8;
     }
     num_bytes
+}
+
+/// Calculate the number of bytes needed to encode a length field for the given content length.
+/// This includes the length-of-length byte for lengths >= 128.
+pub(crate) fn length_encoding_size(content_length: usize) -> usize {
+    if content_length < 128 {
+        1
+    } else {
+        1 + _length_length(content_length) as usize
+    }
 }
 
 fn _insert_at_position(buf: &mut WriteBuf, pos: usize, data: &[u8]) -> WriteResult {
@@ -104,25 +119,53 @@ impl Writer<'_> {
     /// Writes a single element to the output.
     #[inline]
     pub fn write_element<T: Asn1Writable>(&mut self, val: &T) -> WriteResult {
+        if let Some(len) = val.encoded_length() {
+            self.buf.reserve_additional(len)?;
+        }
         val.write(self)
     }
 
     /// Writes a TLV with the specified tag where the value is any bytes
     /// written to the `Vec` in the callback. The length portion of the
     /// TLV is automatically computed.
+    ///
+    /// If `content_length` is provided, it reduces the number of
+    /// re-allocations required.
     #[inline]
     pub fn write_tlv<F: FnOnce(&mut WriteBuf) -> WriteResult>(
         &mut self,
         tag: Tag,
+        content_length: Option<usize>,
         body: F,
     ) -> WriteResult {
         tag.write_bytes(self.buf)?;
-        // Push a 0-byte placeholder for the length. Needing only a single byte
-        // for the element is probably the most common case.
-        self.buf.push_byte(0)?;
-        let start_len = self.buf.len();
-        body(self.buf)?;
-        self.insert_length(start_len)
+
+        match content_length {
+            Some(len) => {
+                // Optimized path: write the correct length encoding upfront
+                if len < 128 {
+                    self.buf.push_byte(len as u8)?;
+                } else {
+                    let num_length_bytes = _length_length(len);
+                    self.buf.push_byte(0x80 | num_length_bytes)?;
+                    for i in (1..=num_length_bytes).rev() {
+                        self.buf.push_byte((len >> ((i - 1) * 8)) as u8)?;
+                    }
+                }
+                let start_len = self.buf.len();
+                body(self.buf)?;
+                assert_eq!(len, self.buf.len() - start_len);
+                Ok(())
+            }
+            None => {
+                // Write a placeholder and then fix the length up later as
+                // required.
+                self.buf.push_byte(0)?;
+                let start_len = self.buf.len();
+                body(self.buf)?;
+                self.insert_length(start_len)
+            }
+        }
     }
 
     #[inline]

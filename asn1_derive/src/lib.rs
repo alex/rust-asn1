@@ -86,7 +86,7 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
 
     let expanded = match input.data {
         syn::Data::Struct(data) => {
-            let write_block = generate_struct_write_block(&data)?;
+            let (write_block, data_length_block) = generate_struct_write_block(&data)?;
             quote::quote! {
                 impl #impl_generics asn1::SimpleAsn1Writable for #name #ty_generics #where_clause {
                     const TAG: asn1::Tag = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
@@ -95,21 +95,32 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
 
                         Ok(())
                     }
+
+                    fn data_length(&self) -> Option<usize> {
+                        #data_length_block
+                    }
                 }
             }
         }
         syn::Data::Enum(data) => {
-            let write_block = generate_enum_write_block(name, &data)?;
+            let (write_block, length_block) = generate_enum_write_block(name, &data)?;
             quote::quote! {
                 impl #impl_generics asn1::Asn1Writable for #name #ty_generics #where_clause {
                     fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
                         #write_block
+                    }
+                    fn encoded_length(&self) -> Option<usize> {
+                        #length_block
                     }
                 }
 
                 impl #impl_generics asn1::Asn1Writable for &#name #ty_generics #where_clause {
                     fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
                         (*self).write(w)
+                    }
+
+                    fn encoded_length(&self) -> Option<usize> {
+                        (*self).encoded_length()
                     }
                 }
             }
@@ -270,6 +281,7 @@ fn derive_asn1_defined_by_write_expand(
 
     let mut write_blocks = vec![];
     let mut item_blocks = vec![];
+    let mut length_blocks = vec![];
     match &input.data {
         syn::Data::Enum(data) => {
             for variant in &data.variants {
@@ -283,6 +295,9 @@ fn derive_asn1_defined_by_write_expand(
                             item_blocks.push(quote::quote! {
                                 #name::#ident(..) => &#defined_by,
                             });
+                            length_blocks.push(quote::quote! {
+                                #name::#ident(value) => asn1::Asn1Writable::encoded_length(value),
+                            })
                         } else {
                             write_blocks.push(quote::quote! {
                                 #name::#ident => { Ok(()) },
@@ -290,6 +305,9 @@ fn derive_asn1_defined_by_write_expand(
                             item_blocks.push(quote::quote! {
                                 #name::#ident => &#defined_by,
                             });
+                            length_blocks.push(quote::quote! {
+                                #name::#ident => Some(0),
+                            })
                         }
                     }
                     DefinedByVariant::Default => {
@@ -299,6 +317,9 @@ fn derive_asn1_defined_by_write_expand(
                         item_blocks.push(quote::quote! {
                             #name::#ident(defined_by, _) => &defined_by,
                         });
+                        length_blocks.push(quote::quote! {
+                            #name::#ident(_, value) => asn1::Asn1Writable::encoded_length(value),
+                        })
                     }
                 };
             }
@@ -317,6 +338,12 @@ fn derive_asn1_defined_by_write_expand(
             fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
                 match self {
                     #(#write_blocks)*
+                }
+            }
+
+            fn encoded_length(&self) -> Option<usize> {
+                match self {
+                    #(#length_blocks)*
                 }
             }
         }
@@ -891,7 +918,7 @@ fn generate_write_element(
     f: &syn::Field,
     mut field_read: proc_macro2::TokenStream,
     defined_by_marker_origin: Option<proc_macro2::TokenStream>,
-) -> syn::Result<proc_macro2::TokenStream> {
+) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
     let (write_type, default) = extract_field_properties(&f.attrs)?;
 
     if let Some(default) = default {
@@ -900,55 +927,100 @@ fn generate_write_element(
         }}
     }
 
-    let result = match write_type {
+    let (write_result, length_result) = match write_type {
         OpType::Explicit(arg) => {
             let value = arg.value;
             if arg.required {
-                quote::quote_spanned! {f.span() =>
-                    w.write_element(&asn1::Explicit::<_, #value>::new(#field_read))?;
-                }
+                (
+                    quote::quote_spanned! {f.span() =>
+                        w.write_element(&asn1::Explicit::<_, #value>::new(#field_read))?;
+                    },
+                    quote::quote_spanned! {f.span() =>
+                        asn1::Asn1Writable::encoded_length(&asn1::Explicit::<_, #value>::new(#field_read))?
+                    },
+                )
             } else {
-                quote::quote_spanned! {f.span() =>
-                    if let Some(v) = #field_read {
-                        w.write_element(&asn1::Explicit::<_, #value>::new(v))?;
-                    }
-                }
+                (
+                    quote::quote_spanned! {f.span() =>
+                        if let Some(v) = #field_read {
+                            w.write_element(&asn1::Explicit::<_, #value>::new(v))?;
+                        }
+                    },
+                    quote::quote_spanned! {f.span() =>
+                        if let Some(v) = #field_read {
+                            asn1::Asn1Writable::encoded_length(&asn1::Explicit::<_, #value>::new(v))?
+                        } else {
+                            0
+                        }
+                    },
+                )
             }
         }
         OpType::Implicit(arg) => {
             let value = arg.value;
             if arg.required {
-                quote::quote_spanned! {f.span() =>
-                    w.write_element(&asn1::Implicit::<_, #value>::new(#field_read))?;
-                }
+                (
+                    quote::quote_spanned! {f.span() =>
+                        w.write_element(&asn1::Implicit::<_, #value>::new(#field_read))?;
+                    },
+                    quote::quote_spanned! {f.span() =>
+                        asn1::Asn1Writable::encoded_length(&asn1::Implicit::<_, #value>::new(#field_read))?
+                    },
+                )
             } else {
-                quote::quote_spanned! {f.span() =>
-                    if let Some(v) = #field_read {
-                        w.write_element(&asn1::Implicit::<_, #value>::new(v))?;
-                    }
-                }
+                (
+                    quote::quote_spanned! {f.span() =>
+                        if let Some(v) = #field_read {
+                            w.write_element(&asn1::Implicit::<_, #value>::new(v))?;
+                        }
+                    },
+                    quote::quote_spanned! {f.span() =>
+                        if let Some(v) = #field_read {
+                            asn1::Asn1Writable::encoded_length(&asn1::Implicit::<_, #value>::new(v))?
+                        } else {
+                            0
+                        }
+                    },
+                )
             }
         }
         OpType::Regular => {
             if let Some(defined_by_marker_read) = defined_by_marker_origin {
-                quote::quote! {
-                    w.write_element(asn1::Asn1DefinedByWritable::item(#defined_by_marker_read))?;
-                }
+                (
+                    quote::quote! {
+                        w.write_element(asn1::Asn1DefinedByWritable::item(#defined_by_marker_read))?;
+                    },
+                    quote::quote! {
+                        asn1::Asn1Writable::encoded_length(asn1::Asn1DefinedByWritable::item(#defined_by_marker_read))?
+                    },
+                )
             } else {
-                quote::quote! {
-                    w.write_element(#field_read)?;
-                }
+                (
+                    quote::quote! {
+                        w.write_element(#field_read)?;
+                    },
+                    quote::quote! {
+                        asn1::Asn1Writable::encoded_length(#field_read)?
+                    },
+                )
             }
         }
-        OpType::DefinedBy(_) => quote::quote! {
-            asn1::Asn1DefinedByWritable::write(#field_read, &mut w)?;
-        },
+        OpType::DefinedBy(_) => (
+            quote::quote! {
+                asn1::Asn1DefinedByWritable::write(#field_read, &mut w)?;
+            },
+            quote::quote! {
+                asn1::Asn1DefinedByWritable::encoded_length(#field_read)?
+            },
+        ),
     };
 
-    Ok(result)
+    Ok((write_result, length_result))
 }
 
-fn generate_struct_write_block(data: &syn::DataStruct) -> syn::Result<proc_macro2::TokenStream> {
+fn generate_struct_write_block(
+    data: &syn::DataStruct,
+) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
     match data.fields {
         syn::Fields::Named(ref fields) => {
             let mut defined_by_markers = std::collections::hash_map::HashMap::new();
@@ -960,7 +1032,8 @@ fn generate_struct_write_block(data: &syn::DataStruct) -> syn::Result<proc_macro
                 }
             }
 
-            let mut recurse = vec![];
+            let mut write_recurse = vec![];
+            let mut length_recurse = vec![];
 
             for f in fields.named.iter() {
                 let name = &f.ident;
@@ -969,42 +1042,57 @@ fn generate_struct_write_block(data: &syn::DataStruct) -> syn::Result<proc_macro
                         quote::quote! { &self.#v }
                     })
                 });
-                let write_op = generate_write_element(
+                let (write_op, length_op) = generate_write_element(
                     f,
                     quote::quote! { &self.#name },
                     defined_by_marker_origin,
                 )?;
-                recurse.push(write_op);
+                write_recurse.push(write_op);
+                length_recurse.push(length_op);
             }
 
-            Ok(quote::quote! {
-                let mut w = asn1::Writer::new(dest);
-                #(#recurse)*
-            })
+            Ok((
+                quote::quote! {
+                    let mut w = asn1::Writer::new(dest);
+                    #(#write_recurse)*
+                },
+                quote::quote! {
+                    Some(0 #( + #length_recurse)*)
+                },
+            ))
         }
         syn::Fields::Unnamed(ref fields) => {
-            let mut recurse = vec![];
+            let mut write_recurse = vec![];
+            let mut length_recurse = vec![];
 
             for (i, f) in fields.unnamed.iter().enumerate() {
                 let index = syn::Index::from(i);
-                let write_op = generate_write_element(f, quote::quote! { &self.#index }, None)?;
-                recurse.push(write_op);
+                let (write_op, length_op) =
+                    generate_write_element(f, quote::quote! { &self.#index }, None)?;
+                write_recurse.push(write_op);
+                length_recurse.push(length_op);
             }
 
-            Ok(quote::quote! {
-                let mut w = asn1::Writer::new(dest);
-                #(#recurse)*
-            })
+            Ok((
+                quote::quote! {
+                    let mut w = asn1::Writer::new(dest);
+                    #(#write_recurse)*
+                },
+                quote::quote! {
+                    Some(0 #( + #length_recurse)*)
+                },
+            ))
         }
-        syn::Fields::Unit => Ok(quote::quote! {}),
+        syn::Fields::Unit => Ok((quote::quote! {}, quote::quote! { Some(0) })),
     }
 }
 
 fn generate_enum_write_block(
     name: &syn::Ident,
     data: &syn::DataEnum,
-) -> syn::Result<proc_macro2::TokenStream> {
+) -> syn::Result<(proc_macro2::TokenStream, proc_macro2::TokenStream)> {
     let mut write_arms = vec![];
+    let mut length_arms = vec![];
 
     for v in &data.variants {
         match &v.fields {
@@ -1032,23 +1120,36 @@ fn generate_enum_write_block(
         }
         let ident = &v.ident;
 
-        let arm = match op_type {
-            OpType::Regular => {
+        let (write_arm, length_arm) = match op_type {
+            OpType::Regular => (
                 quote::quote! {
                     #name::#ident(value) => w.write_element(value),
-                }
-            }
+                },
+                quote::quote! {
+                    #name::#ident(value) => asn1::Asn1Writable::encoded_length(value),
+                },
+            ),
             OpType::Explicit(arg) => {
                 let tag = arg.value;
-                quote::quote! {
-                    #name::#ident(value) => w.write_element(&asn1::Explicit::<_, #tag>::new(value)),
-                }
+                (
+                    quote::quote! {
+                        #name::#ident(value) => w.write_element(&asn1::Explicit::<_, #tag>::new(value)),
+                    },
+                    quote::quote! {
+                        #name::#ident(value) => asn1::Asn1Writable::encoded_length(&asn1::Explicit::<_, #tag>::new(value)),
+                    },
+                )
             }
             OpType::Implicit(arg) => {
                 let tag = arg.value;
-                quote::quote! {
-                    #name::#ident(value) => w.write_element(&asn1::Implicit::<_, #tag>::new(value)),
-                }
+                (
+                    quote::quote! {
+                        #name::#ident(value) => w.write_element(&asn1::Implicit::<_, #tag>::new(value)),
+                    },
+                    quote::quote! {
+                        #name::#ident(value) => asn1::Asn1Writable::encoded_length(&asn1::Implicit::<_, #tag>::new(value)),
+                    },
+                )
             }
             OpType::DefinedBy(_) => {
                 return Err(syn::Error::new_spanned(
@@ -1057,14 +1158,22 @@ fn generate_enum_write_block(
                 ))
             }
         };
-        write_arms.push(arm);
+        write_arms.push(write_arm);
+        length_arms.push(length_arm);
     }
 
-    Ok(quote::quote! {
-        match self {
-            #(#write_arms)*
-        }
-    })
+    Ok((
+        quote::quote! {
+            match self {
+                #(#write_arms)*
+            }
+        },
+        quote::quote! {
+            match self {
+                #(#length_arms)*
+            }
+        },
+    ))
 }
 
 // TODO: Duplicate of this function in src/object_identifier.rs, can we
