@@ -24,7 +24,6 @@ fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::
         all_field_types(&input.data, false, &input.generics)?,
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
         syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
-        false,
     );
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
@@ -80,7 +79,6 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
         fields,
         syn::parse_quote!(asn1::Asn1Writable),
         syn::parse_quote!(asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier>),
-        true,
     );
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -184,7 +182,6 @@ fn derive_asn1_defined_by_read_expand(
         all_field_types(&input.data, true, &input.generics)?,
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
         syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
-        false,
     );
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
@@ -264,7 +261,6 @@ fn derive_asn1_defined_by_write_expand(
         fields,
         syn::parse_quote!(asn1::Asn1Writable),
         syn::parse_quote!(asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier>),
-        true,
     );
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -505,7 +501,6 @@ fn add_bounds(
     field_types: Vec<(syn::Type, OpType, bool)>,
     bound: syn::TypeParamBound,
     defined_by_bound: syn::TypeParamBound,
-    add_ref: bool,
 ) {
     let where_clause = if field_types.is_empty() {
         return;
@@ -519,11 +514,11 @@ fn add_bounds(
     };
 
     for (f, op_type, has_default) in field_types {
-        let (bounded_ty, required_bound) = match (op_type, add_ref) {
-            (OpType::Regular, _) => (f, bound.clone()),
-            (OpType::DefinedBy(_), _) => (f, defined_by_bound.clone()),
+        let (bounded_ty, required_bound) = match op_type {
+            OpType::Regular => (f, bound.clone()),
+            OpType::DefinedBy(_) => (f, defined_by_bound.clone()),
 
-            (OpType::Implicit(OpTypeArgs { value, required }), false) => {
+            OpType::Implicit(OpTypeArgs { value, required }) => {
                 let ty = if required || has_default {
                     syn::parse_quote!(asn1::Implicit::<#f, #value>)
                 } else {
@@ -532,30 +527,12 @@ fn add_bounds(
 
                 (ty, bound.clone())
             }
-            (OpType::Implicit(OpTypeArgs { value, required }), true) => {
-                let ty = if required || has_default {
-                    syn::parse_quote!(for<'asn1_internal> asn1::Implicit::<&'asn1_internal #f, #value>)
-                } else {
-                    syn::parse_quote!(for<'asn1_internal> asn1::Implicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value>)
-                };
 
-                (ty, bound.clone())
-            }
-
-            (OpType::Explicit(OpTypeArgs { value, required }), false) => {
+            OpType::Explicit(OpTypeArgs { value, required }) => {
                 let ty = if required || has_default {
                     syn::parse_quote!(asn1::Explicit::<#f, #value>)
                 } else {
                     syn::parse_quote!(asn1::Explicit::<<#f as asn1::OptionExt>::T, #value>)
-                };
-
-                (ty, bound.clone())
-            }
-            (OpType::Explicit(OpTypeArgs { value, required }), true) => {
-                let ty = if required || has_default {
-                    syn::parse_quote!(for<'asn1_internal> asn1::Explicit::<&'asn1_internal #f, #value>)
-                } else {
-                    syn::parse_quote!(for<'asn1_internal> asn1::Explicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value>)
                 };
 
                 (ty, bound.clone())
@@ -894,8 +871,9 @@ fn generate_write_element(
 ) -> syn::Result<proc_macro2::TokenStream> {
     let (write_type, default) = extract_field_properties(&f.attrs)?;
 
+    let has_default = default.is_some();
     if let Some(default) = default {
-        field_read = quote::quote! {&{
+        field_read = quote::quote! {{
             asn1::to_optional_default(#field_read, &(#default).into())
         }}
     }
@@ -905,12 +883,12 @@ fn generate_write_element(
             let value = arg.value;
             if arg.required {
                 quote::quote_spanned! {f.span() =>
-                    w.write_element(&asn1::Explicit::<_, #value>::new(#field_read))?;
+                    w.write_element(asn1::Explicit::<_, #value>::from_ref(#field_read))?;
                 }
             } else {
                 quote::quote_spanned! {f.span() =>
                     if let Some(v) = #field_read {
-                        w.write_element(&asn1::Explicit::<_, #value>::new(v))?;
+                        w.write_element(asn1::Explicit::<_, #value>::from_ref(v))?;
                     }
                 }
             }
@@ -919,12 +897,12 @@ fn generate_write_element(
             let value = arg.value;
             if arg.required {
                 quote::quote_spanned! {f.span() =>
-                    w.write_element(&asn1::Implicit::<_, #value>::new(#field_read))?;
+                    w.write_element(asn1::Implicit::<_, #value>::from_ref(#field_read))?;
                 }
             } else {
                 quote::quote_spanned! {f.span() =>
                     if let Some(v) = #field_read {
-                        w.write_element(&asn1::Implicit::<_, #value>::new(v))?;
+                        w.write_element(asn1::Implicit::<_, #value>::from_ref(v))?;
                     }
                 }
             }
@@ -933,6 +911,12 @@ fn generate_write_element(
             if let Some(defined_by_marker_read) = defined_by_marker_origin {
                 quote::quote! {
                     w.write_element(asn1::Asn1DefinedByWritable::item(#defined_by_marker_read))?;
+                }
+            } else if has_default {
+                quote::quote! {
+                    if let Some(v) = #field_read {
+                        w.write_element(v)?;
+                    }
                 }
             } else {
                 quote::quote! {
@@ -1041,13 +1025,13 @@ fn generate_enum_write_block(
             OpType::Explicit(arg) => {
                 let tag = arg.value;
                 quote::quote! {
-                    #name::#ident(value) => w.write_element(&asn1::Explicit::<_, #tag>::new(value)),
+                    #name::#ident(value) => w.write_element(asn1::Explicit::<_, #tag>::from_ref(value)),
                 }
             }
             OpType::Implicit(arg) => {
                 let tag = arg.value;
                 quote::quote! {
-                    #name::#ident(value) => w.write_element(&asn1::Implicit::<_, #tag>::new(value)),
+                    #name::#ident(value) => w.write_element(asn1::Implicit::<_, #tag>::from_ref(value)),
                 }
             }
             OpType::DefinedBy(_) => {
