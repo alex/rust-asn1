@@ -700,7 +700,7 @@ fn generate_read_element(
             }
         }
         OpType::DefinedBy(ident) => quote::quote! {
-            asn1::read_defined_by(#ident, p)#add_error_location?
+            asn1::Asn1DefinedByReadable::parse(#ident, p)#add_error_location?
         },
     };
     if let Some(default) = default {
@@ -932,7 +932,7 @@ fn generate_write_element(
         OpType::Regular => {
             if let Some(defined_by_marker_read) = defined_by_marker_origin {
                 quote::quote! {
-                    w.write_element(asn1::writable_defined_by_item(#defined_by_marker_read))?;
+                    w.write_element(asn1::Asn1DefinedByWritable::item(#defined_by_marker_read))?;
                 }
             } else {
                 quote::quote! {
@@ -941,7 +941,7 @@ fn generate_write_element(
             }
         }
         OpType::DefinedBy(_) => quote::quote! {
-            asn1::write_defined_by(#field_read, &mut w)?;
+            asn1::Asn1DefinedByWritable::write(#field_read, &mut w)?;
         },
     };
 

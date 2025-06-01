@@ -206,33 +206,6 @@ pub const fn explicit_tag(tag: u32) -> Tag {
     Tag::new(tag, tag::TagClass::ContextSpecific, true)
 }
 
-/// This API is public so that it may be used from macros, but should not be
-/// considered a part of the supported API surface.
-#[doc(hidden)]
-pub fn read_defined_by<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>>(
-    v: T,
-    p: &mut Parser<'a>,
-) -> ParseResult<U> {
-    U::parse(v, p)
-}
-
-/// This API is public so that it may be used from macros, but should not be
-/// considered a part of the supported API surface.
-#[doc(hidden)]
-pub fn write_defined_by<T: Asn1Writable, U: Asn1DefinedByWritable<T>>(
-    v: &U,
-    w: &mut Writer<'_>,
-) -> WriteResult {
-    v.write(w)
-}
-
-/// This API is public so that it may be used from macros, but should not be
-/// considered a part of the supported API surface.
-#[doc(hidden)]
-pub fn writable_defined_by_item<T: Asn1Writable, U: Asn1DefinedByWritable<T>>(v: &U) -> &T {
-    v.item()
-}
-
 /// Utility for use in `asn1_derive`. Not considered part of the public API.
 #[doc(hidden)]
 pub trait OptionExt {
