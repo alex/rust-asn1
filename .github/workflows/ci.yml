@@ -65,7 +65,7 @@ jobs:
           - VERSION: nightly
             FLAGS: "--no-default-features --features std"
           - VERSION: nightly
-            FLAGS: "-Z minimal-versions"
+            FLAGS: "-Z direct-minimal-versions"
 
     steps:
       - uses: actions/checkout@v4.2.2
@@ -80,11 +80,14 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-${{ matrix.RUST.VERSION }}-cargo-2-${{ hashFiles('**/Cargo.toml') }}
+
+      - run: |
+          cargo generate-lockfile
+          cargo update -p half --precise 2.4.1
+        if: matrix.RUST.VERSION == '1.74.0'
 
       - run: cargo check --workspace --tests ${{ matrix.RUST.FLAGS }}
       - run: cargo test --workspace ${{ matrix.RUST.FLAGS }}
@@ -109,6 +112,10 @@ jobs:
         with:
           path: target/
           key: ${{ runner.os }}-cargo-5-${{ hashFiles('**/Cargo.toml') }}
+
+      - run: |
+          cargo generate-lockfile
+          cargo update -p half --precise 2.4.1
 
       - run: cargo test
         env:
