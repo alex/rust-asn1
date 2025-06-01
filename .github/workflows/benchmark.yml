@@ -1,0 +1,54 @@
+name: Benchmark
+
+on:
+  pull_request: {}
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR
+        uses: actions/checkout@v4.2.2
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@888c2e1ea69ab0d4330cbf0af1ecc7b68f368cc1
+        with:
+          toolchain: stable
+
+      - name: Install critcmp
+        run: cargo install critcmp
+
+      - name: Run benchmarks on main
+        run: |
+          git checkout origin/main
+          cargo bench --bench basic -- --save-baseline main
+
+      - name: Run benchmarks on PR
+        run: |
+          git checkout ${{ github.event.pull_request.head.sha }}
+          cargo bench --bench basic -- --save-baseline pr
+
+      - name: Generate benchmark report
+        run: |
+          echo "# 📊 Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Comparison between \`main\` and this PR:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Benchmark Comparison" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          if critcmp main pr 2>&1 | tee comparison_output.txt; then
+            cat comparison_output.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Error: Could not compare benchmarks. This might be due to:" >> $GITHUB_STEP_SUMMARY
+            echo "- Benchmark names changed between main and PR" >> $GITHUB_STEP_SUMMARY
+            echo "- Insufficient data for comparison" >> $GITHUB_STEP_SUMMARY
+            echo "- Build or test failures" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
