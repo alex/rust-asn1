@@ -72,6 +72,14 @@ pub trait Asn1Writable: Sized {
     /// This method should write the complete ASN.1 encoding of this value,
     /// including the tag, length, and content bytes.
     fn write(&self, dest: &mut Writer<'_>) -> WriteResult;
+
+    /// Get the complete encoded length (tag + length + content), if it can be
+    /// calculated efficiently.
+    ///
+    /// It is always safe to return `None`, which indicates the length is
+    /// unknown. Returning `Some(...)` from this method reduces the number of
+    /// re-allocations required in writing.
+    fn encoded_length(&self) -> Option<usize>;
 }
 
 /// Types with a fixed-tag that can be written as DER ASN.1.
@@ -84,6 +92,16 @@ pub trait SimpleAsn1Writable: Sized {
     /// This method should write only the value bytes (without the tag and
     /// length) to the buffer.
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult;
+
+    /// Get the length of the data content (without tag and length bytes) if it
+    /// can be calculated efficiently.
+    ///
+    /// The default implementation returns None, meaning the length is unknown.
+    /// Providing this method reduces the number of re-allocations required in
+    /// writing.
+    fn data_length(&self) -> Option<usize> {
+        None
+    }
 }
 
 /// A trait for types that can be parsed based on a `DEFINED BY` value.
@@ -106,12 +124,26 @@ pub trait Asn1DefinedByWritable<T: Asn1Writable>: Sized {
 
     /// Write this value to the given writer.
     fn write(&self, dest: &mut Writer<'_>) -> WriteResult;
+
+    /// Get the complete encoded length (tag + length + content), if it can be
+    /// calculated efficiently.
+    ///
+    /// It is always safe to return `None`, which indicates the length is
+    /// unknown. Returning `Some(...)` from this method reduces the number of
+    /// re-allocations required in writing.
+    fn encoded_length(&self) -> Option<usize>;
 }
 
 impl<T: SimpleAsn1Writable> Asn1Writable for T {
     #[inline]
     fn write(&self, w: &mut Writer<'_>) -> WriteResult {
-        w.write_tlv(Self::TAG, move |dest| self.write_data(dest))
+        w.write_tlv(Self::TAG, self.data_length(), move |dest| {
+            self.write_data(dest)
+        })
+    }
+
+    fn encoded_length(&self) -> Option<usize> {
+        Some(Tlv::full_length(Self::TAG, self.data_length()?))
     }
 }
 
@@ -142,6 +174,10 @@ pub struct Tlv<'a> {
 }
 
 impl<'a> Tlv<'a> {
+    pub(crate) fn full_length(t: Tag, inner_length: usize) -> usize {
+        t.encoded_length() + crate::writer::length_encoding_size(inner_length) + inner_length
+    }
+
     /// The tag portion of a TLV.
     pub fn tag(&self) -> Tag {
         self.tag
@@ -174,7 +210,13 @@ impl<'a> Asn1Readable<'a> for Tlv<'a> {
 impl Asn1Writable for Tlv<'_> {
     #[inline]
     fn write(&self, w: &mut Writer<'_>) -> WriteResult {
-        w.write_tlv(self.tag, move |dest| dest.push_slice(self.data))
+        w.write_tlv(self.tag, Some(self.data.len()), move |dest| {
+            dest.push_slice(self.data)
+        })
+    }
+
+    fn encoded_length(&self) -> Option<usize> {
+        Some(Tlv::full_length(self.tag, self.data.len()))
     }
 }
 
@@ -182,6 +224,10 @@ impl Asn1Writable for &Tlv<'_> {
     #[inline]
     fn write(&self, w: &mut Writer<'_>) -> WriteResult {
         Tlv::write(self, w)
+    }
+
+    fn encoded_length(&self) -> Option<usize> {
+        Tlv::encoded_length(self)
     }
 }
 
@@ -229,6 +275,10 @@ impl SimpleAsn1Writable for bool {
             dest.push_byte(0x00)
         }
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(1)
+    }
 }
 
 impl<'a> SimpleAsn1Readable<'a> for &'a [u8] {
@@ -242,6 +292,10 @@ impl SimpleAsn1Writable for &[u8] {
     const TAG: Tag = Tag::primitive(0x04);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self)
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.len())
     }
 }
 
@@ -257,6 +311,10 @@ impl<const N: usize> SimpleAsn1Writable for [u8; N] {
     const TAG: Tag = Tag::primitive(0x04);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self)
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(N)
     }
 }
 
@@ -649,6 +707,16 @@ macro_rules! impl_asn1_element_for_int {
         impl SimpleAsn1Writable for $t {
             const TAG: Tag = Tag::primitive(0x02);
             fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+                let num_bytes = self.data_length().unwrap() as u32;
+
+                for i in (1..=num_bytes).rev() {
+                    let digit = self.checked_shr((i - 1) * 8).unwrap_or(0);
+                    dest.push_byte(digit as u8)?;
+                }
+                Ok(())
+            }
+
+            fn data_length(&self) -> Option<usize> {
                 let mut num_bytes = 1;
                 let mut v: $t = *self;
                 #[allow(unused_comparisons)]
@@ -656,12 +724,7 @@ macro_rules! impl_asn1_element_for_int {
                     num_bytes += 1;
                     v = v.checked_shr(8).unwrap_or(0);
                 }
-
-                for i in (1..=num_bytes).rev() {
-                    let digit = self.checked_shr((i - 1) * 8).unwrap_or(0);
-                    dest.push_byte(digit as u8)?;
-                }
-                Ok(())
+                Some(num_bytes)
             }
         }
     };
@@ -849,6 +912,9 @@ impl SimpleAsn1Writable for ObjectIdentifier {
     const TAG: Tag = Tag::primitive(0x06);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_der())
+    }
+    fn data_length(&self) -> Option<usize> {
+        Some(self.as_der().len())
     }
 }
 
@@ -1307,6 +1373,13 @@ impl<T: Asn1Writable> Asn1Writable for Option<T> {
             Ok(())
         }
     }
+
+    fn encoded_length(&self) -> Option<usize> {
+        match self {
+            Some(v) => v.encoded_length(),
+            None => Some(0),
+        }
+    }
 }
 
 macro_rules! declare_choice {
@@ -1362,6 +1435,14 @@ macro_rules! declare_choice {
                 match self {
                     $(
                         $count::$name(v) => w.write_element(v),
+                    )+
+                }
+            }
+
+            fn encoded_length(&self) -> Option<usize> {
+                match self {
+                    $(
+                        $count::$name(v) => Asn1Writable::encoded_length(v),
                     )+
                 }
             }
@@ -1856,6 +1937,9 @@ impl<T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<T, { TAG }
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         Writer::new(dest).write_element(&self.inner)
     }
+    fn data_length(&self) -> Option<usize> {
+        self.inner.encoded_length()
+    }
 }
 
 impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32>
@@ -1876,9 +1960,13 @@ impl<T: Asn1Writable, U: Asn1DefinedByWritable<T>, const TAG: u32> Asn1DefinedBy
         self.as_inner().item()
     }
     fn write(&self, dest: &mut Writer<'_>) -> WriteResult {
-        dest.write_tlv(crate::explicit_tag(TAG), |dest| {
+        dest.write_tlv(crate::explicit_tag(TAG), None, |dest| {
             self.as_inner().write(&mut Writer::new(dest))
         })
+    }
+    fn encoded_length(&self) -> Option<usize> {
+        let inner_len = self.as_inner().encoded_length()?;
+        Some(Tlv::full_length(crate::explicit_tag(TAG), inner_len))
     }
 }
 
@@ -1903,6 +1991,10 @@ impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for DefinedByMarker<T> {
 impl<T: Asn1Writable> Asn1Writable for DefinedByMarker<T> {
     fn write(&self, _: &mut Writer<'_>) -> WriteResult {
         panic!("write() should never be called on a DefinedByMarker")
+    }
+
+    fn encoded_length(&self) -> Option<usize> {
+        panic!("encoded_length() shoudl never be called on a DefinedByMarker")
     }
 }
 
@@ -2274,5 +2366,11 @@ mod tests {
     #[should_panic]
     fn test_defined_by_marker_write() {
         crate::write(|w| DefinedByMarker::<ObjectIdentifier>::marker().write(w)).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_defined_by_marker_encoded_length() {
+        DefinedByMarker::<ObjectIdentifier>::marker().encoded_length();
     }
 }
