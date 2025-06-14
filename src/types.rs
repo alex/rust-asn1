@@ -776,6 +776,10 @@ impl SimpleAsn1Writable for BigUint<'_> {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.as_bytes().len())
+    }
 }
 
 /// Arbitrary sized unsigned integer which owns its data. Contents may be
@@ -813,6 +817,10 @@ impl SimpleAsn1Writable for OwnedBigUint {
     const TAG: Tag = Tag::primitive(0x02);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.as_bytes().len())
     }
 }
 
@@ -858,6 +866,10 @@ impl SimpleAsn1Writable for BigInt<'_> {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.as_bytes().len())
+    }
 }
 
 /// Arbitrary sized signed integer which owns its contents. Contents may be
@@ -900,6 +912,10 @@ impl SimpleAsn1Writable for OwnedBigInt {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.as_bytes().len())
+    }
 }
 
 impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier {
@@ -934,6 +950,10 @@ impl SimpleAsn1Writable for BitString<'_> {
         dest.push_byte(self.padding_bits())?;
         dest.push_slice(self.as_bytes())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(1 + self.as_bytes().len())
+    }
 }
 impl<'a> SimpleAsn1Readable<'a> for OwnedBitString {
     const TAG: Tag = Tag::primitive(0x03);
@@ -946,6 +966,10 @@ impl SimpleAsn1Writable for OwnedBitString {
     const TAG: Tag = Tag::primitive(0x03);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         self.as_bitstring().write_data(dest)
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        self.as_bitstring().data_length()
     }
 }
 
@@ -1347,6 +1371,10 @@ impl SimpleAsn1Writable for Enumerated {
 
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         u32::write_data(&self.value(), dest)
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        self.value().data_length()
     }
 }
 
