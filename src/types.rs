@@ -1199,6 +1199,10 @@ impl SimpleAsn1Writable for X509GeneralizedTime {
 
         dest.push_byte(b'Z')
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(15) // YYYYMMDDHHMMSSZ
+    }
 }
 
 /// Used for parsing and writing ASN.1 `GENERALIZED TIME` values,
@@ -1317,6 +1321,19 @@ impl SimpleAsn1Writable for GeneralizedTime {
         }
 
         dest.push_byte(b'Z')
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        let base_len = 15; // YYYYMMDDHHMMSSZ
+        if let Some(nanoseconds) = self.nanoseconds() {
+            let mut buf = itoa::Buffer::new();
+            let nanos = buf.format(nanoseconds);
+            let pad = 9 - nanos.len();
+            let nanos = nanos.trim_end_matches('0');
+            Some(base_len + 1 + pad + nanos.len()) // . + padded nanos
+        } else {
+            Some(base_len)
+        }
     }
 }
 
