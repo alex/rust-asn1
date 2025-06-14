@@ -135,6 +135,17 @@ impl Tag {
     pub fn value(self) -> u32 {
         self.value
     }
+
+    /// Get the number of bytes needed to encode this tag.
+    pub(crate) fn encoded_length(self) -> usize {
+        if self.value >= 0x1f {
+            // Long form: 1 byte for the initial tag byte + base128 encoding of the value
+            1 + crate::base128::base128_length(self.value.into())
+        } else {
+            // Short form: 1 byte
+            1
+        }
+    }
 }
 
 #[cfg(test)]

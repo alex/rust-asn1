@@ -25,6 +25,12 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+#### Added
+
+- Added `Asn1Writable::encoded_length`, `SimpleAsn1Writable::data_length`, and
+  `Asn1DefinedByWritable::encoded_length`. Implementing these functions reduces
+  the number of re-allocations required when writing.
+
 #### Changes
 
 - Updated MSRV to 1.74.0.
