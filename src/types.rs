@@ -253,6 +253,10 @@ impl SimpleAsn1Writable for Null {
     fn write_data(&self, _dest: &mut WriteBuf) -> WriteResult {
         Ok(())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(0)
+    }
 }
 
 impl SimpleAsn1Readable<'_> for bool {
@@ -349,6 +353,10 @@ impl<T: Asn1Writable> SimpleAsn1Writable for OctetStringEncoded<T> {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         self.0.write(&mut Writer::new(dest))
     }
+
+    fn data_length(&self) -> Option<usize> {
+        self.0.encoded_length()
+    }
 }
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
@@ -420,6 +428,10 @@ impl SimpleAsn1Writable for PrintableString<'_> {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.0.as_bytes())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.0.len())
+    }
 }
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
@@ -469,6 +481,10 @@ impl SimpleAsn1Writable for IA5String<'_> {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.0.as_bytes())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.0.len())
+    }
 }
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
@@ -501,6 +517,10 @@ impl SimpleAsn1Writable for Utf8String<'_> {
     const TAG: Tag = Tag::primitive(0x0c);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.0.as_bytes())
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.0.len())
     }
 }
 
@@ -557,6 +577,10 @@ impl SimpleAsn1Writable for VisibleString<'_> {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.0.as_bytes())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.0.len())
+    }
 }
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
@@ -607,6 +631,10 @@ impl SimpleAsn1Writable for BMPString<'_> {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_utf16_be_bytes())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.as_utf16_be_bytes().len())
+    }
 }
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
@@ -656,6 +684,10 @@ impl SimpleAsn1Writable for UniversalString<'_> {
     const TAG: Tag = Tag::primitive(0x1c);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_utf32_be_bytes())
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.as_utf32_be_bytes().len())
     }
 }
 
@@ -1149,6 +1181,10 @@ impl SimpleAsn1Writable for UtcTime {
         push_two_digits(dest, dt.second())?;
 
         dest.push_byte(b'Z')
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(13)
     }
 }
 
