@@ -633,6 +633,14 @@ mod tests {
             .unwrap(),
             b"\x30\x03\x01\x01\xff"
         );
+        assert_eq!(
+            write(|w| {
+                w.write_element(&SequenceWriter::new(&|w: &mut Writer<'_>| {
+                    w.write_element(&b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                }))
+            }).unwrap(),
+            b"\x30\x81\x84\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
 
         assert_writes(&[(
             parse_single::<Sequence<'_>>(b"\x30\x06\x01\x01\xff\x02\x01\x06").unwrap(),
