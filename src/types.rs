@@ -96,12 +96,10 @@ pub trait SimpleAsn1Writable: Sized {
     /// Get the length of the data content (without tag and length bytes) if it
     /// can be calculated efficiently.
     ///
-    /// The default implementation returns None, meaning the length is unknown.
-    /// Providing this method reduces the number of re-allocations required in
-    /// writing.
-    fn data_length(&self) -> Option<usize> {
-        None
-    }
+    /// It is always safe to return `None`, which indicates the length is
+    /// unknown. Returning `Some(...)` from this method reduces the number of
+    /// re-allocations required in writing.
+    fn data_length(&self) -> Option<usize>;
 }
 
 /// A trait for types that can be parsed based on a `DEFINED BY` value.
@@ -1608,6 +1606,10 @@ impl SimpleAsn1Writable for SequenceWriter<'_> {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         (self.f)(&mut Writer::new(dest))
     }
+
+    fn data_length(&self) -> Option<usize> {
+        None
+    }
 }
 
 /// Represents an ASN.1 `SEQUENCE OF`. This is an `Iterator` over values that
@@ -1753,6 +1755,11 @@ impl<
 
         Ok(())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        let iter = self.clone();
+        iter.map(|el| el.encoded_length()).sum()
+    }
 }
 
 /// Writes a `SEQUENCE OF` ASN.1 structure from a slice of `T`.
@@ -1897,6 +1904,10 @@ impl<'a, T: Asn1Readable<'a> + Asn1Writable> SimpleAsn1Writable for SetOf<'a, T>
         }
 
         Ok(())
+    }
+    fn data_length(&self) -> Option<usize> {
+        let iter = self.clone();
+        iter.map(|el| el.encoded_length()).sum()
     }
 }
 
