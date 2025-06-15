@@ -1539,6 +1539,10 @@ impl SimpleAsn1Writable for Sequence<'_> {
     fn write_data(&self, data: &mut WriteBuf) -> WriteResult {
         data.push_slice(self.data)
     }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.data.len())
+    }
 }
 
 /// Writes an ASN.1 `SEQUENCE` using a callback that writes the inner
@@ -1733,6 +1737,11 @@ impl<T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SequenceOfWriter<'_
 
         Ok(())
     }
+
+    fn data_length(&self) -> Option<usize> {
+        let vals = self.vals.borrow();
+        vals.iter().map(|v| v.encoded_length()).sum()
+    }
 }
 
 /// Represents an ASN.1 `SET OF`. This is an `Iterator` over values that
@@ -1896,6 +1905,11 @@ impl<T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'_, T, 
         }
 
         Ok(())
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        let vals = self.vals.borrow();
+        vals.iter().map(|v| v.encoded_length()).sum()
     }
 }
 
