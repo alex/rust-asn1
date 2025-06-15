@@ -152,12 +152,20 @@ impl<T: SimpleAsn1Writable> SimpleAsn1Writable for &T {
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         T::write_data(self, dest)
     }
+
+    fn data_length(&self) -> Option<usize> {
+        T::data_length(self)
+    }
 }
 
 impl<T: SimpleAsn1Writable> SimpleAsn1Writable for Box<T> {
     const TAG: Tag = T::TAG;
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         T::write_data(self, dest)
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        T::data_length(self)
     }
 }
 
@@ -1954,6 +1962,10 @@ impl<T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<T, {
 
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         self.inner.write_data(dest)
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        self.inner.data_length()
     }
 }
 
