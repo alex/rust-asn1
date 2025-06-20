@@ -25,6 +25,8 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+### [0.22.0]
+
 #### Added
 
 - Added `Asn1Writable::encoded_length`, `SimpleAsn1Writable::data_length`, and
