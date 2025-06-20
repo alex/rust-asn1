@@ -2078,9 +2078,11 @@ impl<T: Asn1Writable, U: Asn1DefinedByWritable<T>, const TAG: u32> Asn1DefinedBy
         self.as_inner().item()
     }
     fn write(&self, dest: &mut Writer<'_>) -> WriteResult {
-        dest.write_tlv(crate::explicit_tag(TAG), None, |dest| {
-            self.as_inner().write(&mut Writer::new(dest))
-        })
+        dest.write_tlv(
+            crate::explicit_tag(TAG),
+            self.as_inner().encoded_length(),
+            |dest| self.as_inner().write(&mut Writer::new(dest)),
+        )
     }
     fn encoded_length(&self) -> Option<usize> {
         let inner_len = self.as_inner().encoded_length()?;
