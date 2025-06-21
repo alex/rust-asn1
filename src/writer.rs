@@ -73,13 +73,7 @@ impl WriteBuf {
 }
 
 fn _length_length(length: usize) -> u8 {
-    let mut i = length;
-    let mut num_bytes = 1;
-    while i > 255 {
-        num_bytes += 1;
-        i >>= 8;
-    }
-    num_bytes
+    (usize::BITS - length.leading_zeros()).div_ceil(8) as u8
 }
 
 /// Calculate the number of bytes needed to encode a length field for the given content length.
