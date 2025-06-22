@@ -8,7 +8,7 @@ use alloc::{fmt, vec};
 #[derive(PartialEq, Eq, Debug)]
 pub enum WriteError {
     AllocationError,
-    CustomError(String),
+    CustomError(&'static str),
 }
 
 impl fmt::Display for WriteError {
@@ -790,9 +790,6 @@ mod tests {
     fn test_write_error_display() {
         use alloc::string::ToString;
         assert_eq!(&WriteError::AllocationError.to_string(), "allocation error");
-        assert_eq!(
-            &WriteError::CustomError("my error".to_string()).to_string(),
-            "my error"
-        );
+        assert_eq!(&WriteError::CustomError("my error").to_string(), "my error");
     }
 }
