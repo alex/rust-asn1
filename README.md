@@ -25,6 +25,12 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+#### Added
+
+- `Writer` now exposes `write_explicit_element` and `write_implicit_element`
+   methods that allow encoding EXPLICIT/IMPLICIT elements when the tag number
+   is not known at compile time.
+
 ### [0.22.0]
 
 #### Added

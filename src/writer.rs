@@ -1,4 +1,4 @@
-use crate::types::Asn1Writable;
+use crate::types::{Asn1Writable, SimpleAsn1Writable};
 use crate::Tag;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -178,6 +178,24 @@ impl Writer<'_> {
         }
 
         Ok(())
+    }
+
+    /// This is an alias for `write_element::<Explicit<T, tag>>`.
+    pub fn write_explicit_element<T: Asn1Writable>(&mut self, val: &T, tag: u32) -> WriteResult {
+        let tag = crate::explicit_tag(tag);
+        self.write_tlv(tag, val.encoded_length(), |dest| {
+            Writer::new(dest).write_element(val)
+        })
+    }
+
+    /// This is an alias for `write_element::<Implicit<T, tag>>`.
+    pub fn write_implicit_element<T: SimpleAsn1Writable>(
+        &mut self,
+        val: &T,
+        tag: u32,
+    ) -> WriteResult {
+        let tag = crate::implicit_tag(tag, T::TAG);
+        self.write_tlv(tag, val.data_length(), |dest| val.write_data(dest))
     }
 }
 
@@ -717,6 +735,17 @@ mod tests {
             (Implicit::new(true), b"\x82\x01\xff"),
             (Implicit::new(false), b"\x82\x01\x00"),
         ]);
+
+        assert_eq!(
+            write(|w| { w.write_implicit_element(&true, 2) }).unwrap(),
+            b"\x82\x01\xff"
+        );
+
+        assert_eq!(
+            write(|w| { w.write_implicit_element(&SequenceWriter::new(&|_w| { Ok(()) }), 2) })
+                .unwrap(),
+            b"\xa2\x00"
+        );
     }
 
     #[test]
@@ -725,6 +754,11 @@ mod tests {
             (Explicit::new(true), b"\xa2\x03\x01\x01\xff"),
             (Explicit::new(false), b"\xa2\x03\x01\x01\x00"),
         ]);
+
+        assert_eq!(
+            write(|w| { w.write_explicit_element(&true, 2) }).unwrap(),
+            b"\xa2\x03\x01\x01\xff"
+        );
     }
 
     #[test]
