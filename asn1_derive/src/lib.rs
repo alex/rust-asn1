@@ -738,9 +738,10 @@ fn add_write_error_bounds(
                     p
                 },
             }));
-        if let Some(pred) = simple_writable_predicate {
-            where_clause.predicates.push(pred);
-        }
+        // Attempt to fix bound error
+        // if let Some(pred) = simple_writable_predicate {
+        //     where_clause.predicates.push(pred);
+        // }
     }
 }
 
