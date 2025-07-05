@@ -372,7 +372,7 @@ fn derive_asn1_defined_by_write_expand(
                 }
             }
 
-            fn write(&self, w: &mut asn1::Writer) -> Result((), Self::Error) {
+            fn write(&self, w: &mut asn1::Writer) -> Result<(), Self::Error> {
                 match self {
                     #(#write_blocks)*
                 }
