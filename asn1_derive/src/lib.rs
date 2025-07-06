@@ -70,10 +70,10 @@ fn get_err_attribute(input: &syn::DeriveInput) -> syn::Result<syn::Type> {
             return Ok(err_type);
         }
     }
-    return Err(syn::Error::new_spanned(
+    Err(syn::Error::new_spanned(
         input,
         "Error type for asn1::Asn1Writable/Asn1DefinedByWritable implementation was not specified",
-    ));
+    ))
 }
 
 #[proc_macro_derive(
@@ -660,54 +660,48 @@ fn add_write_error_bounds(
             })
     };
     for (f, op_type, has_default) in &field_types {
-        let (field_err_type_bound, simple_writable_predicate): (
-            syn::TypeParamBound,
-            Option<syn::WherePredicate>,
-        ) = match (op_type, add_ref) {
-            (OpType::Regular, _) => (syn::parse_quote!(From<<#f as #bound>::Error>), None),
-            (OpType::DefinedBy(_), _) => (
-                syn::parse_quote!(From<<#f as #defined_by_bound>::Error>),
-                None,
-            ),
+        let (bounded_ty, lifetimes): (syn::Type, Option<syn::BoundLifetimes>) = match (
+            op_type, add_ref,
+        ) {
+            (OpType::Regular, _) => (syn::parse_quote!(<#f as #bound>::Error), None),
+            (OpType::DefinedBy(_), _) => {
+                (syn::parse_quote!(<#f as #defined_by_bound>::Error), None)
+            }
             (OpType::Implicit(OpTypeArgs { value, required }), false) => {
                 if *required || *has_default {
                     (
-                        syn::parse_quote!(From<<asn1::Implicit::<#f, #value> as #bound>::Error>),
-                        Some(syn::parse_quote!(#f: asn1::SimpleAsn1Writable)),
+                        syn::parse_quote!(<asn1::Implicit::<#f, #value> as #bound>::Error),
+                        None,
                     )
                 } else {
                     (
-                        syn::parse_quote!(From<<asn1::Implicit::<<#f as asn1::OptionExt>::T, #value> as #bound>::Error>),
-                        Some(
-                            syn::parse_quote!(<#f as asn1::OptionExt>::T: asn1::SimpleAsn1Writable),
-                        ),
+                        syn::parse_quote!(<asn1::Implicit::<<#f as asn1::OptionExt>::T, #value> as #bound>::Error),
+                        None,
                     )
                 }
             }
             (OpType::Implicit(OpTypeArgs { value, required }), true) => {
                 if *required || *has_default {
                     (
-                        syn::parse_quote!(for<'asn1_internal> From<<asn1::Implicit::<&'asn1_internal #f, #value> as #bound>::Error>),
-                        Some(syn::parse_quote!(#f: asn1::SimpleAsn1Writable)),
+                        syn::parse_quote!(<asn1::Implicit::<&'asn1_internal #f, #value> as #bound>::Error),
+                        Some(syn::parse_quote!(for<'asn1_internal>)),
                     )
                 } else {
                     (
-                        syn::parse_quote!(for<'asn1_internal> From<<asn1::Implicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value> as #bound>::Error>),
-                        Some(
-                            syn::parse_quote!(<#f as asn1::OptionExt>::T: asn1::SimpleAsn1Writable),
-                        ),
+                        syn::parse_quote!(<asn1::Implicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value> as #bound>::Error),
+                        Some(syn::parse_quote!(for<'asn1_internal>)),
                     )
                 }
             }
             (OpType::Explicit(OpTypeArgs { value, required }), false) => {
                 if *required || *has_default {
                     (
-                        syn::parse_quote!(From<<asn1::Explicit::<#f, #value> as #bound>::Error>),
+                        syn::parse_quote!(<asn1::Explicit::<#f, #value> as #bound>::Error),
                         None,
                     )
                 } else {
                     (
-                        syn::parse_quote!(From<<asn1::Explicit::<<#f as asn1::OptionExt>::T, #value> as #bound>::Error>),
+                        syn::parse_quote!(<asn1::Explicit::<<#f as asn1::OptionExt>::T, #value> as #bound>::Error),
                         None,
                     )
                 }
@@ -715,13 +709,13 @@ fn add_write_error_bounds(
             (OpType::Explicit(OpTypeArgs { value, required }), true) => {
                 if *required || *has_default {
                     (
-                        syn::parse_quote!(for<'asn1_internal> From<<asn1::Explicit::<&'asn1_internal #f, #value> as #bound>::Error>),
-                        None,
+                        syn::parse_quote!(<asn1::Explicit::<&'asn1_internal #f, #value> as #bound>::Error),
+                        Some(syn::parse_quote!(for<'asn1_internal>)),
                     )
                 } else {
                     (
-                        syn::parse_quote!(for<'asn1_internal> From<<asn1::Explicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value> as #bound>::Error>),
-                        None,
+                        syn::parse_quote!(<asn1::Explicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value> as #bound>::Error),
+                        Some(syn::parse_quote!(for<'asn1_internal>)),
                     )
                 }
             }
@@ -729,19 +723,15 @@ fn add_write_error_bounds(
         where_clause
             .predicates
             .push(syn::WherePredicate::Type(syn::PredicateType {
-                lifetimes: None,
-                bounded_ty: write_error_type.clone(),
+                lifetimes,
+                bounded_ty,
                 colon_token: Default::default(),
                 bounds: {
                     let mut p = syn::punctuated::Punctuated::new();
-                    p.push(field_err_type_bound);
+                    p.push(syn::parse_quote!(Into<#write_error_type>));
                     p
                 },
             }));
-        // Attempt to fix bound error
-        // if let Some(pred) = simple_writable_predicate {
-        //     where_clause.predicates.push(pred);
-        // }
     }
 }
 
