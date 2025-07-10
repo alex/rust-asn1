@@ -12,7 +12,7 @@ use core::mem;
 use crate::writer::Writer;
 use crate::{
     parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
-    ParseLocation, ParseResult, Parser, Tag, WriteBuf, WriteResult,
+    ParseLocation, ParseResult, Parser, Tag, WriteBuf, WriteError, WriteResult,
 };
 
 /// Any type that can be parsed as DER ASN.1.
@@ -67,11 +67,14 @@ impl<'a, T: SimpleAsn1Readable<'a>> SimpleAsn1Readable<'a> for Box<T> {
 
 /// Any type that can be written as DER ASN.1.
 pub trait Asn1Writable: Sized {
+    /// Error type for `Self::write()`
+    type Error: From<WriteError>;
+
     /// Write this value to the given writer.
     ///
     /// This method should write the complete ASN.1 encoding of this value,
     /// including the tag, length, and content bytes.
-    fn write(&self, dest: &mut Writer<'_>) -> WriteResult;
+    fn write(&self, dest: &mut Writer<'_>) -> Result<(), Self::Error>;
 
     /// Get the complete encoded length (tag + length + content), if it can be
     /// calculated efficiently.
@@ -84,6 +87,9 @@ pub trait Asn1Writable: Sized {
 
 /// Types with a fixed-tag that can be written as DER ASN.1.
 pub trait SimpleAsn1Writable: Sized {
+    /// Error type for `Self::write_data()`
+    type Error: From<WriteError>;
+
     /// The ASN.1 tag that this type uses when writing.
     const TAG: Tag;
 
@@ -91,7 +97,7 @@ pub trait SimpleAsn1Writable: Sized {
     ///
     /// This method should write only the value bytes (without the tag and
     /// length) to the buffer.
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult;
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error>;
 
     /// Get the length of the data content (without tag and length bytes) if it
     /// can be calculated efficiently.
@@ -117,11 +123,14 @@ pub trait Asn1DefinedByReadable<'a, T: Asn1Readable<'a>>: Sized {
 ///
 /// `T` is the type of the `DEFINED BY` field (nearly always `ObjectIdentifier`).
 pub trait Asn1DefinedByWritable<T: Asn1Writable>: Sized {
+    /// Error type for `Self::write()`
+    type Error: From<WriteError>;
+
     /// Get a reference to the `DEFINED BY` value.
     fn item(&self) -> &T;
 
     /// Write this value to the given writer.
-    fn write(&self, dest: &mut Writer<'_>) -> WriteResult;
+    fn write(&self, dest: &mut Writer<'_>) -> Result<(), Self::Error>;
 
     /// Get the complete encoded length (tag + length + content), if it can be
     /// calculated efficiently.
@@ -133,8 +142,10 @@ pub trait Asn1DefinedByWritable<T: Asn1Writable>: Sized {
 }
 
 impl<T: SimpleAsn1Writable> Asn1Writable for T {
+    type Error = T::Error;
+
     #[inline]
-    fn write(&self, w: &mut Writer<'_>) -> WriteResult {
+    fn write(&self, w: &mut Writer<'_>) -> Result<(), Self::Error> {
         w.write_tlv(Self::TAG, self.data_length(), move |dest| {
             self.write_data(dest)
         })
@@ -146,8 +157,10 @@ impl<T: SimpleAsn1Writable> Asn1Writable for T {
 }
 
 impl<T: SimpleAsn1Writable> SimpleAsn1Writable for &T {
+    type Error = T::Error;
     const TAG: Tag = T::TAG;
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         T::write_data(self, dest)
     }
 
@@ -157,8 +170,10 @@ impl<T: SimpleAsn1Writable> SimpleAsn1Writable for &T {
 }
 
 impl<T: SimpleAsn1Writable> SimpleAsn1Writable for Box<T> {
+    type Error = T::Error;
     const TAG: Tag = T::TAG;
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         T::write_data(self, dest)
     }
 
@@ -214,6 +229,8 @@ impl<'a> Asn1Readable<'a> for Tlv<'a> {
     }
 }
 impl Asn1Writable for Tlv<'_> {
+    type Error = WriteError;
+
     #[inline]
     fn write(&self, w: &mut Writer<'_>) -> WriteResult {
         w.write_tlv(self.tag, Some(self.data.len()), move |dest| {
@@ -227,6 +244,8 @@ impl Asn1Writable for Tlv<'_> {
 }
 
 impl Asn1Writable for &Tlv<'_> {
+    type Error = WriteError;
+
     #[inline]
     fn write(&self, w: &mut Writer<'_>) -> WriteResult {
         Tlv::write(self, w)
@@ -254,7 +273,9 @@ impl SimpleAsn1Readable<'_> for Null {
 }
 
 impl SimpleAsn1Writable for Null {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x05);
+
     #[inline]
     fn write_data(&self, _dest: &mut WriteBuf) -> WriteResult {
         Ok(())
@@ -277,7 +298,9 @@ impl SimpleAsn1Readable<'_> for bool {
 }
 
 impl SimpleAsn1Writable for bool {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x1);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         if *self {
             dest.push_byte(0xff)
@@ -299,7 +322,9 @@ impl<'a> SimpleAsn1Readable<'a> for &'a [u8] {
 }
 
 impl SimpleAsn1Writable for &[u8] {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x04);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self)
     }
@@ -318,7 +343,9 @@ impl<const N: usize> SimpleAsn1Readable<'_> for [u8; N] {
 }
 
 impl<const N: usize> SimpleAsn1Writable for [u8; N] {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x04);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self)
     }
@@ -355,8 +382,9 @@ impl<'a, T: Asn1Readable<'a>> SimpleAsn1Readable<'a> for OctetStringEncoded<T> {
 }
 
 impl<T: Asn1Writable> SimpleAsn1Writable for OctetStringEncoded<T> {
+    type Error = T::Error;
     const TAG: Tag = Tag::primitive(0x04);
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         self.0.write(&mut Writer::new(dest))
     }
 
@@ -430,7 +458,9 @@ impl<'a> SimpleAsn1Readable<'a> for PrintableString<'a> {
 }
 
 impl SimpleAsn1Writable for PrintableString<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x13);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.0.as_bytes())
     }
@@ -483,7 +513,9 @@ impl<'a> SimpleAsn1Readable<'a> for IA5String<'a> {
     }
 }
 impl SimpleAsn1Writable for IA5String<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x16);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.0.as_bytes())
     }
@@ -520,7 +552,9 @@ impl<'a> SimpleAsn1Readable<'a> for Utf8String<'a> {
     }
 }
 impl SimpleAsn1Writable for Utf8String<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x0c);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.0.as_bytes())
     }
@@ -579,7 +613,9 @@ impl<'a> SimpleAsn1Readable<'a> for VisibleString<'a> {
     }
 }
 impl SimpleAsn1Writable for VisibleString<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x1a);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.0.as_bytes())
     }
@@ -633,7 +669,9 @@ impl<'a> SimpleAsn1Readable<'a> for BMPString<'a> {
     }
 }
 impl SimpleAsn1Writable for BMPString<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x1e);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_utf16_be_bytes())
     }
@@ -687,7 +725,9 @@ impl<'a> SimpleAsn1Readable<'a> for UniversalString<'a> {
     }
 }
 impl SimpleAsn1Writable for UniversalString<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x1c);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_utf32_be_bytes())
     }
@@ -743,8 +783,10 @@ macro_rules! impl_asn1_element_for_int {
             }
         }
         impl SimpleAsn1Writable for $t {
+            type Error = WriteError;
             const TAG: Tag = Tag::primitive(0x02);
-            fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+
+            fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
                 let num_bytes = self.data_length().unwrap() as u32;
 
                 for i in (1..=num_bytes).rev() {
@@ -810,7 +852,9 @@ impl<'a> SimpleAsn1Readable<'a> for BigUint<'a> {
     }
 }
 impl SimpleAsn1Writable for BigUint<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x02);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
     }
@@ -852,7 +896,9 @@ impl SimpleAsn1Readable<'_> for OwnedBigUint {
     }
 }
 impl SimpleAsn1Writable for OwnedBigUint {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x02);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
     }
@@ -900,7 +946,9 @@ impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
     }
 }
 impl SimpleAsn1Writable for BigInt<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x02);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
     }
@@ -946,7 +994,9 @@ impl SimpleAsn1Readable<'_> for OwnedBigInt {
     }
 }
 impl SimpleAsn1Writable for OwnedBigInt {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x02);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_bytes())
     }
@@ -963,7 +1013,9 @@ impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier {
     }
 }
 impl SimpleAsn1Writable for ObjectIdentifier {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x06);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_slice(self.as_der())
     }
@@ -983,7 +1035,9 @@ impl<'a> SimpleAsn1Readable<'a> for BitString<'a> {
     }
 }
 impl SimpleAsn1Writable for BitString<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x03);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         dest.push_byte(self.padding_bits())?;
         dest.push_slice(self.as_bytes())
@@ -1001,7 +1055,9 @@ impl<'a> SimpleAsn1Readable<'a> for OwnedBitString {
     }
 }
 impl SimpleAsn1Writable for OwnedBitString {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x03);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         self.as_bitstring().write_data(dest)
     }
@@ -1193,7 +1249,9 @@ impl SimpleAsn1Readable<'_> for UtcTime {
 }
 
 impl SimpleAsn1Writable for UtcTime {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x17);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let dt = self.as_datetime();
         let year = if 1950 <= dt.year() && dt.year() < 2000 {
@@ -1252,7 +1310,9 @@ impl SimpleAsn1Readable<'_> for X509GeneralizedTime {
 }
 
 impl SimpleAsn1Writable for X509GeneralizedTime {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x18);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let dt = self.as_datetime();
         push_four_digits(dest, dt.year())?;
@@ -1360,7 +1420,9 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
 }
 
 impl SimpleAsn1Writable for GeneralizedTime {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0x18);
+
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
         let dt = self.as_datetime();
         push_four_digits(dest, dt.year())?;
@@ -1426,6 +1488,7 @@ impl<'a> SimpleAsn1Readable<'a> for Enumerated {
 }
 
 impl SimpleAsn1Writable for Enumerated {
+    type Error = WriteError;
     const TAG: Tag = Tag::primitive(0xa);
 
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
@@ -1452,8 +1515,10 @@ impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for Option<T> {
 }
 
 impl<T: Asn1Writable> Asn1Writable for Option<T> {
+    type Error = T::Error;
+
     #[inline]
-    fn write(&self, w: &mut Writer<'_>) -> WriteResult {
+    fn write(&self, w: &mut Writer<'_>) -> Result<(), Self::Error> {
         if let Some(v) = self {
             w.write_element(v)
         } else {
@@ -1515,9 +1580,11 @@ macro_rules! declare_choice {
 
         impl<
             $(
-                $number: Asn1Writable,
+                $number: Asn1Writable<Error = WriteError>,
             )+
         > Asn1Writable for $count<$($number,)+> {
+            type Error = WriteError;
+
             fn write(&self, w: &mut Writer<'_>) -> WriteResult {
                 match self {
                     $(
@@ -1576,7 +1643,9 @@ impl<'a> SimpleAsn1Readable<'a> for Sequence<'a> {
     }
 }
 impl SimpleAsn1Writable for Sequence<'_> {
+    type Error = WriteError;
     const TAG: Tag = Tag::constructed(0x10);
+
     #[inline]
     fn write_data(&self, data: &mut WriteBuf) -> WriteResult {
         data.push_slice(self.data)
@@ -1589,21 +1658,23 @@ impl SimpleAsn1Writable for Sequence<'_> {
 
 /// Writes an ASN.1 `SEQUENCE` using a callback that writes the inner
 /// elements.
-pub struct SequenceWriter<'a> {
-    f: &'a dyn Fn(&mut Writer<'_>) -> WriteResult,
+pub struct SequenceWriter<'a, E: From<WriteError> = WriteError> {
+    f: &'a dyn Fn(&mut Writer<'_>) -> Result<(), E>,
 }
 
-impl<'a> SequenceWriter<'a> {
+impl<'a, E: From<WriteError>> SequenceWriter<'a, E> {
     #[inline]
-    pub fn new(f: &'a dyn Fn(&mut Writer<'_>) -> WriteResult) -> Self {
+    pub fn new(f: &'a dyn Fn(&mut Writer<'_>) -> Result<(), E>) -> SequenceWriter<'a, E> {
         SequenceWriter { f }
     }
 }
 
-impl SimpleAsn1Writable for SequenceWriter<'_> {
+impl<E: From<WriteError>> SimpleAsn1Writable for SequenceWriter<'_, E> {
+    type Error = E;
     const TAG: Tag = Tag::constructed(0x10);
+
     #[inline]
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         (self.f)(&mut Writer::new(dest))
     }
 
@@ -1746,8 +1817,10 @@ impl<
         const MAXIMUM_LEN: usize,
     > SimpleAsn1Writable for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
 {
+    type Error = T::Error;
     const TAG: Tag = Tag::constructed(0x10);
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         let mut w = Writer::new(dest);
         for el in self.clone() {
             w.write_element(&el)?;
@@ -1779,8 +1852,10 @@ impl<T, V: Borrow<[T]>> SequenceOfWriter<'_, T, V> {
 }
 
 impl<T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SequenceOfWriter<'_, T, V> {
+    type Error = T::Error;
     const TAG: Tag = Tag::constructed(0x10);
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         let mut w = Writer::new(dest);
         for el in self.vals.borrow() {
             w.write_element(el)?;
@@ -1894,8 +1969,10 @@ impl<'a, T: Asn1Readable<'a>> Iterator for SetOf<'a, T> {
 }
 
 impl<'a, T: Asn1Readable<'a> + Asn1Writable> SimpleAsn1Writable for SetOf<'a, T> {
+    type Error = T::Error;
     const TAG: Tag = Tag::constructed(0x11);
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         let mut w = Writer::new(dest);
         // We are known to be ordered correctly because that's an invariant for
         // `self`, so we don't need to sort here.
@@ -1929,8 +2006,10 @@ impl<T: Asn1Writable, V: Borrow<[T]>> SetOfWriter<'_, T, V> {
 }
 
 impl<T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SetOfWriter<'_, T, V> {
+    type Error = T::Error;
     const TAG: Tag = Tag::constructed(0x11);
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         let vals = self.vals.borrow();
         if vals.is_empty() {
             return Ok(());
@@ -2005,9 +2084,10 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
 }
 
 impl<T: SimpleAsn1Writable, const TAG: u32> SimpleAsn1Writable for Implicit<T, { TAG }> {
+    type Error = T::Error;
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
 
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         self.inner.write_data(dest)
     }
 
@@ -2051,8 +2131,10 @@ impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explici
 }
 
 impl<T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<T, { TAG }> {
+    type Error = T::Error;
     const TAG: Tag = crate::explicit_tag(TAG);
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), Self::Error> {
         Writer::new(dest).write_element(&self.inner)
     }
     fn data_length(&self) -> Option<usize> {
@@ -2074,10 +2156,12 @@ impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32>
 impl<T: Asn1Writable, U: Asn1DefinedByWritable<T>, const TAG: u32> Asn1DefinedByWritable<T>
     for Explicit<U, { TAG }>
 {
+    type Error = U::Error;
+
     fn item(&self) -> &T {
         self.as_inner().item()
     }
-    fn write(&self, dest: &mut Writer<'_>) -> WriteResult {
+    fn write(&self, dest: &mut Writer<'_>) -> Result<(), Self::Error> {
         dest.write_tlv(
             crate::explicit_tag(TAG),
             self.as_inner().encoded_length(),
@@ -2109,6 +2193,8 @@ impl<'a, T: Asn1Readable<'a>> Asn1Readable<'a> for DefinedByMarker<T> {
 }
 
 impl<T: Asn1Writable> Asn1Writable for DefinedByMarker<T> {
+    type Error = WriteError;
+
     fn write(&self, _: &mut Writer<'_>) -> WriteResult {
         panic!("write() should never be called on a DefinedByMarker")
     }
