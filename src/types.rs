@@ -367,7 +367,7 @@ impl<T: Asn1Writable> SimpleAsn1Writable for OctetStringEncoded<T> {
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `PrintableString`.  A `PrintableString` contains an `&str`
-/// with only valid characers.
+/// with only valid characters.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct PrintableString<'a>(&'a str);
 
@@ -442,7 +442,7 @@ impl SimpleAsn1Writable for PrintableString<'_> {
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `IA5String`.  An `IA5String` contains an `&str`
-/// with only valid characers.
+/// with only valid characters.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IA5String<'a>(&'a str);
 
@@ -531,8 +531,8 @@ impl SimpleAsn1Writable for Utf8String<'_> {
 }
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
-/// handling ASN.1 `VisibleString`.  An `VisibleString` contains an `&str`
-/// with only valid characers.
+/// handling ASN.1 `VisibleString`.  A `VisibleString` contains an `&str`
+/// with only valid characters.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct VisibleString<'a>(&'a str);
 
@@ -2114,7 +2114,7 @@ impl<T: Asn1Writable> Asn1Writable for DefinedByMarker<T> {
     }
 
     fn encoded_length(&self) -> Option<usize> {
-        panic!("encoded_length() shoudl never be called on a DefinedByMarker")
+        panic!("encoded_length() should never be called on a DefinedByMarker")
     }
 }
 
