@@ -8,11 +8,12 @@ use core::borrow::Borrow;
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::mem;
+use core::num::{NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8};
 
 use crate::writer::Writer;
 use crate::{
-    parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
-    ParseLocation, ParseResult, Parser, Tag, WriteBuf, WriteResult,
+    parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind, ParseLocation,
+    ParseResult, Parser, Tag, WriteBuf, WriteResult,
 };
 
 /// Any type that can be parsed as DER ASN.1.
@@ -44,9 +45,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
     fn parse(parser: &mut Parser<'a>) -> ParseResult<Self> {
         let tlv = parser.read_tlv()?;
         if !Self::can_parse(tlv.tag) {
-            return Err(ParseError::new(ParseErrorKind::UnexpectedTag {
-                actual: tlv.tag,
-            }));
+            return Err(ParseError::new(ParseErrorKind::UnexpectedTag { actual: tlv.tag }));
         }
         Self::parse_data(tlv.data)
     }
@@ -135,9 +134,7 @@ pub trait Asn1DefinedByWritable<T: Asn1Writable>: Sized {
 impl<T: SimpleAsn1Writable> Asn1Writable for T {
     #[inline]
     fn write(&self, w: &mut Writer<'_>) -> WriteResult {
-        w.write_tlv(Self::TAG, self.data_length(), move |dest| {
-            self.write_data(dest)
-        })
+        w.write_tlv(Self::TAG, self.data_length(), move |dest| self.write_data(dest))
     }
 
     fn encoded_length(&self) -> Option<usize> {
@@ -216,9 +213,7 @@ impl<'a> Asn1Readable<'a> for Tlv<'a> {
 impl Asn1Writable for Tlv<'_> {
     #[inline]
     fn write(&self, w: &mut Writer<'_>) -> WriteResult {
-        w.write_tlv(self.tag, Some(self.data.len()), move |dest| {
-            dest.push_slice(self.data)
-        })
+        w.write_tlv(self.tag, Some(self.data.len()), move |dest| dest.push_slice(self.data))
     }
 
     fn encoded_length(&self) -> Option<usize> {
@@ -424,8 +419,7 @@ impl<'a> PrintableString<'a> {
 impl<'a> SimpleAsn1Readable<'a> for PrintableString<'a> {
     const TAG: Tag = Tag::primitive(0x13);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        PrintableString::new_from_bytes(data)
-            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+        PrintableString::new_from_bytes(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 
@@ -515,8 +509,7 @@ impl<'a> Utf8String<'a> {
 impl<'a> SimpleAsn1Readable<'a> for Utf8String<'a> {
     const TAG: Tag = Tag::primitive(0x0c);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        Utf8String::new_from_bytes(data)
-            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+        Utf8String::new_from_bytes(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl SimpleAsn1Writable for Utf8String<'_> {
@@ -574,8 +567,7 @@ impl<'a> VisibleString<'a> {
 impl<'a> SimpleAsn1Readable<'a> for VisibleString<'a> {
     const TAG: Tag = Tag::primitive(0x1a);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        VisibleString::new_from_bytes(data)
-            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+        VisibleString::new_from_bytes(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl SimpleAsn1Writable for VisibleString<'_> {
@@ -609,10 +601,7 @@ impl<'a> BMPString<'a> {
             return false;
         }
 
-        for r in core::char::decode_utf16(
-            b.chunks_exact(2)
-                .map(|v| u16::from_be_bytes(v.try_into().unwrap())),
-        ) {
+        for r in core::char::decode_utf16(b.chunks_exact(2).map(|v| u16::from_be_bytes(v.try_into().unwrap()))) {
             if r.is_err() {
                 return false;
             }
@@ -663,10 +652,7 @@ impl<'a> UniversalString<'a> {
             return false;
         }
 
-        for r in b
-            .chunks_exact(4)
-            .map(|v| u32::from_be_bytes(v.try_into().unwrap()))
-        {
+        for r in b.chunks_exact(4).map(|v| u32::from_be_bytes(v.try_into().unwrap())) {
             if core::char::from_u32(r).is_none() {
                 return false;
             }
@@ -702,9 +688,7 @@ const fn validate_integer(data: &[u8], signed: bool) -> ParseResult<()> {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
     // Ensure integer is minimally encoded
-    if data.len() > 1
-        && ((data[0] == 0 && data[1] & 0x80 == 0) || (data[0] == 0xff && data[1] & 0x80 == 0x80))
-    {
+    if data.len() > 1 && ((data[0] == 0 && data[1] & 0x80 == 0) || (data[0] == 0xff && data[1] & 0x80 == 0x80)) {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
     }
 
@@ -767,6 +751,21 @@ macro_rules! impl_asn1_element_for_int {
         }
     };
 }
+macro_rules! impl_asn1_write_for_nonzero_int {
+    ($t:ty, $inner_type:ty) => {
+        impl SimpleAsn1Writable for $t {
+            const TAG: Tag = <$inner_type as SimpleAsn1Writable>::TAG;
+
+            fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+                <$inner_type>::from(*self).write_data(dest)
+            }
+
+            fn data_length(&self) -> Option<usize> {
+                <$inner_type>::from(*self).data_length()
+            }
+        }
+    };
+}
 
 impl_asn1_element_for_int!(i8; true);
 impl_asn1_element_for_int!(u8; false);
@@ -776,6 +775,15 @@ impl_asn1_element_for_int!(i32; true);
 impl_asn1_element_for_int!(u32; false);
 impl_asn1_element_for_int!(i64; true);
 impl_asn1_element_for_int!(u64; false);
+
+impl_asn1_write_for_nonzero_int!(NonZeroI8, i8);
+impl_asn1_write_for_nonzero_int!(NonZeroI16, i16);
+impl_asn1_write_for_nonzero_int!(NonZeroI32, i32);
+impl_asn1_write_for_nonzero_int!(NonZeroI64, i64);
+impl_asn1_write_for_nonzero_int!(NonZeroU8, u8);
+impl_asn1_write_for_nonzero_int!(NonZeroU16, u16);
+impl_asn1_write_for_nonzero_int!(NonZeroU32, u32);
+impl_asn1_write_for_nonzero_int!(NonZeroU64, u64);
 
 /// Arbitrary sized unsigned integer. Contents may be accessed as `&[u8]` of
 /// big-endian data. Its contents always match the DER encoding of a value
@@ -847,8 +855,7 @@ impl OwnedBigUint {
 impl SimpleAsn1Readable<'_> for OwnedBigUint {
     const TAG: Tag = Tag::primitive(0x02);
     fn parse_data(data: &[u8]) -> ParseResult<Self> {
-        OwnedBigUint::new(data.to_vec())
-            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+        OwnedBigUint::new(data.to_vec()).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl SimpleAsn1Writable for OwnedBigUint {
@@ -978,8 +985,7 @@ impl<'a> SimpleAsn1Readable<'a> for BitString<'a> {
         if data.is_empty() {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
-        BitString::new(&data[1..], data[0])
-            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+        BitString::new(&data[1..], data[0]).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
 impl SimpleAsn1Writable for BitString<'_> {
@@ -1099,14 +1105,7 @@ pub struct DateTime {
 }
 
 impl DateTime {
-    pub const fn new(
-        year: u16,
-        month: u8,
-        day: u8,
-        hour: u8,
-        minute: u8,
-        second: u8,
-    ) -> ParseResult<DateTime> {
+    pub const fn new(year: u16, month: u8, day: u8, hour: u8, minute: u8, second: u8) -> ParseResult<DateTime> {
         if hour > 23 || minute > 59 || second > 59 {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
@@ -1352,10 +1351,7 @@ impl SimpleAsn1Readable<'_> for GeneralizedTime {
         let fraction = read_fractional_time(&mut data)?;
         read_tz_and_finish(&mut data)?;
 
-        GeneralizedTime::new(
-            DateTime::new(year, month, day, hour, minute, second)?,
-            fraction,
-        )
+        GeneralizedTime::new(DateTime::new(year, month, day, hour, minute, second)?, fraction)
     }
 }
 
@@ -1560,10 +1556,7 @@ impl<'a> Sequence<'a> {
 
     /// Parses the contents of the `Sequence`. Behaves the same as the module-level `parse`
     /// function.
-    pub fn parse<T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>(
-        self,
-        f: F,
-    ) -> Result<T, E> {
+    pub fn parse<T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>(self, f: F) -> Result<T, E> {
         parse(self.data, f)
     }
 }
@@ -1614,12 +1607,7 @@ impl SimpleAsn1Writable for SequenceWriter<'_> {
 
 /// Represents an ASN.1 `SEQUENCE OF`. This is an `Iterator` over values that
 /// are decoded.
-pub struct SequenceOf<
-    'a,
-    T,
-    const MINIMUM_LEN: usize = 0,
-    const MAXIMUM_LEN: usize = { usize::MAX },
-> {
+pub struct SequenceOf<'a, T, const MINIMUM_LEN: usize = 0, const MAXIMUM_LEN: usize = { usize::MAX }> {
     parser: Parser<'a>,
     length: usize,
     _phantom: PhantomData<T>,
@@ -1676,8 +1664,8 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + PartialEq, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize>
-    PartialEq for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+impl<'a, T: Asn1Readable<'a> + PartialEq, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> PartialEq
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
 {
     fn eq(&self, other: &Self) -> bool {
         let mut it1 = self.clone();
@@ -1711,8 +1699,8 @@ impl<'a, T: Asn1Readable<'a> + Hash, const MINIMUM_LEN: usize, const MAXIMUM_LEN
     }
 }
 
-impl<'a, T: Asn1Readable<'a> + 'a, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize>
-    SimpleAsn1Readable<'a> for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+impl<'a, T: Asn1Readable<'a> + 'a, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> SimpleAsn1Readable<'a>
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
 {
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
@@ -1731,20 +1719,12 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
             return None;
         }
         self.length -= 1;
-        Some(
-            self.parser
-                .read_element::<T>()
-                .expect("Should always succeed"),
-        )
+        Some(self.parser.read_element::<T>().expect("Should always succeed"))
     }
 }
 
-impl<
-        'a,
-        T: Asn1Readable<'a> + Asn1Writable,
-        const MINIMUM_LEN: usize,
-        const MAXIMUM_LEN: usize,
-    > SimpleAsn1Writable for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
+impl<'a, T: Asn1Readable<'a> + Asn1Writable, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize> SimpleAsn1Writable
+    for SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
 {
     const TAG: Tag = Tag::constructed(0x10);
     fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
@@ -1858,18 +1838,16 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
             let mut last_element: Option<Tlv<'a>> = None;
             let mut i = 0;
             while !p.is_empty() {
-                let el = p
-                    .read_tlv()
-                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
+                let el = p.read_tlv().map_err(|e| e.add_location(ParseLocation::Index(i)))?;
                 if let Some(last_el) = last_element {
                     if el.full_data < last_el.full_data {
-                        return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
-                            .add_location(ParseLocation::Index(i)));
+                        return Err(
+                            ParseError::new(ParseErrorKind::InvalidSetOrdering).add_location(ParseLocation::Index(i))
+                        );
                     }
                 }
                 last_element = Some(el);
-                el.parse::<T>()
-                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
+                el.parse::<T>().map_err(|e| e.add_location(ParseLocation::Index(i)))?;
                 i += 1;
             }
             Ok(())
@@ -1885,11 +1863,7 @@ impl<'a, T: Asn1Readable<'a>> Iterator for SetOf<'a, T> {
         if self.parser.is_empty() {
             return None;
         }
-        Some(
-            self.parser
-                .read_element::<T>()
-                .expect("Should always succeed"),
-        )
+        Some(self.parser.read_element::<T>().expect("Should always succeed"))
     }
 }
 
@@ -1995,9 +1969,7 @@ impl<T, const TAG: u32> From<T> for Implicit<T, { TAG }> {
     }
 }
 
-impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
-    for Implicit<T, { TAG }>
-{
+impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Implicit<T, { TAG }> {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         Ok(Implicit::new(T::parse_data(data)?))
@@ -2060,29 +2032,23 @@ impl<T: Asn1Writable, const TAG: u32> SimpleAsn1Writable for Explicit<T, { TAG }
     }
 }
 
-impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32>
-    Asn1DefinedByReadable<'a, T> for Explicit<U, { TAG }>
+impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32> Asn1DefinedByReadable<'a, T>
+    for Explicit<U, { TAG }>
 {
     fn parse(item: T, parser: &mut Parser<'a>) -> ParseResult<Self> {
         let tlv = parser.read_element::<Explicit<Tlv<'_>, TAG>>()?;
-        Ok(Explicit::new(parse(tlv.as_inner().full_data(), |p| {
-            U::parse(item, p)
-        })?))
+        Ok(Explicit::new(parse(tlv.as_inner().full_data(), |p| U::parse(item, p))?))
     }
 }
 
-impl<T: Asn1Writable, U: Asn1DefinedByWritable<T>, const TAG: u32> Asn1DefinedByWritable<T>
-    for Explicit<U, { TAG }>
-{
+impl<T: Asn1Writable, U: Asn1DefinedByWritable<T>, const TAG: u32> Asn1DefinedByWritable<T> for Explicit<U, { TAG }> {
     fn item(&self) -> &T {
         self.as_inner().item()
     }
     fn write(&self, dest: &mut Writer<'_>) -> WriteResult {
-        dest.write_tlv(
-            crate::explicit_tag(TAG),
-            self.as_inner().encoded_length(),
-            |dest| self.as_inner().write(&mut Writer::new(dest)),
-        )
+        dest.write_tlv(crate::explicit_tag(TAG), self.as_inner().encoded_length(), |dest| {
+            self.as_inner().write(&mut Writer::new(dest))
+        })
     }
     fn encoded_length(&self) -> Option<usize> {
         let inner_len = self.as_inner().encoded_length()?;
@@ -2121,10 +2087,10 @@ impl<T: Asn1Writable> Asn1Writable for DefinedByMarker<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        parse_single, Asn1Readable, Asn1Writable, BigInt, BigUint, DateTime, DefinedByMarker,
-        Enumerated, GeneralizedTime, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt,
-        OwnedBigUint, ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter,
-        SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
+        parse_single, Asn1Readable, Asn1Writable, BigInt, BigUint, DateTime, DefinedByMarker, Enumerated,
+        GeneralizedTime, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError,
+        ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime,
+        Utf8String, VisibleString, X509GeneralizedTime,
     };
     use crate::{Explicit, Implicit};
     #[cfg(not(feature = "std"))]
@@ -2218,19 +2184,13 @@ mod tests {
     #[test]
     fn test_biguint_as_bytes() {
         assert_eq!(BigUint::new(b"\x01").unwrap().as_bytes(), b"\x01");
-        assert_eq!(
-            OwnedBigUint::new(b"\x01".to_vec()).unwrap().as_bytes(),
-            b"\x01"
-        );
+        assert_eq!(OwnedBigUint::new(b"\x01".to_vec()).unwrap().as_bytes(), b"\x01");
     }
 
     #[test]
     fn test_bigint_as_bytes() {
         assert_eq!(BigInt::new(b"\x01").unwrap().as_bytes(), b"\x01");
-        assert_eq!(
-            OwnedBigInt::new(b"\x01".to_vec()).unwrap().as_bytes(),
-            b"\x01"
-        );
+        assert_eq!(OwnedBigInt::new(b"\x01".to_vec()).unwrap().as_bytes(), b"\x01");
     }
 
     #[test]
@@ -2246,9 +2206,7 @@ mod tests {
 
     #[test]
     fn test_sequence_of_clone() {
-        let mut seq1 =
-            parse_single::<SequenceOf<'_, u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
-                .unwrap();
+        let mut seq1 = parse_single::<SequenceOf<'_, u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03").unwrap();
         assert_eq!(seq1.next(), Some(1));
         let seq2 = seq1.clone();
         assert_eq!(seq1.collect::<Vec<_>>(), vec![2, 3]);
@@ -2257,9 +2215,7 @@ mod tests {
 
     #[test]
     fn test_sequence_of_len() {
-        let mut seq1 =
-            parse_single::<SequenceOf<'_, u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03")
-                .unwrap();
+        let mut seq1 = parse_single::<SequenceOf<'_, u64>>(b"\x30\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03").unwrap();
         let seq2 = seq1.clone();
 
         assert_eq!(seq1.len(), 3);
@@ -2403,51 +2359,20 @@ mod tests {
 
     #[test]
     fn test_generalized_time_new() {
-        assert!(
-            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234))
-                .is_ok()
-        );
-        assert!(
-            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None).is_ok()
-        );
+        assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234)).is_ok());
+        assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None).is_ok());
         // Maximum fractional time is 999,999,999 nanos.
-        assert!(GeneralizedTime::new(
-            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-            Some(999_999_999_u32)
-        )
-        .is_ok());
-        assert!(GeneralizedTime::new(
-            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-            Some(1e9 as u32)
-        )
-        .is_err());
-        assert!(GeneralizedTime::new(
-            DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(),
-            Some(1e9 as u32 + 1)
-        )
-        .is_err());
+        assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(999_999_999_u32)).is_ok());
+        assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1e9 as u32)).is_err());
+        assert!(GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1e9 as u32 + 1)).is_err());
     }
 
     #[test]
     fn test_generalized_time_partial_ord() {
-        let point =
-            GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234))
-                .unwrap();
-        assert!(
-            point
-                < GeneralizedTime::new(DateTime::new(2023, 6, 30, 23, 59, 59).unwrap(), Some(1234))
-                    .unwrap()
-        );
-        assert!(
-            point
-                < GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1235))
-                    .unwrap()
-        );
-        assert!(
-            point
-                > GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None)
-                    .unwrap()
-        );
+        let point = GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1234)).unwrap();
+        assert!(point < GeneralizedTime::new(DateTime::new(2023, 6, 30, 23, 59, 59).unwrap(), Some(1234)).unwrap());
+        assert!(point < GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), Some(1235)).unwrap());
+        assert!(point > GeneralizedTime::new(DateTime::new(2015, 6, 30, 23, 59, 59).unwrap(), None).unwrap());
     }
 
     #[test]
