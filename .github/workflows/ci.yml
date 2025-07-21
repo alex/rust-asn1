@@ -156,7 +156,7 @@ jobs:
           import re
           with open("output.log") as f:
               [line] = [l for l in f if l.startswith("  lines......:")]
-          coverage = float(re.search("([\d\.]+)%", line).group(1))
+          coverage = float(re.search(r"([\d\.]+)%", line).group(1))
           if coverage < 100:
               raise ValueError(f"Coverage too low: {coverage}")
         shell: python
