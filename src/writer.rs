@@ -429,41 +429,41 @@ mod tests {
 
     #[test]
     fn test_write_nonzeroi8_like_underlying() {
-        use std::num::NonZero;
+        use std::num::NonZeroI8;
         for val in [1, -1, i8::MIN, i8::MAX] {
             assert_eq!(
                 write_single::<i8>(&val).unwrap(),
-                write_single(&NonZero::new(val).unwrap()).unwrap()
+                write_single(&NonZeroI8::new(val).unwrap()).unwrap()
             );
         }
     }
     #[test]
     fn test_write_nonzeroi16_like_underlying() {
-        use std::num::NonZero;
+        use std::num::NonZeroI16;
         for val in [1, -1, i16::MIN, i16::MAX] {
             assert_eq!(
                 write_single::<i16>(&val).unwrap(),
-                write_single(&NonZero::new(val).unwrap()).unwrap()
+                write_single(&NonZeroI16::new(val).unwrap()).unwrap()
             );
         }
     }
     #[test]
     fn test_write_nonzeroi32_like_underlying() {
-        use std::num::NonZero;
+        use std::num::NonZeroI32;
         for val in [1, -1, i32::MIN, i32::MAX] {
             assert_eq!(
                 write_single::<i32>(&val).unwrap(),
-                write_single(&NonZero::new(val).unwrap()).unwrap()
+                write_single(&NonZeroI32::new(val).unwrap()).unwrap()
             );
         }
     }
     #[test]
     fn test_write_nonzeroi64_like_underlying() {
-        use std::num::NonZero;
+        use std::num::NonZeroI64;
         for val in [1, -1, i64::MIN, i64::MAX] {
             assert_eq!(
                 write_single::<i64>(&val).unwrap(),
-                write_single(&NonZero::new(val).unwrap()).unwrap()
+                write_single(&NonZeroI64::new(val).unwrap()).unwrap()
             );
         }
     }
