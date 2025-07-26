@@ -428,6 +428,17 @@ mod tests {
     }
 
     #[test]
+    fn test_write_nonzero_like_underlying() {
+        use std::num::NonZero;
+        for val in [1, -256, -1, -32768, 32767] {
+            assert_eq!(
+                write_single(&val).unwrap(),
+                write_single(&NonZero::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
     fn test_write_u8() {
         assert_writes::<u8>(&[
             (0, b"\x02\x01\x00"),
