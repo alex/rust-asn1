@@ -428,6 +428,94 @@ mod tests {
     }
 
     #[test]
+    fn test_write_nonzeroi8_like_underlying() {
+        use std::num::NonZeroI8;
+        for val in [1, -1, i8::MIN, i8::MAX] {
+            assert_eq!(
+                write_single::<i8>(&val).unwrap(),
+                write_single(&NonZeroI8::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_write_nonzeroi16_like_underlying() {
+        use std::num::NonZeroI16;
+        for val in [1, -1, i16::MIN, i16::MAX] {
+            assert_eq!(
+                write_single::<i16>(&val).unwrap(),
+                write_single(&NonZeroI16::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_write_nonzeroi32_like_underlying() {
+        use std::num::NonZeroI32;
+        for val in [1, -1, i32::MIN, i32::MAX] {
+            assert_eq!(
+                write_single::<i32>(&val).unwrap(),
+                write_single(&NonZeroI32::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_write_nonzeroi64_like_underlying() {
+        use std::num::NonZeroI64;
+        for val in [1, -1, i64::MIN, i64::MAX] {
+            assert_eq!(
+                write_single::<i64>(&val).unwrap(),
+                write_single(&NonZeroI64::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_write_nonzerou8_like_underlying() {
+        use std::num::NonZeroU8;
+        for val in [1, u8::MAX] {
+            assert_eq!(
+                write_single::<u8>(&val).unwrap(),
+                write_single(&NonZeroU8::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_write_nonzerou16_like_underlying() {
+        use std::num::NonZeroU16;
+        for val in [1, u16::MAX] {
+            assert_eq!(
+                write_single::<u16>(&val).unwrap(),
+                write_single(&NonZeroU16::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_write_nonzerou32_like_underlying() {
+        use std::num::NonZeroU32;
+        for val in [1, u32::MAX] {
+            assert_eq!(
+                write_single::<u32>(&val).unwrap(),
+                write_single(&NonZeroU32::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn test_write_nonzerou64_like_underlying() {
+        use std::num::NonZeroU64;
+        for val in [1, u64::MAX] {
+            assert_eq!(
+                write_single::<u64>(&val).unwrap(),
+                write_single(&NonZeroU64::new(val).unwrap()).unwrap()
+            );
+        }
+    }
+
+    #[test]
     fn test_write_u8() {
         assert_writes::<u8>(&[
             (0, b"\x02\x01\x00"),

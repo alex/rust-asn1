@@ -8,6 +8,9 @@ use core::borrow::Borrow;
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::mem;
+use core::num::{
+    NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8,
+};
 
 use crate::writer::Writer;
 use crate::{
@@ -767,6 +770,21 @@ macro_rules! impl_asn1_element_for_int {
         }
     };
 }
+macro_rules! impl_asn1_write_for_nonzero_int {
+    ($t:ty, $inner_type:ty) => {
+        impl SimpleAsn1Writable for $t {
+            const TAG: Tag = <$inner_type as SimpleAsn1Writable>::TAG;
+
+            fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+                <$inner_type>::from(*self).write_data(dest)
+            }
+
+            fn data_length(&self) -> Option<usize> {
+                <$inner_type>::from(*self).data_length()
+            }
+        }
+    };
+}
 
 impl_asn1_element_for_int!(i8; true);
 impl_asn1_element_for_int!(u8; false);
@@ -776,6 +794,15 @@ impl_asn1_element_for_int!(i32; true);
 impl_asn1_element_for_int!(u32; false);
 impl_asn1_element_for_int!(i64; true);
 impl_asn1_element_for_int!(u64; false);
+
+impl_asn1_write_for_nonzero_int!(NonZeroI8, i8);
+impl_asn1_write_for_nonzero_int!(NonZeroI16, i16);
+impl_asn1_write_for_nonzero_int!(NonZeroI32, i32);
+impl_asn1_write_for_nonzero_int!(NonZeroI64, i64);
+impl_asn1_write_for_nonzero_int!(NonZeroU8, u8);
+impl_asn1_write_for_nonzero_int!(NonZeroU16, u16);
+impl_asn1_write_for_nonzero_int!(NonZeroU32, u32);
+impl_asn1_write_for_nonzero_int!(NonZeroU64, u64);
 
 /// Arbitrary sized unsigned integer. Contents may be accessed as `&[u8]` of
 /// big-endian data. Its contents always match the DER encoding of a value
