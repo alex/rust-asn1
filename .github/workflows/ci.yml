@@ -25,7 +25,7 @@ jobs:
           toolchain: ${{ matrix.RUST }}
           components: rustfmt, clippy
 
-      - uses: actions/cache@v4.2.3
+      - uses: actions/cache@v4.2.4
         with:
           path: |
             ~/.cargo/bin/
@@ -76,7 +76,7 @@ jobs:
         with:
           toolchain: ${{ matrix.RUST.VERSION }}
 
-      - uses: actions/cache@v4.2.3
+      - uses: actions/cache@v4.2.4
         with:
           path: |
             ~/.cargo/bin/
@@ -107,7 +107,7 @@ jobs:
 
       - run: sudo apt update && sudo apt-get install -y lcov
 
-      - uses: actions/cache@v4.2.3
+      - uses: actions/cache@v4.2.4
         id: cargo-cache
         with:
           path: target/
