@@ -87,6 +87,8 @@ jobs:
       - run: |
           cargo generate-lockfile
           cargo update -p half --precise 2.4.1
+          cargo update -p rayon --precise 1.10.0
+          cargo update -p rayon-core --precise 1.12.1
         if: matrix.RUST.VERSION == '1.74.0'
 
       - run: cargo check --workspace --tests ${{ matrix.RUST.FLAGS }}
@@ -116,6 +118,8 @@ jobs:
       - run: |
           cargo generate-lockfile
           cargo update -p half --precise 2.4.1
+          cargo update -p rayon --precise 1.10.0
+          cargo update -p rayon-core --precise 1.12.1
 
       - run: cargo test
         env:
