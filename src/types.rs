@@ -758,13 +758,33 @@ macro_rules! impl_asn1_element_for_int {
             }
 
             fn data_length(&self) -> Option<usize> {
-                let mut num_bytes = 1;
-                let mut v: $t = *self;
-                #[allow(unused_comparisons)]
-                while v > 127 || ($signed && v < (-128i64) as $t) {
-                    num_bytes += 1;
-                    v = v.checked_shr(8).unwrap_or(0);
-                }
+                let num_bytes = if *self == 0 {
+                    1
+                } else {
+                    #[allow(unused_comparisons)]
+                    let bits_needed = if $signed && *self < 0 {
+                        // For negative numbers, count significant bits
+                        // including sign bit
+                        <$t>::BITS - self.leading_ones() + 1
+                    } else {
+                        // For positive numbers, count all significant bits
+                        <$t>::BITS - self.leading_zeros()
+                    };
+
+                    let bytes_needed = bits_needed.div_ceil(8) as usize;
+
+                    // Check if we need an extra byte for ASN.1 encoding
+                    let shift = (bytes_needed - 1) * 8;
+                    let most_significant_byte = (*self >> shift) as u8;
+                    #[allow(unused_comparisons)]
+                    let needs_extra_byte = if $signed && *self < 0 {
+                        false
+                    } else {
+                        most_significant_byte >= 0x80
+                    };
+
+                    bytes_needed + needs_extra_byte as usize
+                };
                 Some(num_bytes)
             }
         }
