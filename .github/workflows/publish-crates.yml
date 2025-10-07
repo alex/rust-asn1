@@ -18,9 +18,6 @@ jobs:
       - uses: rust-lang/crates-io-auth-action@e919bc7605cde86df457cf5b93c5e103838bd879
         id: auth
 
-      - run: cargo publish -p asn1_derive
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
-      - run: cargo publish -p asn1
+      - run: cargo publish --workspace
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
