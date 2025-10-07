@@ -113,7 +113,12 @@ impl Value<'_> {
                         tag.class(),
                         tag.value()
                     )?;
-                    asn1::parse_single::<Value<'_>>(tlv.data())?.render(out, indent + 2)?;
+                    asn1::parse(tlv.data(), |p| {
+                        while !p.is_empty() {
+                            p.read_element::<Value<'_>>()?.render(out, indent + 2)?;
+                        }
+                        Ok::<_, Box<dyn std::error::Error>>(())
+                    })?;
                 } else {
                     writeln!(
                         out,
@@ -146,6 +151,10 @@ mod tests {
             (b"\x02\x01\x00", "INTEGER: 0x0\n"),
             (b"\x02\x01\x02", "INTEGER: 0x2\n"),
             (b"\x02\x01\x80", "INTEGER: -0x80\n"),
+            (
+                b"\xA0\x06\x02\x01\x01\x02\x01\x02",
+                "[ContextSpecific 0]\n  INTEGER: 0x1\n  INTEGER: 0x2\n",
+            ),
         ] {
             let v = asn1::parse_single::<Value<'_>>(der).unwrap();
             let mut output = vec![];
