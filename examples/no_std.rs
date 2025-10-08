@@ -11,9 +11,9 @@ fn main() {
     // Using libc::printf because println! isn't no_std!
     match result {
         Ok((r, s)) => unsafe {
-            libc::printf(b"r=%ld, s=%ld\n\x00".as_ptr() as *const libc::c_char, r, s)
+            libc::printf(c"r=%ld, s=%ld\n".as_ptr() as *const libc::c_char, r, s)
         },
-        Err(_) => unsafe { libc::printf("Error\n\x00".as_ptr() as *const libc::c_char) },
+        Err(_) => unsafe { libc::printf(c"Error\n".as_ptr() as *const libc::c_char) },
     };
 
     let computed = asn1::write(|w| {
@@ -26,7 +26,7 @@ fn main() {
     .unwrap();
     unsafe {
         libc::printf(
-            "Original length: %ld\nComputed length: %ld\n\x00".as_ptr() as *const libc::c_char,
+            c"Original length: %ld\nComputed length: %ld\n".as_ptr() as *const libc::c_char,
             data.len() as i64,
             computed.len() as i64,
         );
