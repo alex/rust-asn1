@@ -46,7 +46,7 @@ jobs:
       matrix:
         RUST:
           # MSRV
-          - VERSION: "1.74.0"
+          - VERSION: "1.83.0"
             FLAGS: ""
 
           - VERSION: stable
@@ -84,13 +84,6 @@ jobs:
             target/
           key: ${{ runner.os }}-${{ matrix.RUST.VERSION }}-cargo-2-${{ hashFiles('**/Cargo.toml') }}
 
-      - run: |
-          cargo generate-lockfile
-          cargo update -p half --precise 2.4.1
-          cargo update -p rayon --precise 1.10.0
-          cargo update -p rayon-core --precise 1.12.1
-        if: matrix.RUST.VERSION == '1.74.0'
-
       - run: cargo check --workspace --tests ${{ matrix.RUST.FLAGS }}
       - run: cargo test --workspace ${{ matrix.RUST.FLAGS }}
         if: "${{ !matrix.RUST.SKIP_TESTS }}"
@@ -104,7 +97,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9
         with:
-          toolchain: "1.74"
+          toolchain: "1.90"
           components: llvm-tools-preview
 
       - run: sudo apt update && sudo apt-get install -y lcov
@@ -114,12 +107,6 @@ jobs:
         with:
           path: target/
           key: ${{ runner.os }}-cargo-5-${{ hashFiles('**/Cargo.toml') }}
-
-      - run: |
-          cargo generate-lockfile
-          cargo update -p half --precise 2.4.1
-          cargo update -p rayon --precise 1.10.0
-          cargo update -p rayon-core --precise 1.12.1
 
       - run: cargo test
         env:
@@ -146,7 +133,8 @@ jobs:
             -instr-profile=cargo-test-rust-cov.profdata \
             --ignore-filename-regex='/.cargo/registry' \
             --ignore-filename-regex='/rustc/' \
-            --ignore-filename-regex='/.rustup/toolchains/' --format=lcov > cargo-test.lcov
+            --ignore-filename-regex='/.rustup/toolchains/' \
+            --ignore-filename-regex='/tests/' --format=lcov > cargo-test.lcov
 
           genhtml cargo-test.lcov -o coverage-html | tee output.log
 

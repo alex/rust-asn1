@@ -10,7 +10,7 @@ categories = ["parser-implementations", "encoding", "no-std"]
 
 edition = "2021"
 # This specifies the MSRV
-rust-version = "1.74.0"
+rust-version = "1.83.0"
 
 [features]
 default = ["std"]
@@ -22,8 +22,7 @@ itoa = "1.0.11"
 
 [dev-dependencies]
 libc = "0.2.11"
-# TODO: upgrade to 0.6 when we raise MSRV
-criterion = "0.5"
+criterion = "0.7"
 
 [workspace]
 members = ["asn1_derive", "asn1parse"]

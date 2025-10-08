@@ -13,7 +13,7 @@ Add `asn1` to your `Cargo.toml`:
 $ cargo add asn1
 ```
 
-Builds on Rust 1.74.0 and newer.
+Builds on Rust 1.83.0 and newer.
 
 `rust-asn1` is compatible with `#![no_std]` environments:
 
@@ -30,6 +30,10 @@ $ cargo add asn1 --no-default-features
 - `Writer` now exposes `write_explicit_element` and `write_implicit_element`
    methods that allow encoding EXPLICIT/IMPLICIT elements when the tag number
    is not known at compile time.
+
+#### Changes
+
+- Updated MSRV to 1.83.0.
 
 ### [0.22.0]
 
