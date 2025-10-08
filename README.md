@@ -39,11 +39,6 @@ $ cargo add asn1 --no-default-features
 
 - Updated MSRV to 1.83.0.
 
-#### Fixes
-
--  When parsing implicit sequences or sets, the parser now reads all elements
-   instead of just the first one.
-
 ### [0.22.0]
 
 #### Added
