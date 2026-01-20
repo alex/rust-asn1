@@ -1,11 +1,10 @@
 use std::fmt;
 
-fn assert_roundtrips<
-    'a,
-    T: asn1::Asn1Readable<'a> + asn1::Asn1Writable + PartialEq + fmt::Debug,
->(
+fn assert_roundtrips<'a, T: asn1::Asn1Readable<'a> + asn1::Asn1Writable + PartialEq + fmt::Debug>(
     data: &[(asn1::ParseResult<T>, &'a [u8])],
-) {
+) where
+    <T as asn1::Asn1Writable>::Error: fmt::Debug,
+{
     for (value, der_bytes) in data {
         let parsed = asn1::parse_single::<T>(der_bytes);
         assert_eq!(value, &parsed);
@@ -19,6 +18,7 @@ fn assert_roundtrips<
 #[test]
 fn test_struct_no_fields() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct NoFields;
 
     assert_roundtrips(&[
@@ -33,6 +33,7 @@ fn test_struct_no_fields() {
 #[test]
 fn test_struct_simple_fields() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct SimpleFields {
         a: u64,
         b: u64,
@@ -46,6 +47,7 @@ fn test_struct_simple_fields() {
 #[test]
 fn test_tuple_struct_simple_fields() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct SimpleFields(u8, u8);
 
     assert_roundtrips(&[(Ok(SimpleFields(2, 3)), b"\x30\x06\x02\x01\x02\x02\x01\x03")]);
@@ -54,6 +56,7 @@ fn test_tuple_struct_simple_fields() {
 #[test]
 fn test_struct_lifetime() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct Lifetimes<'a> {
         a: &'a [u8],
     }
@@ -64,6 +67,7 @@ fn test_struct_lifetime() {
 #[test]
 fn test_optional() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct OptionalFields {
         zzz: Option<u8>,
     }
@@ -81,9 +85,11 @@ fn test_optional() {
 #[test]
 fn test_explicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct EmptySequence;
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct ExplicitFields {
         #[explicit(5)]
         a: Option<u8>,
@@ -120,6 +126,7 @@ fn test_explicit() {
 #[test]
 fn test_explicit_tlv() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct ExplicitTlv<'a> {
         #[explicit(5)]
         a: Option<asn1::Tlv<'a>>,
@@ -139,9 +146,11 @@ fn test_explicit_tlv() {
 #[test]
 fn test_implicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct EmptySequence;
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    #[error_type(asn1::WriteError)]
     struct ImplicitFields {
         #[implicit(5)]
         a: Option<u8>,
@@ -178,6 +187,7 @@ fn test_implicit() {
 #[test]
 fn test_default() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct DefaultFields {
         #[default(13)]
         a: u8,
@@ -238,6 +248,7 @@ fn test_default_not_literal() {
     const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3, 4);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct DefaultFields {
         #[default(OID1)]
         a: asn1::ObjectIdentifier,
@@ -260,6 +271,7 @@ fn test_default_not_literal() {
 #[test]
 fn test_default_const_generics() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[error_type(asn1::WriteError)]
     struct DefaultFields {
         #[default(15)]
         a: asn1::Explicit<u8, 1>,
@@ -312,6 +324,7 @@ fn test_default_const_generics() {
 #[test]
 fn test_default_bool() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct DefaultField {
         #[default(false)]
         a: bool,
@@ -334,6 +347,7 @@ fn test_struct_field_types() {
     // cover their encoded_length implementations.
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct TlvField<'a> {
         t: asn1::Tlv<'a>,
     }
@@ -353,6 +367,7 @@ fn test_struct_field_types() {
     ]);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct ChoiceFields<'a> {
         c1: asn1::Choice1<&'a [u8]>,
         c2: asn1::Choice2<bool, u64>,
@@ -375,6 +390,7 @@ fn test_struct_field_types() {
     ]);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct LongField<'a> {
         f: &'a [u8],
     }
@@ -389,6 +405,7 @@ fn test_struct_field_types() {
 #[test]
 fn test_enum() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum BasicChoice {
         A(u64),
         B(()),
@@ -415,6 +432,7 @@ fn test_enum() {
 #[test]
 fn test_enum_lifetimes() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum LifetimesChoice<'a> {
         A(u64),
         B(&'a [u8]),
@@ -441,6 +459,7 @@ fn test_enum_lifetimes() {
 #[test]
 fn test_enum_explicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum ExplicitChoice<'a> {
         #[explicit(5)]
         A(u64),
@@ -468,9 +487,11 @@ fn test_enum_explicit() {
 #[test]
 fn test_enum_implicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct EmptySequence;
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum ImplicitChoice<'a> {
         #[implicit(5)]
         A(u64),
@@ -502,11 +523,13 @@ fn test_enum_implicit() {
 #[test]
 fn test_enum_in_explicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum BasicChoice {
         A(u64),
     }
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct StructWithExplicitChoice {
         #[explicit(0)]
         c: Option<BasicChoice>,
@@ -526,14 +549,17 @@ fn test_enum_in_explicit() {
 #[test]
 fn test_error_parse_location() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct InnerSeq(u64);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum InnerEnum {
         Int(u64),
     }
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct OuterSeq {
         inner: InnerSeq,
         inner_enum: Option<InnerEnum>,
@@ -558,6 +584,7 @@ fn test_error_parse_location() {
 #[test]
 fn test_required_implicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct RequiredImplicit {
         #[implicit(0, required)]
         value: u8,
@@ -585,6 +612,7 @@ fn test_required_implicit() {
 #[test]
 fn test_required_explicit() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct RequiredExplicit {
         #[explicit(0, required)]
         value: u8,
@@ -618,6 +646,7 @@ fn test_defined_by() {
     const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 5);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct S<'a> {
         oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
         #[defined_by(oid)]
@@ -625,6 +654,7 @@ fn test_defined_by() {
     }
 
     #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum Value<'a> {
         #[defined_by(OID1)]
         OctetString(&'a [u8]),
@@ -663,6 +693,7 @@ fn test_defined_by_default() {
     const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 5);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct S<'a> {
         oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
         #[defined_by(oid)]
@@ -670,6 +701,7 @@ fn test_defined_by_default() {
     }
 
     #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum Value<'a> {
         #[defined_by(OID1)]
         Integer(u32),
@@ -701,6 +733,7 @@ fn test_defined_by_optional() {
     const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 5);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct S<'a> {
         oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
         #[defined_by(oid)]
@@ -708,6 +741,7 @@ fn test_defined_by_optional() {
     }
 
     #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum Value<'a> {
         #[defined_by(OID1)]
         OctetString(&'a [u8]),
@@ -747,6 +781,7 @@ fn test_defined_by_mod() {
     }
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct S<'a> {
         oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
         #[defined_by(oid)]
@@ -754,6 +789,7 @@ fn test_defined_by_mod() {
     }
 
     #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum Value<'a> {
         #[defined_by(oids::OID1)]
         OctetString(&'a [u8]),
@@ -782,6 +818,7 @@ fn test_defined_by_explicit() {
     pub const OID1: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct S<'a> {
         oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
         #[defined_by(oid)]
@@ -789,6 +826,7 @@ fn test_defined_by_explicit() {
     }
 
     #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum Value<'a> {
         #[defined_by(OID1)]
         OctetString(&'a [u8]),
@@ -806,6 +844,7 @@ fn test_defined_by_explicit() {
 #[test]
 fn test_generics() {
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct S<T> {
         value: T,
     }
@@ -835,6 +874,7 @@ fn test_perfect_derive() {
     }
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct S<T: X> {
         value: T::Type,
     }
@@ -842,6 +882,7 @@ fn test_perfect_derive() {
     assert_roundtrips::<S<Op>>(&[(Ok(S { value: 12 }), b"\x30\x03\x02\x01\x0c")]);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct TaggedRequiredFields<T: X> {
         #[implicit(1, required)]
         a: T::Type,
@@ -855,6 +896,7 @@ fn test_perfect_derive() {
     )]);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     struct TaggedOptionalFields<T: X> {
         #[implicit(1)]
         a: Option<T::Type>,
@@ -874,6 +916,7 @@ fn test_perfect_derive() {
     ]);
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug, Eq)]
+    #[error_type(asn1::WriteError)]
     enum TaggedEnum<T: X> {
         #[implicit(0)]
         Implicit(T::Type),
@@ -900,6 +943,7 @@ fn test_defined_by_perfect_derive() {
     }
 
     #[derive(asn1::Asn1Read, asn1::Asn1Write, PartialEq, Debug)]
+    #[error_type(asn1::WriteError)]
     struct S<T: X> {
         oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
         #[defined_by(oid)]
@@ -910,6 +954,7 @@ fn test_defined_by_perfect_derive() {
     pub const OID2: asn1::ObjectIdentifier = asn1::oid!(1, 2, 4);
 
     #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, PartialEq, Debug)]
+    #[error_type(asn1::WriteError)]
     enum Value<T: X> {
         #[defined_by(OID1)]
         A(T::Type),
