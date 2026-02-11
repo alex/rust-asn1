@@ -132,7 +132,7 @@ impl Writer<'_> {
         content_length: Option<usize>,
         body: F,
     ) -> WriteResult {
-        tag.write_bytes(self.buf)?;
+        tag.write_to(self.buf)?;
 
         match content_length {
             Some(len) => {

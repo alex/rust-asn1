@@ -105,7 +105,9 @@ impl Tag {
         )
     }
 
-    pub(crate) fn write_bytes(self, dest: &mut WriteBuf) -> WriteResult {
+    /// Writes the tag's encoded representation (including tag class and
+    /// constructed bits) to a `WriteBuf`.
+    pub fn write_to(self, dest: &mut WriteBuf) -> WriteResult {
         let mut b = ((self.class as u8) << 6) | if self.constructed { CONSTRUCTED } else { 0 };
         if self.value >= 0x1f {
             b |= 0x1f;
@@ -183,5 +185,37 @@ mod tests {
     #[test]
     fn test_value() {
         assert_eq!(Tag::new(5, TagClass::Application, true).value(), 5);
+    }
+
+    #[test]
+    fn test_write_to() {
+        for (t, expected) in [
+            (Tag::new(5, TagClass::Application, true), b"\x65" as &[u8]),
+            (Tag::new(5, TagClass::Universal, false), b"\x05"),
+            (Tag::new(0x1f, TagClass::Universal, false), b"\x1f\x1f"),
+        ] {
+            let data = vec![];
+            let mut buf = super::WriteBuf::new(data);
+            t.write_to(&mut buf).unwrap();
+            assert_eq!(buf.as_slice(), expected);
+        }
+    }
+
+    #[test]
+    fn test_write_to_roundtrip() {
+        for tag in [
+            Tag::new(5, TagClass::Application, true),
+            Tag::new(5, TagClass::Universal, false),
+            Tag::new(0x1f, TagClass::Universal, false),
+            Tag::new(0, TagClass::ContextSpecific, true),
+            Tag::new(127, TagClass::Private, false),
+        ] {
+            let data = vec![];
+            let mut buf = super::WriteBuf::new(data);
+            tag.write_to(&mut buf).unwrap();
+            let (parsed, rest) = Tag::from_bytes(buf.as_slice()).unwrap();
+            assert_eq!(parsed, tag);
+            assert!(rest.is_empty());
+        }
     }
 }
