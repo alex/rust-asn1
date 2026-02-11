@@ -25,6 +25,11 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+#### Added
+
+- `Tag` now exposes a `write_to` method that writes the tag's encoded
+  representation to a `WriteBuf`.
+
 ### [0.23.0]
 
 #### Added
