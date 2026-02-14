@@ -30,6 +30,13 @@ $ cargo add asn1 --no-default-features
 - Added `Set`, `SetWriter`, and `SetElementWriter` types for parsing and
   writing ASN.1 `SET` values with DER ordering validation.
 
+- `Tag` now exposes an `encoded_length` method that returns the number of
+  bytes needed to encode the tag.
+
+#### Removed
+
+- `Tag::write_to` has been removed from the public API.
+
 ### [0.23.1]
 
 #### Added
