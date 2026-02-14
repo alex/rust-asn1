@@ -25,6 +25,17 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+### [0.24.0]
+
+#### Added
+
+- `Tag` now exposes an `encoded_length` method that returns the number of
+  bytes needed to encode the tag.
+
+#### Removed
+
+- `Tag::write_to` has been removed from the public API.
+
 ### [0.23.1]
 
 #### Added
