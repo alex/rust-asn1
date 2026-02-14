@@ -107,7 +107,7 @@ impl Tag {
 
     /// Writes the tag's encoded representation (including tag class and
     /// constructed bits) to a `WriteBuf`.
-    pub fn write_to(self, dest: &mut WriteBuf) -> WriteResult {
+    pub(crate) fn write_to(self, dest: &mut WriteBuf) -> WriteResult {
         let mut b = ((self.class as u8) << 6) | if self.constructed { CONSTRUCTED } else { 0 };
         if self.value >= 0x1f {
             b |= 0x1f;
@@ -139,7 +139,7 @@ impl Tag {
     }
 
     /// Get the number of bytes needed to encode this tag.
-    pub(crate) fn encoded_length(self) -> usize {
+    pub fn encoded_length(self) -> usize {
         if self.value >= 0x1f {
             // Long form: 1 byte for the initial tag byte + base128 encoding of the value
             1 + crate::base128::base128_length(self.value.into())
@@ -185,6 +185,28 @@ mod tests {
     #[test]
     fn test_value() {
         assert_eq!(Tag::new(5, TagClass::Application, true).value(), 5);
+    }
+
+    #[test]
+    fn test_encoded_length() {
+        // Short form tags (value < 0x1f) should be 1 byte
+        assert_eq!(Tag::new(0, TagClass::Universal, false).encoded_length(), 1);
+        assert_eq!(Tag::new(5, TagClass::Application, true).encoded_length(), 1);
+        assert_eq!(
+            Tag::new(0x1e, TagClass::ContextSpecific, false).encoded_length(),
+            1
+        );
+
+        // Long form tags (value >= 0x1f) should be 1 + base128 length
+        assert_eq!(
+            Tag::new(0x1f, TagClass::Universal, false).encoded_length(),
+            2
+        );
+        assert_eq!(Tag::new(127, TagClass::Private, false).encoded_length(), 2);
+        assert_eq!(
+            Tag::new(128, TagClass::Universal, false).encoded_length(),
+            3
+        );
     }
 
     #[test]
