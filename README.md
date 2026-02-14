@@ -25,6 +25,11 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+#### Added
+
+- `Tag` now exposes an `encoded_length` method that returns the number of
+  bytes needed to encode the tag.
+
 ### [0.24.0]
 
 #### Added
