@@ -112,7 +112,7 @@ impl Writer<'_> {
 
     /// Writes a single element to the output.
     #[inline]
-    pub fn write_element<T: Asn1Writable>(&mut self, val: &T) -> WriteResult {
+    pub fn write_element<T: Asn1Writable>(&mut self, val: &T) -> Result<(), T::Error> {
         if let Some(len) = val.encoded_length() {
             self.buf.reserve_additional(len)?;
         }
@@ -126,12 +126,12 @@ impl Writer<'_> {
     /// If `content_length` is provided, it reduces the number of
     /// re-allocations required.
     #[inline]
-    pub fn write_tlv<F: FnOnce(&mut WriteBuf) -> WriteResult>(
+    pub fn write_tlv<E: From<WriteError>, F: FnOnce(&mut WriteBuf) -> Result<(), E>>(
         &mut self,
         tag: Tag,
         content_length: Option<usize>,
         body: F,
-    ) -> WriteResult {
+    ) -> Result<(), E> {
         tag.write_to(self.buf)?;
 
         match content_length {
@@ -157,7 +157,8 @@ impl Writer<'_> {
                 self.buf.push_byte(0)?;
                 let start_len = self.buf.len();
                 body(self.buf)?;
-                self.insert_length(start_len)
+                self.insert_length(start_len)?;
+                Ok(())
             }
         }
     }
@@ -181,7 +182,11 @@ impl Writer<'_> {
     }
 
     /// This is an alias for `write_element::<Explicit<T, tag>>`.
-    pub fn write_explicit_element<T: Asn1Writable>(&mut self, val: &T, tag: u32) -> WriteResult {
+    pub fn write_explicit_element<T: Asn1Writable>(
+        &mut self,
+        val: &T,
+        tag: u32,
+    ) -> Result<(), T::Error> {
         let tag = crate::explicit_tag(tag);
         self.write_tlv(tag, val.encoded_length(), |dest| {
             Writer::new(dest).write_element(val)
@@ -193,7 +198,7 @@ impl Writer<'_> {
         &mut self,
         val: &T,
         tag: u32,
-    ) -> WriteResult {
+    ) -> Result<(), T::Error> {
         let tag = crate::implicit_tag(tag, T::TAG);
         self.write_tlv(tag, val.data_length(), |dest| val.write_data(dest))
     }
@@ -202,7 +207,9 @@ impl Writer<'_> {
 /// Constructs a writer and invokes a callback which writes ASN.1 elements into
 /// the writer, then returns the generated DER bytes.
 #[inline]
-pub fn write<F: Fn(&mut Writer<'_>) -> WriteResult>(f: F) -> WriteResult<Vec<u8>> {
+pub fn write<E: From<WriteError>, F: Fn(&mut Writer<'_>) -> Result<(), E>>(
+    f: F,
+) -> Result<Vec<u8>, E> {
     let mut v = WriteBuf::new(vec![]);
     let mut w = Writer::new(&mut v);
     f(&mut w)?;
@@ -212,7 +219,7 @@ pub fn write<F: Fn(&mut Writer<'_>) -> WriteResult>(f: F) -> WriteResult<Vec<u8>
 /// Writes a single top-level ASN.1 element, returning the generated DER bytes.
 /// Most often this will be used where `T` is a type with
 /// `#[derive(asn1::Asn1Write)]`.
-pub fn write_single<T: Asn1Writable>(v: &T) -> WriteResult<Vec<u8>> {
+pub fn write_single<T: Asn1Writable>(v: &T) -> Result<Vec<u8>, T::Error> {
     write(|w| w.write_element(v))
 }
 
@@ -224,13 +231,13 @@ mod tests {
     use alloc::vec;
 
     use super::{_insert_at_position, write, write_single, WriteBuf, Writer};
-    use crate::types::Asn1Writable;
+    use crate::types::{Asn1Writable, SimpleAsn1Writable};
     use crate::{
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime,
         Enumerated, Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier,
         OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString, PrintableString, Sequence,
-        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tlv, UniversalString,
-        UtcTime, Utf8String, VisibleString, WriteError, X509GeneralizedTime,
+        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tag, Tlv,
+        UniversalString, UtcTime, Utf8String, VisibleString, WriteError, X509GeneralizedTime,
     };
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
@@ -238,6 +245,7 @@ mod tests {
     fn assert_writes<T>(data: &[(T, &[u8])])
     where
         T: Asn1Writable,
+        T::Error: core::fmt::Debug,
     {
         for (val, expected) in data {
             let result = write_single(val).unwrap();
@@ -904,5 +912,43 @@ mod tests {
     fn test_write_error_display() {
         use alloc::string::ToString;
         assert_eq!(&WriteError::AllocationError.to_string(), "allocation error");
+    }
+
+    #[test]
+    fn test_custom_write_error() {
+        #[derive(Debug, PartialEq, Eq)]
+        enum CustomError {
+            Write(WriteError),
+            Custom,
+        }
+
+        impl From<WriteError> for CustomError {
+            fn from(e: WriteError) -> Self {
+                CustomError::Write(e)
+            }
+        }
+
+        struct FailingWriter;
+
+        impl SimpleAsn1Writable for FailingWriter {
+            type Error = CustomError;
+            const TAG: Tag = Tag::primitive(0x04);
+
+            fn write_data(&self, _dest: &mut WriteBuf) -> Result<(), CustomError> {
+                Err(CustomError::Custom)
+            }
+
+            fn data_length(&self) -> Option<usize> {
+                Some(0)
+            }
+        }
+
+        let result = write_single(&FailingWriter);
+        assert_eq!(result, Err(CustomError::Custom));
+
+        assert_eq!(
+            CustomError::from(WriteError::AllocationError),
+            CustomError::Write(WriteError::AllocationError)
+        );
     }
 }
