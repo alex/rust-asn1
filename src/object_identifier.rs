@@ -94,6 +94,12 @@ impl ObjectIdentifier {
     }
 }
 
+impl AsRef<[u8]> for ObjectIdentifier {
+    fn as_ref(&self) -> &[u8] {
+        self.as_der()
+    }
+}
+
 struct OidFormatter<'a>(&'a ObjectIdentifier);
 
 impl fmt::Debug for OidFormatter<'_> {
