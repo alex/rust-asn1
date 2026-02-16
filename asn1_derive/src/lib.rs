@@ -25,6 +25,7 @@ fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
         syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
         false,
+        None,
     );
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
@@ -81,6 +82,7 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
         syn::parse_quote!(asn1::Asn1Writable),
         syn::parse_quote!(asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier>),
         true,
+        Some(syn::parse_quote!(asn1::WriteError)),
     );
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -89,6 +91,7 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
             let (write_block, data_length_block) = generate_struct_write_block(&data)?;
             quote::quote! {
                 impl #impl_generics asn1::SimpleAsn1Writable for #name #ty_generics #where_clause {
+                    type Error = asn1::WriteError;
                     const TAG: asn1::Tag = <asn1::SequenceWriter as asn1::SimpleAsn1Writable>::TAG;
                     fn write_data(&self, dest: &mut asn1::WriteBuf) -> asn1::WriteResult {
                         #write_block
@@ -106,6 +109,7 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
             let (write_block, length_block) = generate_enum_write_block(name, &data)?;
             quote::quote! {
                 impl #impl_generics asn1::Asn1Writable for #name #ty_generics #where_clause {
+                    type Error = asn1::WriteError;
                     fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
                         #write_block
                     }
@@ -115,6 +119,7 @@ fn derive_asn1_write_expand(mut input: syn::DeriveInput) -> syn::Result<proc_mac
                 }
 
                 impl #impl_generics asn1::Asn1Writable for &#name #ty_generics #where_clause {
+                    type Error = asn1::WriteError;
                     fn write(&self, w: &mut asn1::Writer) -> asn1::WriteResult {
                         (*self).write(w)
                     }
@@ -196,6 +201,7 @@ fn derive_asn1_defined_by_read_expand(
         syn::parse_quote!(asn1::Asn1Readable<#lifetime_name>),
         syn::parse_quote!(asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier>),
         false,
+        None,
     );
     let (impl_generics, _, where_clause) = generics.split_for_impl();
 
@@ -276,6 +282,7 @@ fn derive_asn1_defined_by_write_expand(
         syn::parse_quote!(asn1::Asn1Writable),
         syn::parse_quote!(asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier>),
         true,
+        Some(syn::parse_quote!(asn1::WriteError)),
     );
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
 
@@ -290,7 +297,7 @@ fn derive_asn1_defined_by_write_expand(
                     DefinedByVariant::DefinedBy(defined_by, has_field) => {
                         if has_field {
                             write_blocks.push(quote::quote! {
-                                #name::#ident(value) => w.write_element(value),
+                                #name::#ident(value) => { w.write_element(value)?; },
                             });
                             item_blocks.push(quote::quote! {
                                 #name::#ident(..) => &#defined_by,
@@ -300,7 +307,7 @@ fn derive_asn1_defined_by_write_expand(
                             })
                         } else {
                             write_blocks.push(quote::quote! {
-                                #name::#ident => { Ok(()) },
+                                #name::#ident => {},
                             });
                             item_blocks.push(quote::quote! {
                                 #name::#ident => &#defined_by,
@@ -312,7 +319,7 @@ fn derive_asn1_defined_by_write_expand(
                     }
                     DefinedByVariant::Default => {
                         write_blocks.push(quote::quote! {
-                            #name::#ident(_, value) => w.write_element(value),
+                            #name::#ident(_, value) => { w.write_element(value)?; },
                         });
                         item_blocks.push(quote::quote! {
                             #name::#ident(defined_by, _) => &defined_by,
@@ -329,6 +336,8 @@ fn derive_asn1_defined_by_write_expand(
 
     Ok(quote::quote! {
         impl #impl_generics asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier> for #name #ty_generics #where_clause {
+            type Error = asn1::WriteError;
+
             fn item(&self) -> &asn1::ObjectIdentifier {
                 match self {
                     #(#item_blocks)*
@@ -339,6 +348,7 @@ fn derive_asn1_defined_by_write_expand(
                 match self {
                     #(#write_blocks)*
                 }
+                Ok(())
             }
 
             fn encoded_length(&self) -> Option<usize> {
@@ -533,6 +543,15 @@ fn add_bounds(
     bound: syn::TypeParamBound,
     defined_by_bound: syn::TypeParamBound,
     add_ref: bool,
+    // When Some, generates error conversion bounds for writable derives:
+    // - Tagged fields get `Wrapper: Asn1Writable<Error = error_type>` instead
+    //   of just `Wrapper: bound`. This avoids forcing the compiler to normalize
+    //   the wrapper's associated Error type (which would require proving the
+    //   inner type satisfies SimpleAsn1Writable independently, breaking perfect
+    //   derive).
+    // - Non-tagged fields get `error_type: From<...::Error>` predicates so `?`
+    //   can convert inner errors.
+    error_type: Option<syn::Type>,
 ) {
     let where_clause = if field_types.is_empty() {
         return;
@@ -545,47 +564,57 @@ fn add_bounds(
             })
     };
 
+    let tagged_bound: Option<syn::TypeParamBound> = error_type
+        .as_ref()
+        .map(|e| syn::parse_quote!(asn1::Asn1Writable<Error = #e>));
+
     for (f, op_type, has_default) in field_types {
-        let (bounded_ty, required_bound) = match (op_type, add_ref) {
-            (OpType::Regular, _) => (f, bound.clone()),
-            (OpType::DefinedBy(_), _) => (f, defined_by_bound.clone()),
+        let is_tagged = matches!(op_type, OpType::Implicit(_) | OpType::Explicit(_));
+
+        let (bounded_ty, required_bound) = match (&op_type, add_ref) {
+            (OpType::Regular, _) => (f.clone(), bound.clone()),
+            (OpType::DefinedBy(_), _) => (f.clone(), defined_by_bound.clone()),
 
             (OpType::Implicit(OpTypeArgs { value, required }), false) => {
-                let ty = if required || has_default {
+                let ty = if *required || has_default {
                     syn::parse_quote!(asn1::Implicit::<#f, #value>)
                 } else {
                     syn::parse_quote!(asn1::Implicit::<<#f as asn1::OptionExt>::T, #value>)
                 };
 
-                (ty, bound.clone())
+                let b = tagged_bound.clone().unwrap_or_else(|| bound.clone());
+                (ty, b)
             }
             (OpType::Implicit(OpTypeArgs { value, required }), true) => {
-                let ty = if required || has_default {
+                let ty = if *required || has_default {
                     syn::parse_quote!(for<'asn1_internal> asn1::Implicit::<&'asn1_internal #f, #value>)
                 } else {
                     syn::parse_quote!(for<'asn1_internal> asn1::Implicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value>)
                 };
 
-                (ty, bound.clone())
+                let b = tagged_bound.clone().unwrap_or_else(|| bound.clone());
+                (ty, b)
             }
 
             (OpType::Explicit(OpTypeArgs { value, required }), false) => {
-                let ty = if required || has_default {
+                let ty = if *required || has_default {
                     syn::parse_quote!(asn1::Explicit::<#f, #value>)
                 } else {
                     syn::parse_quote!(asn1::Explicit::<<#f as asn1::OptionExt>::T, #value>)
                 };
 
-                (ty, bound.clone())
+                let b = tagged_bound.clone().unwrap_or_else(|| bound.clone());
+                (ty, b)
             }
             (OpType::Explicit(OpTypeArgs { value, required }), true) => {
-                let ty = if required || has_default {
+                let ty = if *required || has_default {
                     syn::parse_quote!(for<'asn1_internal> asn1::Explicit::<&'asn1_internal #f, #value>)
                 } else {
                     syn::parse_quote!(for<'asn1_internal> asn1::Explicit::<&'asn1_internal <#f as asn1::OptionExt>::T, #value>)
                 };
 
-                (ty, bound.clone())
+                let b = tagged_bound.clone().unwrap_or_else(|| bound.clone());
+                (ty, b)
             }
         };
 
@@ -600,7 +629,29 @@ fn add_bounds(
                     p.push(required_bound);
                     p
                 },
-            }))
+            }));
+
+        if let Some(err_ty) = &error_type {
+            if !is_tagged {
+                // Add `err_ty: From<...::Error>` so the derive's `?` can
+                // convert inner errors. Tagged fields don't need this because
+                // their bound already constrains `Error` directly.
+                let error_pred: syn::WherePredicate = match &op_type {
+                    OpType::DefinedBy(_) => {
+                        syn::parse_quote!(
+                            #err_ty: From<<#f as asn1::Asn1DefinedByWritable<asn1::ObjectIdentifier>>::Error>
+                        )
+                    }
+                    OpType::Regular => {
+                        syn::parse_quote!(
+                            #err_ty: From<<#f as asn1::Asn1Writable>::Error>
+                        )
+                    }
+                    _ => unreachable!(),
+                };
+                where_clause.predicates.push(error_pred);
+            }
+        }
     }
 }
 
@@ -1123,7 +1174,7 @@ fn generate_enum_write_block(
         let (write_arm, length_arm) = match op_type {
             OpType::Regular => (
                 quote::quote! {
-                    #name::#ident(value) => w.write_element(value),
+                    #name::#ident(value) => { w.write_element(value)?; },
                 },
                 quote::quote! {
                     #name::#ident(value) => asn1::Asn1Writable::encoded_length(value),
@@ -1133,7 +1184,7 @@ fn generate_enum_write_block(
                 let tag = arg.value;
                 (
                     quote::quote! {
-                        #name::#ident(value) => w.write_element(&asn1::Explicit::<_, #tag>::new(value)),
+                        #name::#ident(value) => { w.write_element(&asn1::Explicit::<_, #tag>::new(value))?; },
                     },
                     quote::quote! {
                         #name::#ident(value) => asn1::Asn1Writable::encoded_length(&asn1::Explicit::<_, #tag>::new(value)),
@@ -1144,7 +1195,7 @@ fn generate_enum_write_block(
                 let tag = arg.value;
                 (
                     quote::quote! {
-                        #name::#ident(value) => w.write_element(&asn1::Implicit::<_, #tag>::new(value)),
+                        #name::#ident(value) => { w.write_element(&asn1::Implicit::<_, #tag>::new(value))?; },
                     },
                     quote::quote! {
                         #name::#ident(value) => asn1::Asn1Writable::encoded_length(&asn1::Implicit::<_, #tag>::new(value)),
@@ -1167,6 +1218,7 @@ fn generate_enum_write_block(
             match self {
                 #(#write_arms)*
             }
+            Ok(())
         },
         quote::quote! {
             match self {

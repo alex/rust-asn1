@@ -1,11 +1,10 @@
 use std::fmt;
 
-fn assert_roundtrips<
-    'a,
-    T: asn1::Asn1Readable<'a> + asn1::Asn1Writable + PartialEq + fmt::Debug,
->(
+fn assert_roundtrips<'a, T: asn1::Asn1Readable<'a> + asn1::Asn1Writable + PartialEq + fmt::Debug>(
     data: &[(asn1::ParseResult<T>, &'a [u8])],
-) {
+) where
+    <T as asn1::Asn1Writable>::Error: fmt::Debug,
+{
     for (value, der_bytes) in data {
         let parsed = asn1::parse_single::<T>(der_bytes);
         assert_eq!(value, &parsed);
