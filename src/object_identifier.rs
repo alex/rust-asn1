@@ -16,7 +16,7 @@ const MAX_OID_LENGTH: usize = 63;
 ///
 /// rust-asn1 stores `ObjectIdentifier`s in a fixed-size buffer, therefore
 /// they are limited to OID values whose DER encoding fits into that buffer.
-/// This buffer is sufficiently large to fit all known publically known OIDs,
+/// This buffer is sufficiently large to fit all publicly known OIDs,
 /// so this should not affect most people.
 #[derive(PartialEq, Eq, Clone, Hash)]
 pub struct ObjectIdentifier {
