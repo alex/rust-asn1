@@ -371,7 +371,7 @@ mod tests {
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime, Enumerated,
         Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded,
         OwnedBigInt, OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation,
-        ParseResult, PrintableString, Sequence, SequenceOf, SetOf, Tag, Tlv, UniversalString,
+        ParseResult, PrintableString, Sequence, SequenceOf, Set, SetOf, Tag, Tlv, UniversalString,
         UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
     #[cfg(not(feature = "std"))]
@@ -1809,6 +1809,89 @@ mod tests {
                 (Ok(vec![3, 1]), b"\x30\x06\x02\x01\x03\x02\x01\x01"),
             ],
             |p| Ok(p.read_element::<SequenceOf<'_, i64, 1, 2>>()?.collect()),
+        );
+    }
+
+    #[test]
+    fn test_parse_set() {
+        assert_parses::<Set<'_>>(&[
+            (
+                Ok(Set::new(b"\x02\x01\x01\x02\x01\x02")),
+                b"\x31\x06\x02\x01\x01\x02\x01\x02",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+                b"\x31\x04\x02\x01\x01",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::ExtraData)),
+                b"\x31\x06\x02\x01\x01\x02\x01\x02\x00",
+            ),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)),
+                b"\x31\x06\x02\x01\x03\x02\x01\x01",
+            ),
+            // Same tag, values in correct order (INTEGER 1, INTEGER 2)
+            (
+                Ok(Set::new(b"\x02\x01\x01\x02\x01\x02")),
+                b"\x31\x06\x02\x01\x01\x02\x01\x02",
+            ),
+            // Same tag, values in wrong order (INTEGER 2, INTEGER 1)
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)),
+                b"\x31\x06\x02\x01\x02\x02\x01\x01",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_set_parse() {
+        assert_parses_cb(
+            &[
+                (Ok((1, 2)), b"\x31\x06\x02\x01\x01\x02\x01\x02"),
+                (
+                    Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+                    b"\x31\x03\x02\x01\x01",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+                    b"\x31\x07\x02\x01\x01\x02\x01\x02\x00",
+                ),
+                (
+                    Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)),
+                    b"\x31\x06\x02\x01\x03\x02\x01\x01",
+                ),
+            ],
+            |p| {
+                p.read_element::<Set<'_>>()?
+                    .parse(|p| Ok((p.read_element::<i64>()?, p.read_element::<i64>()?)))
+            },
+        );
+    }
+
+    #[test]
+    fn test_parse_is_empty_set() {
+        assert_parses_cb(
+            &[
+                (
+                    Ok(vec![1, 2, 3]),
+                    b"\x31\x09\x02\x01\x01\x02\x01\x02\x02\x01\x03",
+                ),
+                (Ok(vec![]), b"\x31\x00"),
+                (
+                    Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+                    b"\x31\x02\x02\x01",
+                ),
+            ],
+            |p| {
+                p.read_element::<Set<'_>>()?.parse(|p| {
+                    let mut result = vec![];
+                    while !p.is_empty() {
+                        result.push(p.read_element::<i64>()?);
+                    }
+                    Ok(result)
+                })
+            },
         );
     }
 
