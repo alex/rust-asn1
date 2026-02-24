@@ -1668,22 +1668,22 @@ impl SimpleAsn1Writable for Sequence<'_> {
 
 /// Writes an ASN.1 `SEQUENCE` using a callback that writes the inner
 /// elements.
-pub struct SequenceWriter<'a> {
-    f: &'a dyn Fn(&mut Writer<'_>) -> WriteResult,
+pub struct SequenceWriter<'a, E: From<WriteError> = WriteError> {
+    f: &'a dyn Fn(&mut Writer<'_>) -> Result<(), E>,
 }
 
-impl<'a> SequenceWriter<'a> {
+impl<'a, E: From<WriteError>> SequenceWriter<'a, E> {
     #[inline]
-    pub fn new(f: &'a dyn Fn(&mut Writer<'_>) -> WriteResult) -> Self {
+    pub fn new(f: &'a dyn Fn(&mut Writer<'_>) -> Result<(), E>) -> Self {
         SequenceWriter { f }
     }
 }
 
-impl SimpleAsn1Writable for SequenceWriter<'_> {
-    type Error = WriteError;
+impl<E: From<WriteError>> SimpleAsn1Writable for SequenceWriter<'_, E> {
+    type Error = E;
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
-    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), E> {
         (self.f)(&mut Writer::new(dest))
     }
 

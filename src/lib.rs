@@ -43,7 +43,7 @@
 //! # let r = 0u64;
 //! # let s = 0u64;
 //! let result = asn1::write(|w| {
-//!     w.write_element(&asn1::SequenceWriter::new(&|w| {
+//!     w.write_element(&asn1::SequenceWriter::<asn1::WriteError>::new(&|w| {
 //!         w.write_element(&r)?;
 //!         w.write_element(&s)?;
 //!         Ok(())
