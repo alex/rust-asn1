@@ -17,11 +17,13 @@ fn main() {
     };
 
     let computed = asn1::write(|w| {
-        w.write_element(&asn1::SequenceWriter::new(&|w: &mut asn1::Writer| {
-            w.write_element(&1i64)?;
-            w.write_element(&3i64)?;
-            Ok(())
-        }))
+        w.write_element(&asn1::SequenceWriter::<asn1::WriteError>::new(
+            &|w: &mut asn1::Writer| {
+                w.write_element(&1i64)?;
+                w.write_element(&3i64)?;
+                Ok(())
+            },
+        ))
     })
     .unwrap();
     unsafe {
