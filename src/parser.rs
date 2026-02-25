@@ -1828,7 +1828,8 @@ mod tests {
                 b"\x31\x06\x02\x01\x01\x02\x01\x02\x00",
             ),
             (
-                Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)),
+                Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
+                    .add_location(ParseLocation::Index(1))),
                 b"\x31\x06\x02\x01\x03\x02\x01\x01",
             ),
             // Same tag, values in correct order (INTEGER 1, INTEGER 2)
@@ -1838,7 +1839,8 @@ mod tests {
             ),
             // Same tag, values in wrong order (INTEGER 2, INTEGER 1)
             (
-                Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)),
+                Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
+                    .add_location(ParseLocation::Index(1))),
                 b"\x31\x06\x02\x01\x02\x02\x01\x01",
             ),
         ]);
@@ -1854,11 +1856,13 @@ mod tests {
                     b"\x31\x03\x02\x01\x01",
                 ),
                 (
-                    Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+                    Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })
+                        .add_location(ParseLocation::Index(2))),
                     b"\x31\x07\x02\x01\x01\x02\x01\x02\x00",
                 ),
                 (
-                    Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)),
+                    Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
+                        .add_location(ParseLocation::Index(1))),
                     b"\x31\x06\x02\x01\x03\x02\x01\x01",
                 ),
             ],
@@ -1879,7 +1883,8 @@ mod tests {
                 ),
                 (Ok(vec![]), b"\x31\x00"),
                 (
-                    Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
+                    Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })
+                        .add_location(ParseLocation::Index(0))),
                     b"\x31\x02\x02\x01",
                 ),
             ],

@@ -1877,6 +1877,32 @@ impl<T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SequenceOfWriter<'_
     }
 }
 
+/// Validates that TLV elements in a SET are in DER canonical order.
+/// Calls `per_element` for each successfully read TLV, passing the
+/// element and its zero-based index.
+fn validate_set_ordering<'a>(
+    p: &mut Parser<'a>,
+    mut per_element: impl FnMut(Tlv<'a>, usize) -> ParseResult<()>,
+) -> ParseResult<()> {
+    let mut last_element: Option<Tlv<'a>> = None;
+    let mut i = 0;
+    while !p.is_empty() {
+        let el = p
+            .read_tlv()
+            .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
+        if let Some(last_el) = last_element {
+            if el.full_data < last_el.full_data {
+                return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
+                    .add_location(ParseLocation::Index(i)));
+            }
+        }
+        last_element = Some(el);
+        per_element(el, i)?;
+        i += 1;
+    }
+    Ok(())
+}
+
 /// Represents an ASN.1 `SET`.
 ///
 /// By itself, this merely indicates a sequence of bytes that are claimed to
@@ -1908,19 +1934,7 @@ impl<'a> SimpleAsn1Readable<'a> for Set<'a> {
     const TAG: Tag = Tag::constructed(0x11);
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Set<'a>> {
-        parse(data, |p| {
-            let mut last_element: Option<Tlv<'a>> = None;
-            while !p.is_empty() {
-                let el = p.read_tlv()?;
-                if let Some(last_el) = last_element {
-                    if el.full_data < last_el.full_data {
-                        return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering));
-                    }
-                }
-                last_element = Some(el);
-            }
-            Ok(())
-        })?;
+        parse(data, |p| validate_set_ordering(p, |_, _| Ok(())))?;
         Ok(Set::new(data))
     }
 }
@@ -2060,24 +2074,11 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         parse(data, |p| {
-            let mut last_element: Option<Tlv<'a>> = None;
-            let mut i = 0;
-            while !p.is_empty() {
-                let el = p
-                    .read_tlv()
-                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
-                if let Some(last_el) = last_element {
-                    if el.full_data < last_el.full_data {
-                        return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
-                            .add_location(ParseLocation::Index(i)));
-                    }
-                }
-                last_element = Some(el);
+            validate_set_ordering(p, |el, i| {
                 el.parse::<T>()
                     .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
-                i += 1;
-            }
-            Ok(())
+                Ok(())
+            })
         })?;
         Ok(SetOf::new(data))
     }
