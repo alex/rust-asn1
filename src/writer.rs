@@ -838,8 +838,10 @@ mod tests {
         );
 
         assert_eq!(
-            write(|w| { w.write_implicit_element(&SequenceWriter::new(&|_w| { Ok(()) }), 2) })
-                .unwrap(),
+            write(|w| {
+                w.write_implicit_element(&SequenceWriter::new(&|_w| Ok::<_, WriteError>(())), 2)
+            })
+            .unwrap(),
             b"\xa2\x00"
         );
     }

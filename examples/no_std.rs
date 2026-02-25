@@ -20,7 +20,7 @@ fn main() {
         w.write_element(&asn1::SequenceWriter::new(&|w: &mut asn1::Writer| {
             w.write_element(&1i64)?;
             w.write_element(&3i64)?;
-            Ok(())
+            Ok::<_, asn1::WriteError>(())
         }))
     })
     .unwrap();

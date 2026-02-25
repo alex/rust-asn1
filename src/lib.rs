@@ -46,7 +46,7 @@
 //!     w.write_element(&asn1::SequenceWriter::new(&|w| {
 //!         w.write_element(&r)?;
 //!         w.write_element(&s)?;
-//!         Ok(())
+//!         Ok::<_, asn1::WriteError>(())
 //!     }))
 //! });
 //! ```
