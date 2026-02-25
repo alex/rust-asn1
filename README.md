@@ -25,6 +25,11 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+#### Added
+
+- Added `Set`, `SetWriter`, and `SetElementWriter` types for parsing and
+  writing ASN.1 `SET` values with DER ordering validation.
+
 ### [0.23.1]
 
 #### Added

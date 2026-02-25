@@ -1877,6 +1877,143 @@ impl<T: Asn1Writable, V: Borrow<[T]>> SimpleAsn1Writable for SequenceOfWriter<'_
     }
 }
 
+/// Validates that TLV elements in a SET are in DER canonical order.
+/// Calls `per_element` for each successfully read TLV, passing the
+/// element and its zero-based index.
+fn validate_set_ordering<'a>(
+    p: &mut Parser<'a>,
+    mut per_element: impl FnMut(Tlv<'a>, usize) -> ParseResult<()>,
+) -> ParseResult<()> {
+    let mut last_element: Option<Tlv<'a>> = None;
+    let mut i = 0;
+    while !p.is_empty() {
+        let el = p
+            .read_tlv()
+            .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
+        if let Some(last_el) = last_element {
+            if el.full_data < last_el.full_data {
+                return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
+                    .add_location(ParseLocation::Index(i)));
+            }
+        }
+        last_element = Some(el);
+        per_element(el, i)?;
+        i += 1;
+    }
+    Ok(())
+}
+
+/// Represents an ASN.1 `SET`.
+///
+/// By itself, this merely indicates a sequence of bytes that are claimed to
+/// form an ASN1 set. In almost any circumstance, you'll want to
+/// immediately call `Set.parse` on this value to decode the actual
+/// contents therein.
+#[derive(Debug, PartialEq, Hash, Clone, Eq)]
+pub struct Set<'a> {
+    data: &'a [u8],
+}
+
+impl<'a> Set<'a> {
+    #[inline]
+    pub(crate) fn new(data: &'a [u8]) -> Set<'a> {
+        Set { data }
+    }
+
+    /// Parses the contents of the `Set`. Behaves the same as the module-level `parse`
+    /// function.
+    pub fn parse<T, E: From<ParseError>, F: Fn(&mut Parser<'a>) -> Result<T, E>>(
+        self,
+        f: F,
+    ) -> Result<T, E> {
+        parse(self.data, f)
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for Set<'a> {
+    const TAG: Tag = Tag::constructed(0x11);
+    #[inline]
+    fn parse_data(data: &'a [u8]) -> ParseResult<Set<'a>> {
+        parse(data, |p| validate_set_ordering(p, |_, _| Ok(())))?;
+        Ok(Set::new(data))
+    }
+}
+impl SimpleAsn1Writable for Set<'_> {
+    type Error = WriteError;
+    const TAG: Tag = Tag::constructed(0x11);
+    #[inline]
+    fn write_data(&self, data: &mut WriteBuf) -> WriteResult {
+        data.push_slice(self.data)
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.data.len())
+    }
+}
+
+/// Writes an ASN.1 `SET` using a callback that writes the inner
+/// elements. Returns `WriteError::InvalidSetOrdering` if the
+/// elements are not in DER order.
+pub struct SetWriter<'a, E: From<WriteError> = WriteError> {
+    f: &'a dyn Fn(&mut SetElementWriter<'_>) -> Result<(), E>,
+}
+
+impl<'a, E: From<WriteError>> SetWriter<'a, E> {
+    #[inline]
+    pub fn new(f: &'a dyn Fn(&mut SetElementWriter<'_>) -> Result<(), E>) -> Self {
+        SetWriter { f }
+    }
+}
+
+impl<E: From<WriteError>> SimpleAsn1Writable for SetWriter<'_, E> {
+    type Error = E;
+    const TAG: Tag = Tag::constructed(0x11);
+    fn write_data(&self, dest: &mut WriteBuf) -> Result<(), E> {
+        (self.f)(&mut SetElementWriter::new(dest))
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        None
+    }
+}
+
+/// A writer for SET elements that checks DER ordering on each
+/// element written. Elements must be written in ascending order
+/// of their encoded bytes.
+pub struct SetElementWriter<'a> {
+    writer: Writer<'a>,
+    prev_start: Option<usize>,
+}
+
+impl<'a> SetElementWriter<'a> {
+    fn new(buf: &'a mut WriteBuf) -> Self {
+        SetElementWriter {
+            writer: Writer::new(buf),
+            prev_start: None,
+        }
+    }
+
+    /// Writes a single element, returning
+    /// `WriteError::InvalidSetOrdering` if it is out of order
+    /// relative to the previous element.
+    pub fn write_element<T: Asn1Writable>(&mut self, val: &T) -> Result<(), T::Error> {
+        let start = self.writer.buf.len();
+        self.writer.write_element(val)?;
+        let end = self.writer.buf.len();
+
+        if let Some(prev_start) = self.prev_start {
+            let prev = &self.writer.buf.as_slice()[prev_start..start];
+            let curr = &self.writer.buf.as_slice()[start..end];
+            if curr < prev {
+                return Err(WriteError::InvalidSetOrdering.into());
+            }
+        }
+
+        self.prev_start = Some(start);
+        Ok(())
+    }
+}
+
 /// Represents an ASN.1 `SET OF`. This is an `Iterator` over values that
 /// are decoded.
 pub struct SetOf<'a, T> {
@@ -1937,24 +2074,11 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
     #[inline]
     fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
         parse(data, |p| {
-            let mut last_element: Option<Tlv<'a>> = None;
-            let mut i = 0;
-            while !p.is_empty() {
-                let el = p
-                    .read_tlv()
-                    .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
-                if let Some(last_el) = last_element {
-                    if el.full_data < last_el.full_data {
-                        return Err(ParseError::new(ParseErrorKind::InvalidSetOrdering)
-                            .add_location(ParseLocation::Index(i)));
-                    }
-                }
-                last_element = Some(el);
+            validate_set_ordering(p, |el, i| {
                 el.parse::<T>()
                     .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
-                i += 1;
-            }
-            Ok(())
+                Ok(())
+            })
         })?;
         Ok(SetOf::new(data))
     }

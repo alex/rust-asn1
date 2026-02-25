@@ -8,12 +8,16 @@ use alloc::{fmt, vec};
 #[derive(PartialEq, Eq, Debug)]
 pub enum WriteError {
     AllocationError,
+    InvalidSetOrdering,
 }
 
 impl fmt::Display for WriteError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             WriteError::AllocationError => write!(f, "allocation error"),
+            WriteError::InvalidSetOrdering => {
+                write!(f, "SET elements are not in DER order")
+            }
         }
     }
 }
@@ -236,8 +240,9 @@ mod tests {
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime,
         Enumerated, Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier,
         OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString, PrintableString, Sequence,
-        SequenceOf, SequenceOfWriter, SequenceWriter, SetOf, SetOfWriter, Tag, Tlv,
-        UniversalString, UtcTime, Utf8String, VisibleString, WriteError, X509GeneralizedTime,
+        SequenceOf, SequenceOfWriter, SequenceWriter, Set, SetElementWriter, SetOf, SetOfWriter,
+        SetWriter, Tag, Tlv, UniversalString, UtcTime, Utf8String, VisibleString, WriteError,
+        X509GeneralizedTime,
     };
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
@@ -793,6 +798,59 @@ mod tests {
     }
 
     #[test]
+    fn test_write_set() {
+        assert_eq!(
+            write(|w| {
+                w.write_element(&SetWriter::new(&|w: &mut SetElementWriter<'_>| {
+                    w.write_element(&())
+                }))
+            })
+            .unwrap(),
+            b"\x31\x02\x05\x00"
+        );
+        assert_eq!(
+            write(|w| {
+                w.write_element(&SetWriter::new(&|w: &mut SetElementWriter<'_>| {
+                    w.write_element(&true)
+                }))
+            })
+            .unwrap(),
+            b"\x31\x03\x01\x01\xff"
+        );
+        assert_eq!(
+            write(|w| {
+                w.write_element(&SetWriter::new(&|w: &mut SetElementWriter<'_>| {
+                    w.write_element(&b"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                }))
+            }).unwrap(),
+            b"\x31\x81\x84\x04\x81\x81aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+
+        assert_writes(&[(
+            parse_single::<Set<'_>>(b"\x31\x06\x01\x01\xff\x02\x01\x06").unwrap(),
+            b"\x31\x06\x01\x01\xff\x02\x01\x06",
+        )]);
+
+        assert!(write(|w| {
+            w.write_element(&SetWriter::new(&|w: &mut SetElementWriter<'_>| {
+                w.write_element(&true)?; // tag 0x01
+                w.write_element(&1i64) // tag 0x02
+            }))
+        })
+        .is_ok());
+
+        assert_eq!(
+            write(|w| {
+                w.write_element(&SetWriter::new(&|w: &mut SetElementWriter<'_>| {
+                    w.write_element(&1i64)?; // tag 0x02
+                    w.write_element(&true) // tag 0x01
+                }))
+            }),
+            Err(WriteError::InvalidSetOrdering)
+        );
+    }
+
+    #[test]
     fn test_write_set_of() {
         assert_writes::<SetOfWriter<'_, u8, &[u8]>>(&[
             (SetOfWriter::new(&[]), b"\x31\x00"),
@@ -914,6 +972,10 @@ mod tests {
     fn test_write_error_display() {
         use alloc::string::ToString;
         assert_eq!(&WriteError::AllocationError.to_string(), "allocation error");
+        assert_eq!(
+            &WriteError::InvalidSetOrdering.to_string(),
+            "SET elements are not in DER order"
+        );
     }
 
     #[test]
