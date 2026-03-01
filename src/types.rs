@@ -734,6 +734,31 @@ impl SimpleAsn1Writable for UniversalString<'_> {
     }
 }
 
+fn bigint_bit_length(data: &[u8]) -> usize {
+    if data[0] & 0x80 == 0 {
+        // Non-negative: strip the 0x00 sign byte if present.
+        let data = if data[0] == 0x00 { &data[1..] } else { data };
+        match data.first() {
+            None => 0,
+            Some(&b) => (data.len() - 1) * 8 + (8 - b.leading_zeros() as usize),
+        }
+    } else {
+        // Negative: bit length of the magnitude.
+        // Inverting gives |x| − 1; its bit length matches the
+        // magnitude's except when |x| is a power of two.
+        let skip = data.iter().take_while(|&&b| b == 0xff).count();
+        if skip == data.len() {
+            return 1; // -1
+        }
+        let inv = !data[skip];
+        let bits = (data.len() - skip - 1) * 8 + (8 - inv.leading_zeros() as usize);
+        // |x| is a power of two iff |x| − 1 is all ones in binary.
+        let pow2 =
+            inv.count_zeros() == inv.leading_zeros() && data[skip + 1..].iter().all(|&b| b == 0x00);
+        bits + pow2 as usize
+    }
+}
+
 const fn validate_integer(data: &[u8], signed: bool) -> ParseResult<()> {
     if data.is_empty() {
         return Err(ParseError::new(ParseErrorKind::InvalidValue));
@@ -956,6 +981,12 @@ impl<'a> BigInt<'a> {
     pub fn is_negative(&self) -> bool {
         self.data[0] & 0x80 == 0x80
     }
+
+    /// Returns the number of significant bits in the integer's
+    /// magnitude (absolute value). Returns 0 for a value of 0.
+    pub fn bit_length(&self) -> usize {
+        bigint_bit_length(self.data)
+    }
 }
 
 impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
@@ -1002,6 +1033,12 @@ impl OwnedBigInt {
     /// Returns a boolean indicating whether the integer is negative.
     pub fn is_negative(&self) -> bool {
         self.data[0] & 0x80 == 0x80
+    }
+
+    /// Returns the number of significant bits in the integer's
+    /// magnitude (absolute value). Returns 0 for a value of 0.
+    pub fn bit_length(&self) -> usize {
+        bigint_bit_length(&self.data)
     }
 }
 
@@ -2445,6 +2482,39 @@ mod tests {
             OwnedBigInt::new(b"\x01".to_vec()).unwrap().as_bytes(),
             b"\x01"
         );
+    }
+
+    #[test]
+    fn test_bigint_bit_length() {
+        for (value, expected) in [
+            (0, 0),
+            (1, 1),
+            (2, 2),
+            (3, 2),
+            (127, 7),
+            (128, 8),
+            (255, 8),
+            (256, 9),
+            (65535, 16),
+            (65536, 17),
+            (-1, 1),
+            (-2, 2),
+            (-3, 2),
+            (-127, 7),
+            (-128, 8),
+            (-129, 8),
+            (-255, 8),
+            (-256, 9),
+            (-65535, 16),
+            (-65536, 17),
+        ] {
+            let der = crate::write_single(&value).unwrap();
+            let bigint: BigInt<'_> = parse_single(&der).unwrap();
+            assert_eq!(bigint.bit_length(), expected);
+
+            let owned: OwnedBigInt = parse_single(&der).unwrap();
+            assert_eq!(owned.bit_length(), expected);
+        }
     }
 
     #[test]
