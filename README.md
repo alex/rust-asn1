@@ -25,6 +25,8 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+### [0.24.0]
+
 #### Added
 
 - Added `Set`, `SetWriter`, and `SetElementWriter` types for parsing and
