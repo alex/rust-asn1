@@ -49,6 +49,7 @@ $ cargo add asn1 --no-default-features
 #### Removed
 
 - `Tag::write_to` has been removed from the public API.
+  ([#604](https://github.com/alex/rust-asn1/pull/604))
 
 ### [0.23.1]
 
