@@ -107,7 +107,7 @@ impl Tag {
 
     /// Writes the tag's encoded representation (including tag class and
     /// constructed bits) to a `WriteBuf`.
-    pub fn write_to(self, dest: &mut WriteBuf) -> WriteResult {
+    pub(crate) fn write_to(self, dest: &mut WriteBuf) -> WriteResult {
         let mut b = ((self.class as u8) << 6) | if self.constructed { CONSTRUCTED } else { 0 };
         if self.value >= 0x1f {
             b |= 0x1f;
