@@ -25,10 +25,31 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+### [0.24.0]
+
 #### Added
 
 - Added `Set`, `SetWriter`, and `SetElementWriter` types for parsing and
   writing ASN.1 `SET` values with DER ordering validation.
+  ([#600](https://github.com/alex/rust-asn1/pull/600))
+- Added an associated error type to the `Asn1Writable`, `SimpleAsn1Writable`
+  and `Asn1DefinedByWritable` traits. Types implementing these traits can
+  now return a custom error type during serialization, as long as the error
+  type is convertible to `WriteError`. ([#597](https://github.com/alex/rust-asn1/pull/597))
+- Added `BigInt::bit_length()` and `OwnedBigInt::bit_length()` which return
+  the number of significant bits in the integer's magnitude (absolute value).
+  ([#603](https://github.com/alex/rust-asn1/pull/603))
+- Added `ObjectIdentifier::as_der()`. ([#598](https://github.com/alex/rust-asn1/pull/598))
+
+#### Changes
+
+- `SequenceWriter` is now generic over the error type, which defaults to
+  `WriteError`. ([#601](https://github.com/alex/rust-asn1/pull/601))
+
+#### Removed
+
+- `Tag::write_to` has been removed from the public API.
+  ([#604](https://github.com/alex/rust-asn1/pull/604))
 
 ### [0.23.1]
 
