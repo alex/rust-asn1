@@ -2038,6 +2038,11 @@ impl<'a> SetElementWriter<'a> {
         self.writer.write_element(val)?;
         let end = self.writer.buf.len();
 
+        // Nothing was written (e.g. Option::None), skip ordering check.
+        if start == end {
+            return Ok(());
+        }
+
         if let Some(prev_start) = self.prev_start {
             let prev = &self.writer.buf.as_slice()[prev_start..start];
             let curr = &self.writer.buf.as_slice()[start..end];

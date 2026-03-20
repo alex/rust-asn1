@@ -25,6 +25,11 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+#### Fixes
+
+- Fixed encoding a `Set` with absent optional fields incorrectly
+  returning `InvalidSetOrdering`
+
 ### [0.24.0]
 
 #### Added
