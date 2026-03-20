@@ -848,6 +848,28 @@ mod tests {
             }),
             Err(WriteError::InvalidSetOrdering)
         );
+
+        assert_eq!(
+            write(|w| {
+                w.write_element(&SetWriter::new(&|w: &mut SetElementWriter<'_>| {
+                    w.write_element(&true)?;
+                    w.write_element(&Some(1i64))
+                }))
+            })
+            .unwrap(),
+            b"\x31\x06\x01\x01\xff\x02\x01\x01"
+        );
+
+        assert_eq!(
+            write(|w| {
+                w.write_element(&SetWriter::new(&|w: &mut SetElementWriter<'_>| {
+                    w.write_element(&true)?;
+                    w.write_element(&Option::<i64>::None)
+                }))
+            })
+            .unwrap(),
+            b"\x31\x03\x01\x01\xff"
+        );
     }
 
     #[test]
