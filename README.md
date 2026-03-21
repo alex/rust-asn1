@@ -25,10 +25,12 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+### [0.24.1]
+
 #### Added
 
-- Added `Tlv::tag_bytes()` wich return the DER-encoded bytes
-  of the tag portion of a TLV.
+- Added `Tlv::tag_bytes()` which returns the DER-encoded bytes
+  of the tag portion of a TLV. ([#608](https://github.com/alex/rust-asn1/pull/608))
 
 #### Fixes
 
