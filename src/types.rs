@@ -210,6 +210,10 @@ impl<'a> Tlv<'a> {
     pub fn tag(&self) -> Tag {
         self.tag
     }
+    /// The DER encoded tag.
+    pub fn tag_bytes(&self) -> &'a [u8] {
+        &self.full_data[..self.tag.encoded_length()]
+    }
     /// The value portion of the TLV.
     pub fn data(&self) -> &'a [u8] {
         self.data
@@ -2441,6 +2445,15 @@ mod tests {
     #[test]
     fn test_visiblestring_as_str() {
         assert_eq!(VisibleString::new("abc").unwrap().as_str(), "abc");
+    }
+
+    #[test]
+    fn test_tlv_tag_bytes() {
+        let tlv = parse_single::<Tlv<'_>>(b"\x01\x03abc").unwrap();
+        assert_eq!(tlv.tag_bytes(), b"\x01");
+
+        let tlv_long = parse_single::<Tlv<'_>>(b"\x1f\x1f\x03abc").unwrap();
+        assert_eq!(tlv_long.tag_bytes(), b"\x1f\x1f");
     }
 
     #[test]

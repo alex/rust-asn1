@@ -25,10 +25,15 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+#### Added
+
+- Added `Tlv::tag_bytes()` wich return the DER-encoded bytes
+  of the tag portion of a TLV.
+
 #### Fixes
 
 - Fixed encoding a `Set` with absent optional fields incorrectly
-  returning `InvalidSetOrdering`
+  returning `InvalidSetOrdering`. ([#607](https://github.com/alex/rust-asn1/pull/607))
 
 ### [0.24.0]
 
