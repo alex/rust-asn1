@@ -812,13 +812,14 @@ macro_rules! impl_asn1_element_for_int {
             type Error = WriteError;
             const TAG: Tag = Tag::primitive(0x02);
             fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
-                let num_bytes = self.data_length().unwrap() as u32;
-
-                for i in (1..=num_bytes).rev() {
-                    let digit = self.checked_shr((i - 1) * 8).unwrap_or(0);
-                    dest.push_byte(digit as u8)?;
+                let num_bytes = self.data_length().unwrap();
+                let bytes = self.to_be_bytes();
+                if num_bytes > bytes.len() {
+                    // Unsigned value with the high bit set: DER needs a 0x00 pad byte.
+                    dest.push_byte(0)?;
                 }
-                Ok(())
+                let start = bytes.len() - num_bytes.min(bytes.len());
+                dest.push_slice(&bytes[start..])
             }
 
             fn data_length(&self) -> Option<usize> {
