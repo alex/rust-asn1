@@ -822,6 +822,7 @@ macro_rules! impl_asn1_element_for_int {
             }
 
             fn data_length(&self) -> Option<usize> {
+                let v = *self;
                 let z = (v ^ (v >> (<$t>::BITS - 1))).leading_zeros();
                 Some((<$t>::BITS + 8 - z) as usize / 8)
             }
