@@ -822,14 +822,8 @@ macro_rules! impl_asn1_element_for_int {
             }
 
             fn data_length(&self) -> Option<usize> {
-                let mut num_bytes = 1;
-                let mut v: $t = *self;
-                #[allow(unused_comparisons)]
-                while v > 127 || ($signed && v < (-128i64) as $t) {
-                    num_bytes += 1;
-                    v = v.checked_shr(8).unwrap_or(0);
-                }
-                Some(num_bytes)
+                let z = (v ^ (v >> (<$t>::BITS - 1))).leading_zeros();
+                Some((<$t>::BITS + 8 - z) as usize / 8)
             }
         }
     };
