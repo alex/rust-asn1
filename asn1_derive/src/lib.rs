@@ -470,7 +470,7 @@ fn add_field_types(
 fn type_contains_generic_param(t: &syn::Type, generic_params: &[syn::Ident]) -> bool {
     match t {
         syn::Type::Array(v) => type_contains_generic_param(&v.elem, generic_params),
-        syn::Type::BareFn(_) => todo!("BareFn"),
+        syn::Type::FnPtr(_) => todo!("FnPtr"),
         syn::Type::Group(v) => type_contains_generic_param(&v.elem, generic_params),
         syn::Type::ImplTrait(_) => todo!("ImplTrait"),
         syn::Type::Infer(_) => false,
@@ -621,6 +621,7 @@ fn add_bounds(
         where_clause
             .predicates
             .push(syn::WherePredicate::Type(syn::PredicateType {
+                attrs: vec![],
                 lifetimes: None,
                 bounded_ty,
                 colon_token: Default::default(),
