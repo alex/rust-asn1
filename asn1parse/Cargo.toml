@@ -10,4 +10,4 @@ rust-version = "1.83.0"
 asn1 = { version = "0.24.1", path = ".." }
 clap = { version = "4.5", features = ["derive"] }
 hex = "0.4.3"
-pem = { version = "3.0.4", default-features = false, features = ["std"] }
+pem = { version = "4.0.0", default-features = false, features = ["std"] }
