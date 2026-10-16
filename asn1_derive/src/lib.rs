@@ -35,9 +35,8 @@ fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::
             quote::quote! {
                 impl #impl_generics asn1::SimpleAsn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     const TAG: asn1::Tag = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
-                    fn parse_data(data: &#lifetime_name [u8]) -> asn1::ParseResult<Self> {
-                        let _guard = asn1::DepthGuard::enter()?;
-                        asn1::parse(data, |p| { #read_block })
+                    fn parse_data(data: &#lifetime_name [u8], depth: asn1::Depth) -> asn1::ParseResult<Self> {
+                        asn1::parse_nested(data, depth, |p| { #read_block })
                     }
                 }
             }
@@ -47,7 +46,6 @@ fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::
             quote::quote! {
                 impl #impl_generics asn1::Asn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     fn parse(parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
-                        let _guard = asn1::DepthGuard::enter()?;
                         let tlv = parser.read_element::<asn1::Tlv>()?;
                         #read_block
                         Err(asn1::ParseError::new(asn1::ParseErrorKind::UnexpectedTag{actual: tlv.tag()}))
@@ -256,7 +254,6 @@ fn derive_asn1_defined_by_read_expand(
     Ok(quote::quote! {
         impl #impl_generics asn1::Asn1DefinedByReadable<#lifetime_name, asn1::ObjectIdentifier> for #name #ty_generics #where_clause {
             fn parse(item: asn1::ObjectIdentifier, parser: &mut asn1::Parser<#lifetime_name>) -> asn1::ParseResult<Self> {
-                let _guard = asn1::DepthGuard::enter()?;
                 #(#read_block)*
 
                 #fallback_block
@@ -923,10 +920,9 @@ fn generate_enum_read_block(
                 let tag = arg.value;
                 read_blocks.push(quote::quote! {
                     if asn1::Explicit::<#ty, #tag>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(asn1::parse(
-                            tlv.full_data(),
-                            |p| Ok(p.read_element::<asn1::Explicit<_, #tag>>()#add_error_location?.into_inner())
-                        )?))
+                        return Ok(#name::#ident(
+                            tlv.parse::<asn1::Explicit<#ty, #tag>>()#add_error_location?.into_inner()
+                        ))
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
@@ -939,10 +935,9 @@ fn generate_enum_read_block(
                 let tag = arg.value;
                 read_blocks.push(quote::quote! {
                     if asn1::Implicit::<#ty, #tag>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(asn1::parse(
-                            tlv.full_data(),
-                            |p| Ok(p.read_element::<asn1::Implicit<_, #tag>>()#add_error_location?.into_inner())
-                        )?))
+                        return Ok(#name::#ident(
+                            tlv.parse::<asn1::Implicit<#ty, #tag>>()#add_error_location?.into_inner()
+                        ))
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
