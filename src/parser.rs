@@ -185,7 +185,7 @@ impl Depth {
     pub(crate) const ROOT: Depth = Depth(0);
 
     #[inline]
-    fn nested(self) -> ParseResult<Depth> {
+    pub(crate) fn nested(self) -> ParseResult<Depth> {
         if self.0 >= MAX_PARSE_DEPTH {
             return Err(ParseError::new(ParseErrorKind::ExceededMaxDepth));
         }

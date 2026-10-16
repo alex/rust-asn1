@@ -2409,11 +2409,8 @@ impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32>
     fn parse(item: T, parser: &mut Parser<'a>) -> ParseResult<Self> {
         let tlv = parser.read_element::<Explicit<Tlv<'_>, TAG>>()?;
         let tlv = tlv.as_inner();
-        Ok(Explicit::new(parse_at_depth(
-            tlv.full_data(),
-            tlv.depth,
-            |p| U::parse(item, p),
-        )?))
+        let value = parse_at_depth(tlv.full_data(), tlv.depth, |p| U::parse(item, p))?;
+        Ok(Explicit::new(value))
     }
 }
 
@@ -2476,7 +2473,7 @@ mod tests {
         OwnedBigUint, ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter,
         SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
-    use crate::{Depth, Explicit, Implicit, Parser};
+    use crate::{Depth, Explicit, Implicit, Parser, Sequence, Set};
     #[cfg(not(feature = "std"))]
     use alloc::vec;
     #[cfg(not(feature = "std"))]
@@ -2690,6 +2687,37 @@ mod tests {
         assert!(s3 == s3);
 
         assert!(s3 != s4);
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn test_depth_ignored_by_eq_hash_debug() {
+        // The same encoding read at different depths compares, hashes, and
+        // formats identically.
+        let root = Parser::new(b"", Depth::ROOT).depth();
+        let nested = Depth::ROOT.nested().unwrap();
+
+        let tlv1 = Parser::new(b"\x30\x00", root).read_tlv().unwrap();
+        let tlv2 = Parser::new(b"\x30\x00", nested).read_tlv().unwrap();
+        assert_eq!(tlv1, tlv2);
+        assert_eq!(hash(&tlv1), hash(&tlv2));
+        assert_eq!(
+            alloc::format!("{tlv1:?}"),
+            "Tlv { tag: Tag { value: 16, constructed: true, class: Universal }, data: [], full_data: [48, 0] }"
+        );
+        assert_eq!(alloc::format!("{tlv1:?}"), alloc::format!("{tlv2:?}"));
+
+        let seq1 = Sequence::new(b"\x05\x00", root);
+        let seq2 = Sequence::new(b"\x05\x00", nested);
+        assert_eq!(seq1, seq2);
+        assert_eq!(hash(&seq1), hash(&seq2));
+        assert_eq!(alloc::format!("{seq1:?}"), "Sequence { data: [5, 0] }");
+
+        let set1 = Set::new(b"\x05\x00", root);
+        let set2 = Set::new(b"\x05\x00", nested);
+        assert_eq!(set1, set2);
+        assert_eq!(hash(&set1), hash(&set2));
+        assert_eq!(alloc::format!("{set1:?}"), "Set { data: [5, 0] }");
     }
 
     #[cfg(feature = "std")]
