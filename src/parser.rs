@@ -44,6 +44,8 @@ pub enum ParseErrorKind {
     /// A `DEFINED BY` value received an value for which there was no known
     /// variant.
     UnknownDefinedBy,
+    /// Values were nested more deeply than [`MAX_PARSE_DEPTH`] allows.
+    ExceededMaxDepth,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -158,7 +160,59 @@ impl fmt::Display for ParseError {
                 "OBJECT IDENTIFIER was too large to be stored in rust-asn1's buffer"
             ),
             ParseErrorKind::UnknownDefinedBy => write!(f, "DEFINED BY with unknown value"),
+            ParseErrorKind::ExceededMaxDepth => write!(f, "exceeded maximum nesting depth"),
         }
+    }
+}
+
+/// The maximum number of nested `#[derive(asn1::Asn1Read)]` (and
+/// `#[derive(asn1::Asn1DefinedByRead)]`) values that will be parsed before
+/// returning [`ParseErrorKind::ExceededMaxDepth`].
+///
+/// Without a bound, recursive type definitions (e.g., an `AlgorithmIdentifier`
+/// whose parameters may contain another `AlgorithmIdentifier`) allow
+/// attacker-controlled input to exhaust the stack. Every recursive cycle of
+/// types must pass through a derived type, so bounding derived types bounds
+/// all recursion.
+///
+/// The depth is tracked per-thread, and is only enforced when the `std`
+/// feature is enabled.
+pub const MAX_PARSE_DEPTH: u32 = 64;
+
+#[cfg(feature = "std")]
+std::thread_local! {
+    static PARSE_DEPTH: core::cell::Cell<u32> = const { core::cell::Cell::new(0) };
+}
+
+/// Tracks the nesting depth of derived parsers. Used by `asn1_derive`; not
+/// considered part of the public API.
+#[doc(hidden)]
+pub struct DepthGuard {
+    _priv: (),
+}
+
+impl DepthGuard {
+    #[doc(hidden)]
+    #[inline]
+    pub fn enter() -> ParseResult<DepthGuard> {
+        #[cfg(feature = "std")]
+        PARSE_DEPTH.with(|d| {
+            let depth = d.get();
+            if depth >= MAX_PARSE_DEPTH {
+                return Err(ParseError::new(ParseErrorKind::ExceededMaxDepth));
+            }
+            d.set(depth + 1);
+            Ok(())
+        })?;
+        Ok(DepthGuard { _priv: () })
+    }
+}
+
+impl Drop for DepthGuard {
+    #[inline]
+    fn drop(&mut self) {
+        #[cfg(feature = "std")]
+        PARSE_DEPTH.with(|d| d.set(d.get() - 1));
     }
 }
 
@@ -479,6 +533,10 @@ mod tests {
             (
                 ParseError::new(ParseErrorKind::UnknownDefinedBy),
                 "ASN.1 parsing error: DEFINED BY with unknown value"
+            ),
+            (
+                ParseError::new(ParseErrorKind::ExceededMaxDepth),
+                "ASN.1 parsing error: exceeded maximum nesting depth"
             ),
             (
                 ParseError::new(ParseErrorKind::ShortData{needed: 7})

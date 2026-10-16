@@ -153,7 +153,8 @@ mod writer;
 pub use crate::bit_string::{BitString, OwnedBitString};
 pub use crate::object_identifier::ObjectIdentifier;
 pub use crate::parser::{
-    parse, parse_single, strip_tlv, ParseError, ParseErrorKind, ParseLocation, ParseResult, Parser,
+    parse, parse_single, strip_tlv, DepthGuard, ParseError, ParseErrorKind, ParseLocation,
+    ParseResult, Parser, MAX_PARSE_DEPTH,
 };
 pub use crate::tag::Tag;
 pub use crate::types::{
