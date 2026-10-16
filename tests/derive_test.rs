@@ -933,3 +933,150 @@ fn test_defined_by_perfect_derive() {
         ),
     ]);
 }
+
+// Wraps `inner` in a TLV with the given single-byte tag.
+fn der_wrap(tag: u8, inner: &[u8]) -> Vec<u8> {
+    let mut out = vec![tag];
+    let len = inner.len();
+    if len < 0x80 {
+        out.push(len as u8);
+    } else {
+        let len_bytes = (len as u32).to_be_bytes();
+        let skip = len_bytes.iter().take_while(|b| **b == 0).count();
+        out.push(0x80 | (4 - skip) as u8);
+        out.extend_from_slice(&len_bytes[skip..]);
+    }
+    out.extend_from_slice(inner);
+    out
+}
+
+fn assert_exceeds_max_depth<'a, T: asn1::Asn1Readable<'a>>(data: &'a [u8]) {
+    let result = asn1::parse_single::<T>(data);
+    assert_eq!(
+        result.err().map(|e| e.kind()),
+        Some(asn1::ParseErrorKind::ExceededMaxDepth)
+    );
+}
+
+const MAX_DEPTH: usize = asn1::MAX_PARSE_DEPTH as usize;
+
+#[test]
+fn test_max_depth_recursive_struct() {
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    struct Node {
+        child: Option<Box<Node>>,
+    }
+
+    let nested = |levels: usize| {
+        let mut data = vec![];
+        for _ in 0..levels {
+            data = der_wrap(0x30, &data);
+        }
+        data
+    };
+
+    assert!(asn1::parse_single::<Node>(&nested(MAX_DEPTH)).is_ok());
+    assert_exceeds_max_depth::<Node>(&nested(MAX_DEPTH + 1));
+    // Deep enough that it would exhaust the stack without a depth limit.
+    assert_exceeds_max_depth::<Node>(&nested(10_000));
+}
+
+#[test]
+fn test_max_depth_recursive_defined_by() {
+    const NESTED: asn1::ObjectIdentifier = asn1::oid!(1, 2, 3);
+    const LEAF: asn1::ObjectIdentifier = asn1::oid!(1, 2, 4);
+
+    #[derive(asn1::Asn1Read, asn1::Asn1Write, Debug, PartialEq, Eq)]
+    struct AlgorithmIdentifier {
+        oid: asn1::DefinedByMarker<asn1::ObjectIdentifier>,
+        #[defined_by(oid)]
+        params: AlgorithmParameters,
+    }
+
+    #[derive(asn1::Asn1DefinedByRead, asn1::Asn1DefinedByWrite, Debug, PartialEq, Eq)]
+    enum AlgorithmParameters {
+        #[defined_by(NESTED)]
+        Nested(Box<AlgorithmIdentifier>),
+        #[defined_by(LEAF)]
+        Leaf(asn1::Null),
+    }
+
+    let nested_oid = asn1::write_single(&NESTED).unwrap();
+    let leaf_oid = asn1::write_single(&LEAF).unwrap();
+    let nested = |levels: usize| {
+        let mut data = der_wrap(0x30, &[&leaf_oid[..], b"\x05\x00"].concat());
+        for _ in 1..levels {
+            data = der_wrap(0x30, &[&nested_oid[..], &data].concat());
+        }
+        data
+    };
+
+    assert!(asn1::parse_single::<AlgorithmIdentifier>(&nested(MAX_DEPTH)).is_ok());
+    assert_exceeds_max_depth::<AlgorithmIdentifier>(&nested(MAX_DEPTH + 1));
+    assert_exceeds_max_depth::<AlgorithmIdentifier>(&nested(10_000));
+}
+
+#[test]
+fn test_max_depth_recursive_choice() {
+    #[derive(asn1::Asn1Read)]
+    #[allow(dead_code)]
+    enum Choice<'a> {
+        Leaf(bool),
+        Nested(asn1::SequenceOf<'a, Choice<'a>>),
+        #[explicit(0)]
+        Explicit(asn1::SequenceOf<'a, Choice<'a>>),
+    }
+
+    let nested = |levels: usize, tag: u8| {
+        let mut data = b"\x01\x01\xff".to_vec();
+        for _ in 0..levels {
+            data = der_wrap(tag, &data);
+        }
+        data
+    };
+
+    assert!(asn1::parse_single::<Choice<'_>>(&nested(MAX_DEPTH, 0x30)).is_ok());
+    assert_exceeds_max_depth::<Choice<'_>>(&nested(MAX_DEPTH + 1, 0x30));
+    assert_exceeds_max_depth::<Choice<'_>>(&nested(10_000, 0x30));
+
+    // An EXPLICIT tag wrapping a SEQUENCE OF is two levels.
+    let explicit = |levels: usize| {
+        let mut data = b"\x01\x01\xff".to_vec();
+        for _ in 0..levels {
+            data = der_wrap(0xa0, &der_wrap(0x30, &data));
+        }
+        data
+    };
+    assert!(asn1::parse_single::<Choice<'_>>(&explicit(MAX_DEPTH / 2)).is_ok());
+    assert_exceeds_max_depth::<Choice<'_>>(&explicit(MAX_DEPTH / 2 + 1));
+    assert_exceeds_max_depth::<Choice<'_>>(&explicit(10_000));
+}
+
+#[test]
+fn test_max_depth_lazy_sequence() {
+    // `Sequence` defers parsing its contents; the depth must carry over.
+    fn parse_nested_sequences(p: &mut asn1::Parser<'_>) -> asn1::ParseResult<usize> {
+        if p.is_empty() {
+            return Ok(0);
+        }
+        let seq = p.read_element::<asn1::Sequence<'_>>()?;
+        Ok(seq.parse(parse_nested_sequences)? + 1)
+    }
+
+    let nested = |levels: usize| {
+        let mut data = vec![];
+        for _ in 0..levels {
+            data = der_wrap(0x30, &data);
+        }
+        data
+    };
+
+    assert_eq!(
+        asn1::parse(&nested(MAX_DEPTH), parse_nested_sequences),
+        Ok(MAX_DEPTH)
+    );
+    assert_eq!(
+        asn1::parse(&nested(MAX_DEPTH + 1), parse_nested_sequences).map_err(|e| e.kind()),
+        Err(asn1::ParseErrorKind::ExceededMaxDepth)
+    );
+}
