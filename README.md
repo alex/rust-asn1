@@ -25,6 +25,10 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+#### Added
+
+- Added `NumericString`.
+
 ### [0.24.1]
 
 #### Added

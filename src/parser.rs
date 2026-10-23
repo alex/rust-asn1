@@ -369,10 +369,10 @@ mod tests {
     use crate::types::Asn1Readable;
     use crate::{
         BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime, Enumerated,
-        Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier, OctetStringEncoded,
-        OwnedBigInt, OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind, ParseLocation,
-        ParseResult, PrintableString, Sequence, SequenceOf, Set, SetOf, Tag, Tlv, UniversalString,
-        UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
+        Explicit, GeneralizedTime, IA5String, Implicit, NumericString, ObjectIdentifier,
+        OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString, ParseError, ParseErrorKind,
+        ParseLocation, ParseResult, PrintableString, Sequence, SequenceOf, Set, SetOf, Tag, Tlv,
+        UniversalString, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
     };
     #[cfg(not(feature = "std"))]
     use alloc::boxed::Box;
@@ -1237,6 +1237,18 @@ mod tests {
             (
                 Err(ParseError::new(ParseErrorKind::InvalidValue)),
                 b"\x13\x03ab\x00",
+            ),
+        ]);
+    }
+
+    #[test]
+    fn test_parse_numeric_string() {
+        assert_parses::<NumericString<'_>>(&[
+            (Ok(NumericString::new("123").unwrap()), b"\x12\x03123"),
+            (Ok(NumericString::new("1 2").unwrap()), b"\x12\x031 2"),
+            (
+                Err(ParseError::new(ParseErrorKind::InvalidValue)),
+                b"\x12\x0312a",
             ),
         ]);
     }
