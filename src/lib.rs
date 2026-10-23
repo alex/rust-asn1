@@ -159,10 +159,10 @@ pub use crate::tag::Tag;
 pub use crate::types::{
     Asn1DefinedByReadable, Asn1DefinedByWritable, Asn1Readable, Asn1Writable, BMPString, BigInt,
     BigUint, Choice1, Choice2, Choice3, DateTime, DefinedByMarker, Enumerated, Explicit,
-    GeneralizedTime, IA5String, Implicit, Null, OctetStringEncoded, OwnedBigInt, OwnedBigUint,
-    PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, Set, SetElementWriter,
-    SetOf, SetOfWriter, SetWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv, UniversalString,
-    UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
+    GeneralizedTime, IA5String, Implicit, Null, NumericString, OctetStringEncoded, OwnedBigInt,
+    OwnedBigUint, PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, Set,
+    SetElementWriter, SetOf, SetOfWriter, SetWriter, SimpleAsn1Readable, SimpleAsn1Writable, Tlv,
+    UniversalString, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
 };
 pub use crate::writer::{write, write_single, WriteBuf, WriteError, WriteResult, Writer};
 

@@ -238,11 +238,11 @@ mod tests {
     use crate::types::{Asn1Writable, SimpleAsn1Writable};
     use crate::{
         parse_single, BMPString, BigInt, BigUint, BitString, Choice1, Choice2, Choice3, DateTime,
-        Enumerated, Explicit, GeneralizedTime, IA5String, Implicit, ObjectIdentifier,
-        OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString, PrintableString, Sequence,
-        SequenceOf, SequenceOfWriter, SequenceWriter, Set, SetElementWriter, SetOf, SetOfWriter,
-        SetWriter, Tag, Tlv, UniversalString, UtcTime, Utf8String, VisibleString, WriteError,
-        X509GeneralizedTime,
+        Enumerated, Explicit, GeneralizedTime, IA5String, Implicit, NumericString,
+        ObjectIdentifier, OctetStringEncoded, OwnedBigInt, OwnedBigUint, OwnedBitString,
+        PrintableString, Sequence, SequenceOf, SequenceOfWriter, SequenceWriter, Set,
+        SetElementWriter, SetOf, SetOfWriter, SetWriter, Tag, Tlv, UniversalString, UtcTime,
+        Utf8String, VisibleString, WriteError, X509GeneralizedTime,
     };
     #[cfg(not(feature = "std"))]
     use alloc::vec::Vec;
@@ -322,6 +322,14 @@ mod tests {
                 b"\x13\x81\x80xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
             ),
         ]);
+    }
+
+    #[test]
+    fn test_write_numeric_string() {
+        assert_writes::<NumericString<'_>>(&[(
+            NumericString::new("12 34").unwrap(),
+            b"\x12\x0512 34",
+        )]);
     }
 
     #[test]

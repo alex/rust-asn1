@@ -477,6 +477,62 @@ impl SimpleAsn1Writable for PrintableString<'_> {
 }
 
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
+/// handling ASN.1 `NumericString`.  A `NumericString` contains an `&str`
+/// with only digits and spaces.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct NumericString<'a>(&'a str);
+
+impl<'a> NumericString<'a> {
+    pub fn new(s: &'a str) -> Option<NumericString<'a>> {
+        if NumericString::verify(s.as_bytes()) {
+            Some(NumericString(s))
+        } else {
+            None
+        }
+    }
+
+    fn new_from_bytes(s: &'a [u8]) -> Option<NumericString<'a>> {
+        if NumericString::verify(s) {
+            // TODO: This value is always valid utf-8 because we just verified
+            // the contents, but I don't want to call an unsafe function, so we
+            // end up validating it twice. If your profile says this is slow,
+            // now you know why.
+            Some(NumericString(core::str::from_utf8(s).unwrap()))
+        } else {
+            None
+        }
+    }
+
+    pub fn as_str(&self) -> &'a str {
+        self.0
+    }
+
+    fn verify(data: &[u8]) -> bool {
+        data.iter().all(|b| b.is_ascii_digit() || *b == b' ')
+    }
+}
+
+impl<'a> SimpleAsn1Readable<'a> for NumericString<'a> {
+    const TAG: Tag = Tag::primitive(0x12);
+    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+        NumericString::new_from_bytes(data)
+            .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
+    }
+}
+
+impl SimpleAsn1Writable for NumericString<'_> {
+    type Error = WriteError;
+    const TAG: Tag = Tag::primitive(0x12);
+    fn write_data(&self, dest: &mut WriteBuf) -> WriteResult {
+        dest.push_slice(self.0.as_bytes())
+    }
+
+    fn data_length(&self) -> Option<usize> {
+        Some(self.0.len())
+    }
+}
+
+/// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `IA5String`.  An `IA5String` contains an `&str`
 /// with only valid characters.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -2378,9 +2434,10 @@ impl<T: Asn1Writable> Asn1Writable for DefinedByMarker<T> {
 mod tests {
     use crate::{
         parse_single, Asn1Readable, Asn1Writable, BigInt, BigUint, DateTime, DefinedByMarker,
-        Enumerated, GeneralizedTime, IA5String, ObjectIdentifier, OctetStringEncoded, OwnedBigInt,
-        OwnedBigUint, ParseError, ParseErrorKind, PrintableString, SequenceOf, SequenceOfWriter,
-        SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String, VisibleString, X509GeneralizedTime,
+        Enumerated, GeneralizedTime, IA5String, NumericString, ObjectIdentifier,
+        OctetStringEncoded, OwnedBigInt, OwnedBigUint, ParseError, ParseErrorKind, PrintableString,
+        SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String,
+        VisibleString, X509GeneralizedTime,
     };
     use crate::{Explicit, Implicit};
     #[cfg(not(feature = "std"))]
@@ -2410,6 +2467,20 @@ mod tests {
     #[test]
     fn test_printable_string_as_str() {
         assert_eq!(PrintableString::new("abc").unwrap().as_str(), "abc");
+    }
+
+    #[test]
+    fn test_numeric_string_new() {
+        assert!(NumericString::new("123").is_some());
+        assert!(NumericString::new("").is_some());
+        assert!(NumericString::new("12 34").is_some());
+        assert!(NumericString::new("abc").is_none());
+        assert!(NumericString::new("1-2").is_none());
+    }
+
+    #[test]
+    fn test_numeric_string_as_str() {
+        assert_eq!(NumericString::new("123").unwrap().as_str(), "123");
     }
 
     #[test]
