@@ -121,7 +121,7 @@ jobs:
 
       - name: Compute coverage HTML
         run: |
-          set -xe
+          set -xeo pipefail
           LIBDIR=$(rustc --print target-libdir)
           $LIBDIR/../bin/llvm-profdata merge -sparse rust-cov/*.profraw -o cargo-test-rust-cov.profdata
           $LIBDIR/../bin/llvm-cov export \
@@ -142,19 +142,10 @@ jobs:
             --ignore-filename-regex='/.rustup/toolchains/' \
             --ignore-filename-regex='/tests/' --format=lcov > cargo-test.lcov
 
-          genhtml cargo-test.lcov -o coverage-html | tee output.log
+          genhtml cargo-test.lcov --fail-under-lines 100 -o coverage-html
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
         with:
           name: coverage-html
           path: coverage-html
-
-      - name: Check coverage
-        run: |
-          import re
-          with open("output.log") as f:
-              [line] = [l for l in f if l.startswith("  lines......:")]
-          coverage = float(re.search(r"([\d\.]+)%", line).group(1))
-          if coverage < 100:
-              raise ValueError(f"Coverage too low: {coverage}")
-        shell: python
