@@ -535,7 +535,7 @@ impl SimpleAsn1Writable for NumericString<'_> {
 /// Type for use with `Parser.read_element` and `Writer.write_element` for
 /// handling ASN.1 `IA5String`.  An `IA5String` contains an `&str`
 /// with only valid characters.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct IA5String<'a>(&'a str);
 
 impl<'a> IA5String<'a> {
