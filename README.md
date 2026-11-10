@@ -25,9 +25,17 @@ $ cargo add asn1 --no-default-features
 
 ### Unreleased
 
+### [0.24.2]
+
 #### Added
 
-- Added `NumericString`.
+- Added `NumericString` for parsing and writing strings containing only ASCII
+  digits and spaces. ([#632](https://github.com/alex/rust-asn1/pull/632))
+- `IA5String` now implements `Hash`. ([#634](https://github.com/alex/rust-asn1/pull/634))
+
+#### Changes
+
+- Optimized DER encoding for primitive integers. ([#614](https://github.com/alex/rust-asn1/pull/614))
 
 ### [0.24.1]
 
