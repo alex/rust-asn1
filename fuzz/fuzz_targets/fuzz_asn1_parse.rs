@@ -8,6 +8,7 @@ enum Data<'a> {
 
     OctetString(&'a [u8]),
     PrintableString(asn1::PrintableString<'a>),
+    NumericString(asn1::NumericString<'a>),
     BMPString(asn1::BMPString<'a>),
     UniversalString(asn1::UniversalString<'a>),
     IA5String(asn1::IA5String<'a>),
