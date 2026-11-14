@@ -907,7 +907,11 @@ fn generate_enum_read_block(
             OpType::Regular => {
                 read_blocks.push(quote::quote! {
                     if <#ty>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(tlv.parse()#add_error_location?));
+                        return Ok(#name::#ident(asn1::parse_at_depth(
+                            tlv.full_data(),
+                            parser.depth(),
+                            asn1::Parser::read_element,
+                        )#add_error_location?));
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
@@ -920,9 +924,11 @@ fn generate_enum_read_block(
                 let tag = arg.value;
                 read_blocks.push(quote::quote! {
                     if asn1::Explicit::<#ty, #tag>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(
-                            tlv.parse::<asn1::Explicit<#ty, #tag>>()#add_error_location?.into_inner()
-                        ))
+                        return Ok(#name::#ident(asn1::parse_at_depth(
+                            tlv.full_data(),
+                            parser.depth(),
+                            |p| Ok(p.read_element::<asn1::Explicit<_, #tag>>()#add_error_location?.into_inner())
+                        )?))
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
@@ -935,9 +941,11 @@ fn generate_enum_read_block(
                 let tag = arg.value;
                 read_blocks.push(quote::quote! {
                     if asn1::Implicit::<#ty, #tag>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(
-                            tlv.parse::<asn1::Implicit<#ty, #tag>>()#add_error_location?.into_inner()
-                        ))
+                        return Ok(#name::#ident(asn1::parse_at_depth(
+                            tlv.full_data(),
+                            parser.depth(),
+                            |p| Ok(p.read_element::<asn1::Implicit<_, #tag>>()#add_error_location?.into_inner())
+                        )?))
                     }
                 });
                 can_parse_blocks.push(quote::quote! {

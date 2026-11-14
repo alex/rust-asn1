@@ -5,7 +5,6 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use core::borrow::Borrow;
-use core::fmt;
 use core::hash::{Hash, Hasher};
 use core::marker::PhantomData;
 use core::mem;
@@ -13,11 +12,11 @@ use core::num::{
     NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8,
 };
 
-use crate::parser::parse_at_depth;
 use crate::writer::Writer;
 use crate::{
-    parse_nested, BitString, Depth, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
-    ParseLocation, ParseResult, Parser, Tag, WriteBuf, WriteError, WriteResult,
+    parse, parse_at_depth, parse_nested, parse_single, BitString, Depth, ObjectIdentifier,
+    OwnedBitString, ParseError, ParseErrorKind, ParseLocation, ParseResult, Parser, Tag, WriteBuf,
+    WriteError, WriteResult,
 };
 
 /// Any type that can be parsed as DER ASN.1.
@@ -43,9 +42,7 @@ pub trait SimpleAsn1Readable<'a>: Sized {
     /// length) and should parse it into the appropriate type.
     ///
     /// `depth` is the depth at which this value was read. Implementations
-    /// which parse nested values must use it, either with
-    /// [`parse_nested`](crate::parse_nested) or by passing it on to another
-    /// `parse_data`.
+    /// that wrap another type should pass it on to that type's `parse_data`.
     fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self>;
 }
 
@@ -198,7 +195,7 @@ impl<T: SimpleAsn1Writable> SimpleAsn1Writable for Box<T> {
 
 /// A TLV (type, length, value) represented as the tag and bytes content.
 /// Generally used for parsing ASN.1 `ANY` values.
-#[derive(Clone, Copy)]
+#[derive(Debug, PartialEq, Hash, Clone, Copy, Eq)]
 pub struct Tlv<'a> {
     pub(crate) tag: Tag,
     // `data` is the value of a TLV
@@ -206,32 +203,6 @@ pub struct Tlv<'a> {
     // `full_data` contains the encoded type and length, in addition to the
     // value
     pub(crate) full_data: &'a [u8],
-    // The depth this TLV was read at, so that `parse` can continue from it.
-    pub(crate) depth: Depth,
-}
-
-impl fmt::Debug for Tlv<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Tlv")
-            .field("tag", &self.tag)
-            .field("data", &self.data)
-            .field("full_data", &self.full_data)
-            .finish()
-    }
-}
-
-impl PartialEq for Tlv<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.full_data == other.full_data
-    }
-}
-
-impl Eq for Tlv<'_> {}
-
-impl Hash for Tlv<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.full_data.hash(state);
-    }
 }
 
 impl<'a> Tlv<'a> {
@@ -257,7 +228,7 @@ impl<'a> Tlv<'a> {
     }
     /// Parse this TLV as a given type.
     pub fn parse<T: Asn1Readable<'a>>(&self) -> ParseResult<T> {
-        parse_at_depth(self.full_data, self.depth, Parser::read_element::<T>)
+        parse_single::<T>(self.full_data)
     }
 }
 
@@ -1194,8 +1165,8 @@ impl SimpleAsn1Writable for BitString<'_> {
 }
 impl<'a> SimpleAsn1Readable<'a> for OwnedBitString {
     const TAG: Tag = Tag::primitive(0x03);
-    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<OwnedBitString> {
-        let bs = BitString::parse_data(data, _depth)?;
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<OwnedBitString> {
+        let bs = BitString::parse_data(data, depth)?;
         Ok(OwnedBitString::new(bs.as_bytes().to_vec(), bs.padding_bits()).unwrap())
     }
 }
@@ -1623,8 +1594,8 @@ impl Enumerated {
 impl<'a> SimpleAsn1Readable<'a> for Enumerated {
     const TAG: Tag = Tag::primitive(0xa);
 
-    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Enumerated> {
-        Ok(Enumerated::new(u32::parse_data(data, _depth)?))
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Enumerated> {
+        Ok(Enumerated::new(u32::parse_data(data, depth)?))
     }
 }
 
@@ -1703,7 +1674,8 @@ macro_rules! declare_choice {
                 let tlv = parser.read_tlv()?;
                 $(
                     if $number::can_parse(tlv.tag()) {
-                        return Ok($count::$name(tlv.parse::<$number>()?));
+                        let value = parse_at_depth(tlv.full_data(), parser.depth(), Parser::read_element::<$number>)?;
+                        return Ok($count::$name(value));
                     }
                 )+
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag{actual: tlv.tag()}))
@@ -1755,38 +1727,15 @@ declare_choice!(Choice3 => (T1 ChoiceA), (T2 ChoiceB), (T3 ChoiceC));
 // form an ASN1 sequence. In almost any circumstance, you'll want to
 /// immediately call `Sequence.parse` on this value to decode the actual
 /// contents therein.
-#[derive(Clone)]
+#[derive(Debug, PartialEq, Hash, Clone, Eq)]
 pub struct Sequence<'a> {
     data: &'a [u8],
-    depth: Depth,
-}
-
-impl fmt::Debug for Sequence<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Sequence")
-            .field("data", &self.data)
-            .finish()
-    }
-}
-
-impl PartialEq for Sequence<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.data == other.data
-    }
-}
-
-impl Eq for Sequence<'_> {}
-
-impl Hash for Sequence<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.data.hash(state);
-    }
 }
 
 impl<'a> Sequence<'a> {
     #[inline]
-    pub(crate) fn new(data: &'a [u8], depth: Depth) -> Sequence<'a> {
-        Sequence { data, depth }
+    pub(crate) fn new(data: &'a [u8]) -> Sequence<'a> {
+        Sequence { data }
     }
 
     /// Parses the contents of the `Sequence`. Behaves the same as the module-level `parse`
@@ -1795,15 +1744,15 @@ impl<'a> Sequence<'a> {
         self,
         f: F,
     ) -> Result<T, E> {
-        parse_nested(self.data, self.depth, f)
+        parse(self.data, f)
     }
 }
 
 impl<'a> SimpleAsn1Readable<'a> for Sequence<'a> {
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
-    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Sequence<'a>> {
-        Ok(Sequence::new(data, depth))
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Sequence<'a>> {
+        Ok(Sequence::new(data))
     }
 }
 impl SimpleAsn1Writable for Sequence<'_> {
@@ -2066,36 +2015,15 @@ fn validate_set_ordering<'a>(
 /// form an ASN1 set. In almost any circumstance, you'll want to
 /// immediately call `Set.parse` on this value to decode the actual
 /// contents therein.
-#[derive(Clone)]
+#[derive(Debug, PartialEq, Hash, Clone, Eq)]
 pub struct Set<'a> {
     data: &'a [u8],
-    depth: Depth,
-}
-
-impl fmt::Debug for Set<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Set").field("data", &self.data).finish()
-    }
-}
-
-impl PartialEq for Set<'_> {
-    fn eq(&self, other: &Self) -> bool {
-        self.data == other.data
-    }
-}
-
-impl Eq for Set<'_> {}
-
-impl Hash for Set<'_> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.data.hash(state);
-    }
 }
 
 impl<'a> Set<'a> {
     #[inline]
-    pub(crate) fn new(data: &'a [u8], depth: Depth) -> Set<'a> {
-        Set { data, depth }
+    pub(crate) fn new(data: &'a [u8]) -> Set<'a> {
+        Set { data }
     }
 
     /// Parses the contents of the `Set`. Behaves the same as the module-level `parse`
@@ -2104,16 +2032,16 @@ impl<'a> Set<'a> {
         self,
         f: F,
     ) -> Result<T, E> {
-        parse_nested(self.data, self.depth, f)
+        parse(self.data, f)
     }
 }
 
 impl<'a> SimpleAsn1Readable<'a> for Set<'a> {
     const TAG: Tag = Tag::constructed(0x11);
     #[inline]
-    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Set<'a>> {
-        parse_nested(data, depth, |p| validate_set_ordering(p, |_, _| Ok(())))?;
-        Ok(Set::new(data, depth))
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Set<'a>> {
+        parse(data, |p| validate_set_ordering(p, |_, _| Ok(())))?;
+        Ok(Set::new(data))
     }
 }
 impl SimpleAsn1Writable for Set<'_> {
@@ -2258,8 +2186,9 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
     fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self> {
         let parser = parse_nested(data, depth, |p| {
             let parser = p.clone_internal();
+            let depth = p.depth();
             validate_set_ordering(p, |el, i| {
-                el.parse::<T>()
+                parse_at_depth(el.full_data(), depth, Parser::read_element::<T>)
                     .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
                 Ok(())
             })?;
@@ -2463,9 +2392,10 @@ impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32>
     Asn1DefinedByReadable<'a, T> for Explicit<U, { TAG }>
 {
     fn parse(item: T, parser: &mut Parser<'a>) -> ParseResult<Self> {
-        let tlv = parser.read_element::<Explicit<Tlv<'_>, TAG>>()?;
-        let tlv = tlv.as_inner();
-        let value = parse_at_depth(tlv.full_data(), tlv.depth, |p| U::parse(item, p))?;
+        let tlv = parser
+            .read_element::<Explicit<Tlv<'_>, TAG>>()?
+            .into_inner();
+        let value = parse_nested(tlv.full_data(), parser.depth(), |p| U::parse(item, p))?;
         Ok(Explicit::new(value))
     }
 }
@@ -2530,7 +2460,7 @@ mod tests {
         SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String,
         VisibleString, X509GeneralizedTime,
     };
-    use crate::{Depth, Explicit, Implicit, Parser, Sequence, Set};
+    use crate::{Depth, Explicit, Implicit, Parser};
     #[cfg(not(feature = "std"))]
     use alloc::vec;
     #[cfg(not(feature = "std"))]
@@ -2632,7 +2562,6 @@ mod tests {
             tag: Tag::primitive(0x2),
             data: b"\x03",
             full_data: b"\x02\x01\x03",
-            depth: Depth::ROOT,
         };
         assert_eq!(tlv.parse::<u64>(), Ok(3));
         assert_eq!(
@@ -2758,37 +2687,6 @@ mod tests {
         assert!(s3 == s3);
 
         assert!(s3 != s4);
-    }
-
-    #[cfg(feature = "std")]
-    #[test]
-    fn test_depth_ignored_by_eq_hash_debug() {
-        // The same encoding read at different depths compares, hashes, and
-        // formats identically.
-        let root = Parser::new(b"", Depth::ROOT).depth();
-        let nested = Depth::ROOT.nested().unwrap();
-
-        let tlv1 = Parser::new(b"\x30\x00", root).read_tlv().unwrap();
-        let tlv2 = Parser::new(b"\x30\x00", nested).read_tlv().unwrap();
-        assert_eq!(tlv1, tlv2);
-        assert_eq!(hash(&tlv1), hash(&tlv2));
-        assert_eq!(
-            alloc::format!("{tlv1:?}"),
-            "Tlv { tag: Tag { value: 16, constructed: true, class: Universal }, data: [], full_data: [48, 0] }"
-        );
-        assert_eq!(alloc::format!("{tlv1:?}"), alloc::format!("{tlv2:?}"));
-
-        let seq1 = Sequence::new(b"\x05\x00", root);
-        let seq2 = Sequence::new(b"\x05\x00", nested);
-        assert_eq!(seq1, seq2);
-        assert_eq!(hash(&seq1), hash(&seq2));
-        assert_eq!(alloc::format!("{seq1:?}"), "Sequence { data: [5, 0] }");
-
-        let set1 = Set::new(b"\x05\x00", root);
-        let set2 = Set::new(b"\x05\x00", nested);
-        assert_eq!(set1, set2);
-        assert_eq!(hash(&set1), hash(&set2));
-        assert_eq!(alloc::format!("{set1:?}"), "Set { data: [5, 0] }");
     }
 
     #[cfg(feature = "std")]

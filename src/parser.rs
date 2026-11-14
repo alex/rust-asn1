@@ -44,7 +44,7 @@ pub enum ParseErrorKind {
     /// A `DEFINED BY` value received an value for which there was no known
     /// variant.
     UnknownDefinedBy,
-    /// Values were nested more deeply than [`MAX_PARSE_DEPTH`] allows.
+    /// Values were nested more deeply than rust-asn1 allows (64 levels).
     ExceededMaxDepth,
 }
 
@@ -165,19 +165,19 @@ impl fmt::Display for ParseError {
     }
 }
 
-/// The maximum depth of nested values that will be parsed before returning
-/// [`ParseErrorKind::ExceededMaxDepth`]. Each constructed value whose contents
-/// are parsed (e.g. a `SEQUENCE`, `SET`, or `EXPLICIT` tag) adds one level.
-///
-/// Without a bound, recursive type definitions (e.g., an `AlgorithmIdentifier`
-/// whose parameters may contain another `AlgorithmIdentifier`) would allow
-/// attacker-controlled input to exhaust the stack.
-pub const MAX_PARSE_DEPTH: u8 = 64;
+// The maximum depth of nested values that will be parsed before returning
+// `ParseErrorKind::ExceededMaxDepth`. Each constructed value whose contents
+// are parsed (e.g. a `SEQUENCE`, `SET`, or `EXPLICIT` tag) adds one level.
+//
+// Without a bound, recursive type definitions (e.g., an `AlgorithmIdentifier`
+// whose parameters may contain another `AlgorithmIdentifier`) would allow
+// attacker-controlled input to exhaust the stack.
+const MAX_PARSE_DEPTH: u8 = 64;
 
 /// The nesting depth of a value being parsed. Passed to
 /// [`SimpleAsn1Readable::parse_data`](crate::SimpleAsn1Readable::parse_data);
-/// implementations that parse nested values should do so with [`parse_nested`]
-/// or by forwarding `depth` to another `parse_data`.
+/// implementations that wrap another type should forward it to that type's
+/// `parse_data`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Depth(u8);
 
@@ -205,11 +205,11 @@ pub fn parse<'a, T, E: From<ParseError>, F: FnOnce(&mut Parser<'a>) -> Result<T,
     parse_at_depth(data, Depth::ROOT, f)
 }
 
-/// Like [`parse`], but for parsing the contents of a value that was read at
-/// `depth`. This is generally used from implementations of
-/// [`SimpleAsn1Readable::parse_data`](crate::SimpleAsn1Readable::parse_data)
-/// for constructed types. Returns [`ParseErrorKind::ExceededMaxDepth`] if
-/// values are nested too deeply.
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+///
+/// Like [`parse`], but for the contents of a value that was read at `depth`.
+#[doc(hidden)]
 pub fn parse_nested<'a, T, E: From<ParseError>, F: FnOnce(&mut Parser<'a>) -> Result<T, E>>(
     data: &'a [u8],
     depth: Depth,
@@ -218,12 +218,12 @@ pub fn parse_nested<'a, T, E: From<ParseError>, F: FnOnce(&mut Parser<'a>) -> Re
     parse_at_depth(data, depth.nested()?, f)
 }
 
-pub(crate) fn parse_at_depth<
-    'a,
-    T,
-    E: From<ParseError>,
-    F: FnOnce(&mut Parser<'a>) -> Result<T, E>,
->(
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+///
+/// Like [`parse`], but for re-reading a value at the `depth` it was read at.
+#[doc(hidden)]
+pub fn parse_at_depth<'a, T, E: From<ParseError>, F: FnOnce(&mut Parser<'a>) -> Result<T, E>>(
     data: &'a [u8],
     depth: Depth,
     f: F,
@@ -272,9 +272,11 @@ impl<'a> Parser<'a> {
         Parser { data, depth }
     }
 
-    /// The depth of the elements this parser reads.
+    /// This API is public so that it may be used from macros, but should not
+    /// be considered a part of the supported API surface.
+    #[doc(hidden)]
     #[inline]
-    pub(crate) fn depth(&self) -> Depth {
+    pub fn depth(&self) -> Depth {
         self.depth
     }
 
@@ -382,7 +384,6 @@ impl<'a> Parser<'a> {
             tag,
             data,
             full_data,
-            depth: self.depth,
         })
     }
 
@@ -429,7 +430,7 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Depth, Parser};
+    use super::Parser;
     use crate::tag::TagClass;
     use crate::types::Asn1Readable;
     use crate::{
@@ -604,7 +605,6 @@ mod tests {
                         tag: Tag::primitive(0x04),
                         data: b"abc",
                         full_data: b"\x04\x03abc",
-                        depth: Depth::ROOT,
                     },
                     b"" as &[u8],
                 )),
@@ -616,7 +616,6 @@ mod tests {
                         tag: Tag::primitive(0x04),
                         data: b"abc",
                         full_data: b"\x04\x03abc",
-                        depth: Depth::ROOT,
                     },
                     b"\x00\x00\x00",
                 )),
@@ -708,7 +707,6 @@ mod tests {
                     tag: Tag::primitive(0x4),
                     data: b"abc",
                     full_data: b"\x04\x03abc",
-                    depth: Depth::ROOT,
                 }),
                 b"\x04\x03abc",
             ),
@@ -730,7 +728,6 @@ mod tests {
                     tag: Tag::new(31, TagClass::Universal, false),
                     data: b"",
                     full_data: b"\x1f\x1f\x00",
-                    depth: Depth::ROOT,
                 }),
                 b"\x1f\x1f\x00",
             ),
@@ -739,7 +736,6 @@ mod tests {
                     tag: Tag::new(128, TagClass::Universal, false),
                     data: b"",
                     full_data: b"\x1f\x81\x00\x00",
-                    depth: Depth::ROOT,
                 }),
                 b"\x1f\x81\x00\x00",
             ),
@@ -748,7 +744,6 @@ mod tests {
                     tag: Tag::new(0x4001, TagClass::Universal, false),
                     data: b"",
                     full_data: b"\x1f\x81\x80\x01\x00",
-                    depth: Depth::ROOT,
                 }),
                 b"\x1f\x81\x80\x01\x00",
             ),
@@ -757,7 +752,6 @@ mod tests {
                     tag: Tag::new(0x01, TagClass::Application, false),
                     data: b"",
                     full_data: b"\x41\x00",
-                    depth: Depth::ROOT,
                 }),
                 b"\x41\x00",
             ),
@@ -1774,7 +1768,7 @@ mod tests {
     fn test_parse_sequence() {
         assert_parses::<Sequence<'_>>(&[
             (
-                Ok(Sequence::new(b"\x02\x01\x01\x02\x01\x02", Depth::ROOT)),
+                Ok(Sequence::new(b"\x02\x01\x01\x02\x01\x02")),
                 b"\x30\x06\x02\x01\x01\x02\x01\x02",
             ),
             (
@@ -1904,7 +1898,7 @@ mod tests {
     fn test_parse_set() {
         assert_parses::<Set<'_>>(&[
             (
-                Ok(Set::new(b"\x02\x01\x01\x02\x01\x02", Depth::ROOT)),
+                Ok(Set::new(b"\x02\x01\x01\x02\x01\x02")),
                 b"\x31\x06\x02\x01\x01\x02\x01\x02",
             ),
             (
@@ -1922,7 +1916,7 @@ mod tests {
             ),
             // Same tag, values in correct order (INTEGER 1, INTEGER 2)
             (
-                Ok(Set::new(b"\x02\x01\x01\x02\x01\x02", Depth::ROOT)),
+                Ok(Set::new(b"\x02\x01\x01\x02\x01\x02")),
                 b"\x31\x06\x02\x01\x01\x02\x01\x02",
             ),
             // Same tag, values in wrong order (INTEGER 2, INTEGER 1)
@@ -2051,7 +2045,6 @@ mod tests {
                     tag: Tag::primitive(0x4),
                     data: b"abc",
                     full_data: b"\x04\x03abc",
-                    depth: Depth::ROOT,
                 })),
                 b"\x04\x03abc",
             ),
@@ -2143,14 +2136,8 @@ mod tests {
             ),
         ]);
         assert_parses::<Implicit<Sequence<'_>, 2>>(&[
-            (
-                Ok(Implicit::new(Sequence::new(b"abc", Depth::ROOT))),
-                b"\xa2\x03abc",
-            ),
-            (
-                Ok(Implicit::new(Sequence::new(b"", Depth::ROOT))),
-                b"\xa2\x00",
-            ),
+            (Ok(Implicit::new(Sequence::new(b"abc"))), b"\xa2\x03abc"),
+            (Ok(Implicit::new(Sequence::new(b""))), b"\xa2\x00"),
             (
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag {
                     actual: Tag::primitive(0x01),
@@ -2193,8 +2180,8 @@ mod tests {
         );
         assert_parses_cb(
             &[
-                (Ok(Sequence::new(b"abc", Depth::ROOT)), b"\xa2\x03abc"),
-                (Ok(Sequence::new(b"", Depth::ROOT)), b"\xa2\x00"),
+                (Ok(Sequence::new(b"abc")), b"\xa2\x03abc"),
+                (Ok(Sequence::new(b"")), b"\xa2\x00"),
                 (
                     Err(ParseError::new(ParseErrorKind::ShortData { needed: 1 })),
                     b"",
