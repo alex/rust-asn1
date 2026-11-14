@@ -14,8 +14,9 @@ use core::num::{
 
 use crate::writer::Writer;
 use crate::{
-    parse, parse_single, BitString, ObjectIdentifier, OwnedBitString, ParseError, ParseErrorKind,
-    ParseLocation, ParseResult, Parser, Tag, WriteBuf, WriteError, WriteResult,
+    parse, parse_at_depth, parse_nested, parse_single, BitString, Depth, ObjectIdentifier,
+    OwnedBitString, ParseError, ParseErrorKind, ParseLocation, ParseResult, Parser, Tag, WriteBuf,
+    WriteError, WriteResult,
 };
 
 /// Any type that can be parsed as DER ASN.1.
@@ -39,7 +40,10 @@ pub trait SimpleAsn1Readable<'a>: Sized {
     ///
     /// This method receives the value portion of a TLV (without the tag or
     /// length) and should parse it into the appropriate type.
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self>;
+    ///
+    /// `depth` is the depth at which this value was read. Implementations
+    /// that wrap another type should pass it on to that type's `parse_data`.
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self>;
 }
 
 impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
@@ -51,7 +55,7 @@ impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
                 actual: tlv.tag,
             }));
         }
-        Self::parse_data(tlv.data)
+        Self::parse_data(tlv.data, parser.depth())
     }
 
     #[inline]
@@ -63,8 +67,8 @@ impl<'a, T: SimpleAsn1Readable<'a>> Asn1Readable<'a> for T {
 impl<'a, T: SimpleAsn1Readable<'a>> SimpleAsn1Readable<'a> for Box<T> {
     const TAG: Tag = T::TAG;
 
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        Ok(Box::new(T::parse_data(data)?))
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self> {
+        Ok(Box::new(T::parse_data(data, depth)?))
     }
 }
 
@@ -274,7 +278,7 @@ pub type Null = ();
 impl SimpleAsn1Readable<'_> for Null {
     const TAG: Tag = Tag::primitive(0x05);
     #[inline]
-    fn parse_data(data: &[u8]) -> ParseResult<Null> {
+    fn parse_data(data: &[u8], _depth: Depth) -> ParseResult<Null> {
         if data.is_empty() {
             Ok(())
         } else {
@@ -298,7 +302,7 @@ impl SimpleAsn1Writable for Null {
 
 impl SimpleAsn1Readable<'_> for bool {
     const TAG: Tag = Tag::primitive(0x1);
-    fn parse_data(data: &[u8]) -> ParseResult<bool> {
+    fn parse_data(data: &[u8], _depth: Depth) -> ParseResult<bool> {
         match data {
             b"\x00" => Ok(false),
             b"\xff" => Ok(true),
@@ -325,7 +329,7 @@ impl SimpleAsn1Writable for bool {
 
 impl<'a> SimpleAsn1Readable<'a> for &'a [u8] {
     const TAG: Tag = Tag::primitive(0x04);
-    fn parse_data(data: &'a [u8]) -> ParseResult<&'a [u8]> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<&'a [u8]> {
         Ok(data)
     }
 }
@@ -344,7 +348,7 @@ impl SimpleAsn1Writable for &[u8] {
 
 impl<const N: usize> SimpleAsn1Readable<'_> for [u8; N] {
     const TAG: Tag = Tag::primitive(0x04);
-    fn parse_data(data: &[u8]) -> ParseResult<[u8; N]> {
+    fn parse_data(data: &[u8], _depth: Depth) -> ParseResult<[u8; N]> {
         data.try_into()
             .map_err(|_| ParseError::new(ParseErrorKind::InvalidValue))
     }
@@ -383,8 +387,12 @@ impl<T> OctetStringEncoded<T> {
 
 impl<'a, T: Asn1Readable<'a>> SimpleAsn1Readable<'a> for OctetStringEncoded<T> {
     const TAG: Tag = Tag::primitive(0x04);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        Ok(OctetStringEncoded::new(parse_single(data)?))
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self> {
+        Ok(OctetStringEncoded::new(parse_nested(
+            data,
+            depth,
+            Parser::read_element::<T>,
+        )?))
     }
 }
 
@@ -458,7 +466,7 @@ impl<'a> PrintableString<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for PrintableString<'a> {
     const TAG: Tag = Tag::primitive(0x13);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         PrintableString::new_from_bytes(data)
             .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
@@ -514,7 +522,7 @@ impl<'a> NumericString<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for NumericString<'a> {
     const TAG: Tag = Tag::primitive(0x12);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         NumericString::new_from_bytes(data)
             .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
@@ -570,7 +578,7 @@ impl<'a> IA5String<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for IA5String<'a> {
     const TAG: Tag = Tag::primitive(0x16);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         IA5String::new_from_bytes(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
@@ -607,7 +615,7 @@ impl<'a> Utf8String<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for Utf8String<'a> {
     const TAG: Tag = Tag::primitive(0x0c);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         Utf8String::new_from_bytes(data)
             .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
@@ -667,7 +675,7 @@ impl<'a> VisibleString<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for VisibleString<'a> {
     const TAG: Tag = Tag::primitive(0x1a);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         VisibleString::new_from_bytes(data)
             .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
@@ -723,7 +731,7 @@ impl<'a> BMPString<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for BMPString<'a> {
     const TAG: Tag = Tag::primitive(0x1e);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         BMPString::new(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
@@ -778,7 +786,7 @@ impl<'a> UniversalString<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for UniversalString<'a> {
     const TAG: Tag = Tag::primitive(0x1c);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         UniversalString::new(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
@@ -843,7 +851,7 @@ macro_rules! impl_asn1_element_for_int {
         impl SimpleAsn1Readable<'_> for $t {
             const TAG: Tag = Tag::primitive(0x02);
             #[inline]
-            fn parse_data(mut data: &[u8]) -> ParseResult<Self> {
+            fn parse_data(mut data: &[u8], _depth: Depth) -> ParseResult<Self> {
                 validate_integer(data, $signed)?;
 
                 // If we've got something like \x00\xff trim off the first \x00, since it's just
@@ -949,7 +957,7 @@ impl<'a> BigUint<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for BigUint<'a> {
     const TAG: Tag = Tag::primitive(0x02);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         BigUint::new(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
@@ -991,7 +999,7 @@ impl OwnedBigUint {
 
 impl SimpleAsn1Readable<'_> for OwnedBigUint {
     const TAG: Tag = Tag::primitive(0x02);
-    fn parse_data(data: &[u8]) -> ParseResult<Self> {
+    fn parse_data(data: &[u8], _depth: Depth) -> ParseResult<Self> {
         OwnedBigUint::new(data.to_vec())
             .ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
@@ -1047,7 +1055,7 @@ impl<'a> BigInt<'a> {
 
 impl<'a> SimpleAsn1Readable<'a> for BigInt<'a> {
     const TAG: Tag = Tag::primitive(0x02);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Self> {
         BigInt::new(data).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
@@ -1100,7 +1108,7 @@ impl OwnedBigInt {
 
 impl SimpleAsn1Readable<'_> for OwnedBigInt {
     const TAG: Tag = Tag::primitive(0x02);
-    fn parse_data(data: &[u8]) -> ParseResult<Self> {
+    fn parse_data(data: &[u8], _depth: Depth) -> ParseResult<Self> {
         OwnedBigInt::new(data.to_vec()).ok_or_else(|| ParseError::new(ParseErrorKind::InvalidValue))
     }
 }
@@ -1118,7 +1126,7 @@ impl SimpleAsn1Writable for OwnedBigInt {
 
 impl<'a> SimpleAsn1Readable<'a> for ObjectIdentifier {
     const TAG: Tag = Tag::primitive(0x06);
-    fn parse_data(data: &'a [u8]) -> ParseResult<ObjectIdentifier> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<ObjectIdentifier> {
         ObjectIdentifier::from_der(data)
     }
 }
@@ -1135,7 +1143,7 @@ impl SimpleAsn1Writable for ObjectIdentifier {
 
 impl<'a> SimpleAsn1Readable<'a> for BitString<'a> {
     const TAG: Tag = Tag::primitive(0x03);
-    fn parse_data(data: &'a [u8]) -> ParseResult<BitString<'a>> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<BitString<'a>> {
         if data.is_empty() {
             return Err(ParseError::new(ParseErrorKind::InvalidValue));
         }
@@ -1157,8 +1165,8 @@ impl SimpleAsn1Writable for BitString<'_> {
 }
 impl<'a> SimpleAsn1Readable<'a> for OwnedBitString {
     const TAG: Tag = Tag::primitive(0x03);
-    fn parse_data(data: &'a [u8]) -> ParseResult<OwnedBitString> {
-        let bs = BitString::parse_data(data)?;
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<OwnedBitString> {
+        let bs = BitString::parse_data(data, depth)?;
         Ok(OwnedBitString::new(bs.as_bytes().to_vec(), bs.padding_bits()).unwrap())
     }
 }
@@ -1337,7 +1345,7 @@ impl UtcTime {
 
 impl SimpleAsn1Readable<'_> for UtcTime {
     const TAG: Tag = Tag::primitive(0x17);
-    fn parse_data(mut data: &[u8]) -> ParseResult<Self> {
+    fn parse_data(mut data: &[u8], _depth: Depth) -> ParseResult<Self> {
         let year = u16::from(read_2_digits(&mut data)?);
         let month = read_2_digits(&mut data)?;
         let day = read_2_digits(&mut data)?;
@@ -1399,7 +1407,7 @@ impl X509GeneralizedTime {
 
 impl SimpleAsn1Readable<'_> for X509GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
-    fn parse_data(mut data: &[u8]) -> ParseResult<X509GeneralizedTime> {
+    fn parse_data(mut data: &[u8], _depth: Depth) -> ParseResult<X509GeneralizedTime> {
         let year = read_4_digits(&mut data)?;
         let month = read_2_digits(&mut data)?;
         let day = read_2_digits(&mut data)?;
@@ -1506,7 +1514,7 @@ fn read_fractional_time(data: &mut &[u8]) -> ParseResult<Option<u32>> {
 
 impl SimpleAsn1Readable<'_> for GeneralizedTime {
     const TAG: Tag = Tag::primitive(0x18);
-    fn parse_data(mut data: &[u8]) -> ParseResult<GeneralizedTime> {
+    fn parse_data(mut data: &[u8], _depth: Depth) -> ParseResult<GeneralizedTime> {
         let year = read_4_digits(&mut data)?;
         let month = read_2_digits(&mut data)?;
         let day = read_2_digits(&mut data)?;
@@ -1586,8 +1594,8 @@ impl Enumerated {
 impl<'a> SimpleAsn1Readable<'a> for Enumerated {
     const TAG: Tag = Tag::primitive(0xa);
 
-    fn parse_data(data: &'a [u8]) -> ParseResult<Enumerated> {
-        Ok(Enumerated::new(u32::parse_data(data)?))
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Enumerated> {
+        Ok(Enumerated::new(u32::parse_data(data, depth)?))
     }
 }
 
@@ -1666,7 +1674,8 @@ macro_rules! declare_choice {
                 let tlv = parser.read_tlv()?;
                 $(
                     if $number::can_parse(tlv.tag()) {
-                        return Ok($count::$name(tlv.parse::<$number>()?));
+                        let value = parse_at_depth(tlv.full_data(), parser.depth(), Parser::read_element::<$number>)?;
+                        return Ok($count::$name(value));
                     }
                 )+
                 Err(ParseError::new(ParseErrorKind::UnexpectedTag{actual: tlv.tag()}))
@@ -1742,7 +1751,7 @@ impl<'a> Sequence<'a> {
 impl<'a> SimpleAsn1Readable<'a> for Sequence<'a> {
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
-    fn parse_data(data: &'a [u8]) -> ParseResult<Sequence<'a>> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Sequence<'a>> {
         Ok(Sequence::new(data))
     }
 }
@@ -1802,15 +1811,19 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
     SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>
 {
     #[inline]
-    pub(crate) fn new(data: &'a [u8]) -> ParseResult<SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>> {
-        let length = parse(data, |p| {
+    pub(crate) fn new(
+        data: &'a [u8],
+        depth: Depth,
+    ) -> ParseResult<SequenceOf<'a, T, MINIMUM_LEN, MAXIMUM_LEN>> {
+        let (length, parser) = parse_nested(data, depth, |p| {
+            let parser = p.clone_internal();
             let mut i = 0;
             while !p.is_empty() {
                 p.read_element::<T>()
                     .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
                 i += 1;
             }
-            Ok(i)
+            Ok::<_, ParseError>((i, parser))
         })?;
 
         if length < MINIMUM_LEN || length > MAXIMUM_LEN {
@@ -1823,7 +1836,7 @@ impl<'a, T: Asn1Readable<'a>, const MINIMUM_LEN: usize, const MAXIMUM_LEN: usize
 
         Ok(Self {
             length,
-            parser: Parser::new(data),
+            parser,
             _phantom: PhantomData,
         })
     }
@@ -1889,8 +1902,8 @@ impl<'a, T: Asn1Readable<'a> + 'a, const MINIMUM_LEN: usize, const MAXIMUM_LEN: 
 {
     const TAG: Tag = Tag::constructed(0x10);
     #[inline]
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        SequenceOf::new(data)
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self> {
+        SequenceOf::new(data, depth)
     }
 }
 
@@ -2026,7 +2039,7 @@ impl<'a> Set<'a> {
 impl<'a> SimpleAsn1Readable<'a> for Set<'a> {
     const TAG: Tag = Tag::constructed(0x11);
     #[inline]
-    fn parse_data(data: &'a [u8]) -> ParseResult<Set<'a>> {
+    fn parse_data(data: &'a [u8], _depth: Depth) -> ParseResult<Set<'a>> {
         parse(data, |p| validate_set_ordering(p, |_, _| Ok(())))?;
         Ok(Set::new(data))
     }
@@ -2121,9 +2134,9 @@ pub struct SetOf<'a, T> {
 
 impl<'a, T: Asn1Readable<'a>> SetOf<'a, T> {
     #[inline]
-    pub(crate) fn new(data: &'a [u8]) -> SetOf<'a, T> {
+    pub(crate) fn new(parser: Parser<'a>) -> SetOf<'a, T> {
         SetOf {
-            parser: Parser::new(data),
+            parser,
             _phantom: PhantomData,
         }
     }
@@ -2170,15 +2183,18 @@ impl<'a, T: Asn1Readable<'a> + 'a> SimpleAsn1Readable<'a> for SetOf<'a, T> {
     const TAG: Tag = Tag::constructed(0x11);
 
     #[inline]
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        parse(data, |p| {
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self> {
+        let parser = parse_nested(data, depth, |p| {
+            let parser = p.clone_internal();
+            let depth = p.depth();
             validate_set_ordering(p, |el, i| {
-                el.parse::<T>()
+                parse_at_depth(el.full_data(), depth, Parser::read_element::<T>)
                     .map_err(|e| e.add_location(ParseLocation::Index(i)))?;
                 Ok(())
-            })
+            })?;
+            Ok::<_, ParseError>(parser)
         })?;
-        Ok(SetOf::new(data))
+        Ok(SetOf::new(parser))
     }
 }
 
@@ -2305,8 +2321,8 @@ impl<'a, T: SimpleAsn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a>
     for Implicit<T, { TAG }>
 {
     const TAG: Tag = crate::implicit_tag(TAG, T::TAG);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        Ok(Implicit::new(T::parse_data(data)?))
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self> {
+        Ok(Implicit::new(T::parse_data(data, depth)?))
     }
 }
 
@@ -2352,8 +2368,12 @@ impl<T, const TAG: u32> From<T> for Explicit<T, { TAG }> {
 
 impl<'a, T: Asn1Readable<'a>, const TAG: u32> SimpleAsn1Readable<'a> for Explicit<T, { TAG }> {
     const TAG: Tag = crate::explicit_tag(TAG);
-    fn parse_data(data: &'a [u8]) -> ParseResult<Self> {
-        Ok(Explicit::new(parse(data, Parser::read_element::<T>)?))
+    fn parse_data(data: &'a [u8], depth: Depth) -> ParseResult<Self> {
+        Ok(Explicit::new(parse_nested(
+            data,
+            depth,
+            Parser::read_element::<T>,
+        )?))
     }
 }
 
@@ -2372,10 +2392,11 @@ impl<'a, T: Asn1Readable<'a>, U: Asn1DefinedByReadable<'a, T>, const TAG: u32>
     Asn1DefinedByReadable<'a, T> for Explicit<U, { TAG }>
 {
     fn parse(item: T, parser: &mut Parser<'a>) -> ParseResult<Self> {
-        let tlv = parser.read_element::<Explicit<Tlv<'_>, TAG>>()?;
-        Ok(Explicit::new(parse(tlv.as_inner().full_data(), |p| {
-            U::parse(item, p)
-        })?))
+        let tlv = parser
+            .read_element::<Explicit<Tlv<'_>, TAG>>()?
+            .into_inner();
+        let value = parse_nested(tlv.full_data(), parser.depth(), |p| U::parse(item, p))?;
+        Ok(Explicit::new(value))
     }
 }
 
@@ -2439,7 +2460,7 @@ mod tests {
         SequenceOf, SequenceOfWriter, SetOf, SetOfWriter, Tag, Tlv, UtcTime, Utf8String,
         VisibleString, X509GeneralizedTime,
     };
-    use crate::{Explicit, Implicit};
+    use crate::{Depth, Explicit, Implicit, Parser};
     #[cfg(not(feature = "std"))]
     use alloc::vec;
     #[cfg(not(feature = "std"))]
@@ -2654,10 +2675,10 @@ mod tests {
 
     #[test]
     fn test_set_of_eq() {
-        let s1 = SetOf::<bool>::new(b"");
-        let s2 = SetOf::<bool>::new(b"");
-        let s3 = SetOf::<bool>::new(b"\x01\x01\x00");
-        let s4 = SetOf::<bool>::new(b"\x01\x01\xff");
+        let s1 = SetOf::<bool>::new(Parser::new(b"", Depth::ROOT));
+        let s2 = SetOf::<bool>::new(Parser::new(b"", Depth::ROOT));
+        let s3 = SetOf::<bool>::new(Parser::new(b"\x01\x01\x00", Depth::ROOT));
+        let s4 = SetOf::<bool>::new(Parser::new(b"\x01\x01\xff", Depth::ROOT));
 
         assert!(s1 == s2);
 
@@ -2671,10 +2692,10 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn test_set_of_hash() {
-        let s1 = SetOf::<bool>::new(b"");
-        let s2 = SetOf::<bool>::new(b"");
-        let s3 = SetOf::<bool>::new(b"\x01\x01\x00");
-        let s4 = SetOf::<bool>::new(b"\x01\x01\xff");
+        let s1 = SetOf::<bool>::new(Parser::new(b"", Depth::ROOT));
+        let s2 = SetOf::<bool>::new(Parser::new(b"", Depth::ROOT));
+        let s3 = SetOf::<bool>::new(Parser::new(b"\x01\x01\x00", Depth::ROOT));
+        let s4 = SetOf::<bool>::new(Parser::new(b"\x01\x01\xff", Depth::ROOT));
 
         assert_eq!(hash(&s1), hash(&s2));
 
@@ -2685,10 +2706,10 @@ mod tests {
 
     #[test]
     fn test_sequence_of_eq() {
-        let s1 = SequenceOf::<bool>::new(b"").unwrap();
-        let s2 = SequenceOf::<bool>::new(b"").unwrap();
-        let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00").unwrap();
-        let s4 = SequenceOf::<bool>::new(b"\x01\x01\xff").unwrap();
+        let s1 = SequenceOf::<bool>::new(b"", Depth::ROOT).unwrap();
+        let s2 = SequenceOf::<bool>::new(b"", Depth::ROOT).unwrap();
+        let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00", Depth::ROOT).unwrap();
+        let s4 = SequenceOf::<bool>::new(b"\x01\x01\xff", Depth::ROOT).unwrap();
 
         assert!(s1 == s2);
 
@@ -2702,10 +2723,10 @@ mod tests {
     #[cfg(feature = "std")]
     #[test]
     fn test_sequence_of_hash() {
-        let s1 = SequenceOf::<bool>::new(b"").unwrap();
-        let s2 = SequenceOf::<bool>::new(b"").unwrap();
-        let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00").unwrap();
-        let s4 = SequenceOf::<bool>::new(b"\x01\x01\xff").unwrap();
+        let s1 = SequenceOf::<bool>::new(b"", Depth::ROOT).unwrap();
+        let s2 = SequenceOf::<bool>::new(b"", Depth::ROOT).unwrap();
+        let s3 = SequenceOf::<bool>::new(b"\x01\x01\x00", Depth::ROOT).unwrap();
+        let s4 = SequenceOf::<bool>::new(b"\x01\x01\xff", Depth::ROOT).unwrap();
 
         assert_eq!(hash(&s1), hash(&s2));
 

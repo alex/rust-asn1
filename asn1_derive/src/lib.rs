@@ -35,8 +35,8 @@ fn derive_asn1_read_expand(input: syn::DeriveInput) -> syn::Result<proc_macro2::
             quote::quote! {
                 impl #impl_generics asn1::SimpleAsn1Readable<#lifetime_name> for #name #ty_generics #where_clause {
                     const TAG: asn1::Tag = <asn1::Sequence as asn1::SimpleAsn1Readable>::TAG;
-                    fn parse_data(data: &#lifetime_name [u8]) -> asn1::ParseResult<Self> {
-                        asn1::parse(data, |p| { #read_block })
+                    fn parse_data(data: &#lifetime_name [u8], depth: asn1::Depth) -> asn1::ParseResult<Self> {
+                        asn1::parse_nested(data, depth, |p| { #read_block })
                     }
                 }
             }
@@ -907,7 +907,11 @@ fn generate_enum_read_block(
             OpType::Regular => {
                 read_blocks.push(quote::quote! {
                     if <#ty>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(tlv.parse()#add_error_location?));
+                        return Ok(#name::#ident(asn1::parse_at_depth(
+                            tlv.full_data(),
+                            parser.depth(),
+                            asn1::Parser::read_element,
+                        )#add_error_location?));
                     }
                 });
                 can_parse_blocks.push(quote::quote! {
@@ -920,8 +924,9 @@ fn generate_enum_read_block(
                 let tag = arg.value;
                 read_blocks.push(quote::quote! {
                     if asn1::Explicit::<#ty, #tag>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(asn1::parse(
+                        return Ok(#name::#ident(asn1::parse_at_depth(
                             tlv.full_data(),
+                            parser.depth(),
                             |p| Ok(p.read_element::<asn1::Explicit<_, #tag>>()#add_error_location?.into_inner())
                         )?))
                     }
@@ -936,8 +941,9 @@ fn generate_enum_read_block(
                 let tag = arg.value;
                 read_blocks.push(quote::quote! {
                     if asn1::Implicit::<#ty, #tag>::can_parse(tlv.tag()) {
-                        return Ok(#name::#ident(asn1::parse(
+                        return Ok(#name::#ident(asn1::parse_at_depth(
                             tlv.full_data(),
+                            parser.depth(),
                             |p| Ok(p.read_element::<asn1::Implicit<_, #tag>>()#add_error_location?.into_inner())
                         )?))
                     }

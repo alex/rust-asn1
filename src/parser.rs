@@ -44,6 +44,8 @@ pub enum ParseErrorKind {
     /// A `DEFINED BY` value received an value for which there was no known
     /// variant.
     UnknownDefinedBy,
+    /// Values were nested more deeply than rust-asn1 allows (64 levels).
+    ExceededMaxDepth,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -158,7 +160,36 @@ impl fmt::Display for ParseError {
                 "OBJECT IDENTIFIER was too large to be stored in rust-asn1's buffer"
             ),
             ParseErrorKind::UnknownDefinedBy => write!(f, "DEFINED BY with unknown value"),
+            ParseErrorKind::ExceededMaxDepth => write!(f, "exceeded maximum nesting depth"),
         }
+    }
+}
+
+// The maximum depth of nested values that will be parsed before returning
+// `ParseErrorKind::ExceededMaxDepth`. Each constructed value whose contents
+// are parsed (e.g. a `SEQUENCE`, `SET`, or `EXPLICIT` tag) adds one level.
+//
+// Without a bound, recursive type definitions (e.g., an `AlgorithmIdentifier`
+// whose parameters may contain another `AlgorithmIdentifier`) would allow
+// attacker-controlled input to exhaust the stack.
+const MAX_PARSE_DEPTH: u8 = 64;
+
+/// The nesting depth of a value being parsed. Passed to
+/// [`SimpleAsn1Readable::parse_data`](crate::SimpleAsn1Readable::parse_data);
+/// implementations that wrap another type should forward it to that type's
+/// `parse_data`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Depth(u8);
+
+impl Depth {
+    pub(crate) const ROOT: Depth = Depth(0);
+
+    #[inline]
+    pub(crate) fn nested(self) -> ParseResult<Depth> {
+        if self.0 >= MAX_PARSE_DEPTH {
+            return Err(ParseError::new(ParseErrorKind::ExceededMaxDepth));
+        }
+        Ok(Depth(self.0 + 1))
     }
 }
 
@@ -171,7 +202,33 @@ pub fn parse<'a, T, E: From<ParseError>, F: FnOnce(&mut Parser<'a>) -> Result<T,
     data: &'a [u8],
     f: F,
 ) -> Result<T, E> {
-    let mut p = Parser::new(data);
+    parse_at_depth(data, Depth::ROOT, f)
+}
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+///
+/// Like [`parse`], but for the contents of a value that was read at `depth`.
+#[doc(hidden)]
+pub fn parse_nested<'a, T, E: From<ParseError>, F: FnOnce(&mut Parser<'a>) -> Result<T, E>>(
+    data: &'a [u8],
+    depth: Depth,
+    f: F,
+) -> Result<T, E> {
+    parse_at_depth(data, depth.nested()?, f)
+}
+
+/// This API is public so that it may be used from macros, but should not be
+/// considered a part of the supported API surface.
+///
+/// Like [`parse`], but for re-reading a value at the `depth` it was read at.
+#[doc(hidden)]
+pub fn parse_at_depth<'a, T, E: From<ParseError>, F: FnOnce(&mut Parser<'a>) -> Result<T, E>>(
+    data: &'a [u8],
+    depth: Depth,
+    f: F,
+) -> Result<T, E> {
+    let mut p = Parser::new(data, depth);
     let result = f(&mut p)?;
     p.finish()?;
     Ok(result)
@@ -197,7 +254,7 @@ pub fn parse_single<'a, T: Asn1Readable<'a>>(data: &'a [u8]) -> ParseResult<T> {
 /// resolve this. All other errors are "fatal" and cannot be resolved with
 /// additional data.
 pub fn strip_tlv(data: &[u8]) -> ParseResult<(Tlv<'_>, &[u8])> {
-    let mut p = Parser::new(data);
+    let mut p = Parser::new(data, Depth::ROOT);
     let tlv = p.read_element::<Tlv<'_>>()?;
     Ok((tlv, p.data))
 }
@@ -206,12 +263,21 @@ pub fn strip_tlv(data: &[u8]) -> ParseResult<(Tlv<'_>, &[u8])> {
 /// entry-point is [`parse`] or [`parse_single`].
 pub struct Parser<'a> {
     data: &'a [u8],
+    depth: Depth,
 }
 
 impl<'a> Parser<'a> {
     #[inline]
-    pub(crate) fn new(data: &'a [u8]) -> Parser<'a> {
-        Parser { data }
+    pub(crate) fn new(data: &'a [u8], depth: Depth) -> Parser<'a> {
+        Parser { data, depth }
+    }
+
+    /// This API is public so that it may be used from macros, but should not
+    /// be considered a part of the supported API surface.
+    #[doc(hidden)]
+    #[inline]
+    pub fn depth(&self) -> Depth {
+        self.depth
     }
 
     #[inline]
@@ -223,7 +289,7 @@ impl<'a> Parser<'a> {
     }
 
     pub(crate) fn clone_internal(&self) -> Parser<'a> {
-        Parser::new(self.data)
+        Parser::new(self.data, self.depth)
     }
 
     /// Returns the tag of the next element, without consuming it.
@@ -345,7 +411,7 @@ impl<'a> Parser<'a> {
                 actual: tlv.tag,
             }));
         }
-        parse_single(tlv.data())
+        parse_nested(tlv.data(), self.depth, Parser::read_element::<T>)
     }
 
     /// This is an alias for `read_element::<Implicit<T, tag>>` for use when
@@ -358,7 +424,7 @@ impl<'a> Parser<'a> {
                 actual: tlv.tag,
             }));
         }
-        T::parse_data(tlv.data())
+        T::parse_data(tlv.data(), self.depth)
     }
 }
 
@@ -479,6 +545,10 @@ mod tests {
             (
                 ParseError::new(ParseErrorKind::UnknownDefinedBy),
                 "ASN.1 parsing error: DEFINED BY with unknown value"
+            ),
+            (
+                ParseError::new(ParseErrorKind::ExceededMaxDepth),
+                "ASN.1 parsing error: exceeded maximum nesting depth"
             ),
             (
                 ParseError::new(ParseErrorKind::ShortData{needed: 7})
